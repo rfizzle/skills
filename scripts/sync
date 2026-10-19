@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+# Vendor shared skills from this repository into a project.
+#
+#   sync [-C <project>] [<skill>...]
+#
+# Copies each named skill (and every skill already listed in the project's
+# .agents/skills/shared.sum) into <project>/.agents/skills/<skill>, copies
+# scripts/skillscheck/main.go beside the project's other scripts, and rewrites
+# shared.sum with this repository's HEAD commit and a content hash per path.
+# The project's `make skills-check` verifies those hashes without needing this
+# repository, so CI catches a vendored copy that was edited in place.
+#
+# Refuses to run with uncommitted changes here: the commit it records would
+# then describe content that is not in any commit.
+set -euo pipefail
+
+source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+project="."
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -C) project="$2"; shift 2 ;;
+    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    *) break ;;
+  esac
+done
+project="$(cd "$project" && pwd)"
+sum="$project/.agents/skills/shared.sum"
+
+if [ -n "$(git -C "$source_dir" status --porcelain)" ]; then
+  echo "sync: $source_dir has uncommitted changes; commit them first so shared.sum records a real commit" >&2
+  exit 1
+fi
+commit="$(git -C "$source_dir" rev-parse --short HEAD)"
+
+# The set to vendor: arguments plus what is already recorded.
+declare -A want=()
+for s in "$@"; do want["$s"]=1; done
+if [ -f "$sum" ]; then
+  while read -r path _ _; do
+    case "$path" in
+      ''|'#'*) ;;
+      .agents/skills/*) want["${path#.agents/skills/}"]=1 ;;
+    esac
+  done < "$sum"
+fi
+if [ ${#want[@]} -eq 0 ]; then
+  echo "sync: nothing to vendor; name a skill: sync -C <project> <skill>..." >&2
+  exit 1
+fi
+
+mkdir -p "$project/.agents/skills" "$project/scripts/skillscheck"
+for name in "${!want[@]}"; do
+  if ! [[ "$name" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
+    echo "sync: $name is not a skill name" >&2; exit 1
+  fi
+  if [ ! -f "$source_dir/$name/SKILL.md" ]; then
+    echo "sync: no skill named $name in $source_dir" >&2; exit 1
+  fi
+  dest="$project/.agents/skills/$name"
+  rm -rf "$dest"
+  cp -R "$source_dir/$name" "$dest"
+  find "$dest" -name .DS_Store -delete
+done
+cp "$source_dir/scripts/skillscheck/main.go" "$project/scripts/skillscheck/main.go"
+
+hash() { (cd "$project" && go run "$source_dir/scripts/skillscheck/main.go" -hash "$1"); }
+{
+  echo "# Shared skills vendored from github.com/rfizzle/skills at the commit shown."
+  echo "# Edit them there, then \`make skills-sync\`; \`make skills-check\` fails on a copy edited here."
+  echo "# path source-commit sha256"
+  for name in $(printf '%s\n' "${!want[@]}" | sort); do
+    echo ".agents/skills/$name $commit $(hash ".agents/skills/$name")"
+  done
+  echo "scripts/skillscheck $commit $(hash scripts/skillscheck)"
+} > "$sum"
+
+echo "sync: vendored $(printf '%s ' $(printf '%s\n' "${!want[@]}" | sort))at $commit into $project"
+if [ ! -e "$project/.claude/skills" ]; then
+  echo "sync: note: $project has no .claude/skills; Claude Code discovers skills through a symlink to ../.agents/skills (see create-skill)"
+fi
