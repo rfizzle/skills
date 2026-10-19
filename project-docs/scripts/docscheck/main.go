@@ -3,7 +3,7 @@
 // that review time goes to the drift they cannot:
 //
 //   - a Markdown link whose file or heading does not exist;
-//   - a `// See docs/<file>.md#<heading>` citation in Go that does not resolve;
+//   - a `See docs/<file>.md#<heading>` citation in a Go comment that does not resolve;
 //   - a citation of docs/research/, which is a dated snapshot;
 //   - a path in backticks in AGENTS.md or README.md that does not exist and
 //     is not marked "(planned)";

@@ -7,7 +7,7 @@ it has worked.
 | Question | Why it matters |
 | --- | --- |
 | Locate | how an agent opens item `<ID>` and reads its criteria, touches, overlaps, dependencies |
-| Visible in a worktree? | a gitignored file is absent from `isolation: "worktree"` checkouts; a tracker is reachable from anywhere |
+| Visible in a worktree? | a gitignored file is absent from a sub-agent's worktree checkout; a tracker is reachable from anywhere |
 | Mark done | the exact edit or command, and who runs it (agent or orchestrator) |
 | Never committed? | a tracked backlog file is part of the commit; a gitignored one or a tracker is not |
 | File a follow-up | the block format or the create command |

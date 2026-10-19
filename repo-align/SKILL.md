@@ -84,8 +84,8 @@ assessment marked them not needed.
 2. **AGENTS.md.** Rewrite from the template in `project-docs`, from the
    Makefile and the tree, not from the old file. Then diff against the old
    file and carry over only gotchas and invariants that earn a line. Mark
-   unbuilt paths "(planned)". `CLAUDE.md` becomes `@AGENTS.md` or is
-   deleted. Nested agent files are reduced to their delta.
+   unbuilt paths "(planned)". the client rules file (`CLAUDE.md` and the
+   like) becomes a pointer to `AGENTS.md` or is deleted. Nested agent files are reduced to their delta.
 3. **README.** Trim to the person's questions; move the rest to where the
    assessment said.
 4. **docs/.** Create or fix `docs/README.md` first, then apply the per-file

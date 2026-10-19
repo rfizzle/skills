@@ -1,10 +1,9 @@
 ---
 name: backlog-batches
-description: Use this skill when the user asks to implement several backlog items, stories, tickets or issues in parallel, "in batches", "work the queue", "run the backlog", or "in their own worktrees", whatever the tracker is (a markdown backlog file such as .plan/BACKLOG.md or .backlog.md, GitHub Issues, GitLab issues, Jira, Linear, or a list pasted in the prompt). It is the orchestrator recipe: resolve the work source, size each item, run at most three `backlog-implementer` sub-agents (Sonnet for small and medium items, Opus for large) in their own git worktrees, review by measured size, land by fast-forward, rebase survivors, and file follow-ups instead of widening items. Not for a single item (use the plan and implement workflows) and not for tracker administration on its own.
+description: Use this skill when the user asks to implement several backlog items, stories, tickets or issues in parallel, "in batches", "work the queue", "run the backlog", or "in their own worktrees", whatever the tracker is (a markdown backlog file such as .plan/BACKLOG.md or .backlog.md, GitHub Issues, GitLab issues, Jira, Linear, or a list pasted in the prompt). It is the orchestrator recipe: resolve the work source, size each item, run at most three implementer sub-agents, one item each, in their own git worktrees at the model tier the item's size calls for, review by measured size, land by fast-forward, rebase survivors, and file follow-ups instead of widening items. Not for a single item (use the plan and implement workflows) and not for tracker administration on its own.
 metadata:
   author: rfizzle
   standard: agentskills.io
-  supersedes: ~/.pcc/skills/backlog-batches (2026-09-13 version, markdown-only)
 ---
 
 # Backlog batches
@@ -25,8 +24,16 @@ project-specific command, and every agent prompt quotes from that sheet.
   queue is built.
 - **Run sheet**: the per-project, per-run settings block. Written once,
   quoted in every prompt, updated when the user changes a rule mid-run.
-- **Orchestrator**: this session. **Implementer**: a sub-agent that owns one
-  item. **Reviewer**: a sub-agent an implementer spawns for a large item.
+- **Roles**: the **orchestrator** is this session; an **implementer** owns
+  one item in its own worktree; a **reviewer** is a read-only sub-agent an
+  implementer spawns for a large item; a **designer** answers a design
+  question with a plan and never implements. The run sheet maps each role
+  to the harness's agent definition.
+- **Tiers**: **routine** is the fast, inexpensive model the harness uses for
+  volume work; **capable** is its default strong model; **frontier** is the
+  strongest available, reserved for design and never orchestrating. The run
+  sheet maps each tier to a model name for this harness and provider; this
+  file names only tiers.
 
 ## 1. Resolve the source and define done
 
@@ -42,7 +49,8 @@ project-specific command, and every agent prompt quotes from that sheet.
 3. Fill the run sheet. Everything an agent needs that is not in the
    repository's own instructions goes there: source, read and mark
    commands, gate command and forbidden commands, default branch, commit
-   rules, attribution trailers, models by size, shared conflict files.
+   rules, attribution trailers, the agent and tier for each role, shared
+   conflict files.
 
 ## 2. Before launching anything
 
@@ -74,7 +82,7 @@ project-specific command, and every agent prompt quotes from that sheet.
 ## 3. Sizing and the review level
 
 The review level follows the size, and the orchestrator makes the call.
-Measured on two repositories over 2026-09: reviewer sub-agents on large
+Measured on two repositories: reviewer sub-agents on large
 items found a real defect in 9 of 11 and never a false one; inline review
 on medium items was enough; small items needed none.
 
@@ -82,36 +90,37 @@ on medium items was enough; small items needed none.
 | --- | --- | --- |
 | small | one package, no new exported API, no spec or schema change, under about a hundred lines | none |
 | medium | one or two packages, or one spec section, no new config field or concurrency | the implementer reviews its own diff inline before committing |
-| large | three or more packages, a new config field or schema, new gate or state-machine semantics, concurrency, a performance-sensitive path, or a measurement whose numbers ship | the implementer spawns a `diff-reviewer` sub-agent (pinned Sonnet) with the diff and the criteria only, and fixes what it finds before committing |
+| large | three or more packages, a new config field or schema, new gate or state-machine semantics, concurrency, a performance-sensitive path, or a measurement whose numbers ship | the implementer spawns the reviewer (routine tier) with the diff and the criteria only, and fixes what it finds before committing |
 
 A reviewer reports only evidenced defects with a failure scenario. It does
 not restyle. Windfalls it notices go in the implementer's report as
 follow-ups, not into the change.
 
-## 4. Model routing
+## 4. Tier routing
 
-The session default is Opus. Fable is reached only through the `architect`
-agent and never orchestrates a run. Models are fixed by item size, not
-relative to the orchestrator:
+The orchestrator runs at the capable tier. The frontier tier is reached only
+through the designer role and never orchestrates a run. Tiers are fixed by
+item size, not relative to the orchestrator:
 
 | Size | Implementer | Reviewer |
 | --- | --- | --- |
-| small | `backlog-implementer`, `model: "sonnet"` | none |
-| medium | `backlog-implementer`, `model: "sonnet"` | inline self-review, no agent |
-| large | `backlog-implementer`, `model: "opus"` | `diff-reviewer`, pinned Sonnet |
+| small | implementer, routine tier | none |
+| medium | implementer, routine tier | inline self-review, no agent |
+| large | implementer, capable tier | reviewer, routine tier |
 
-Set `subagent_type: "backlog-implementer"`, `isolation: "worktree"` and
-`model` on every implementer launch; the reviewer's pin is in its
-definition. Never pass a `model` to a fork. When an item needs a design
-decision before it can be implemented, write a brief and send it to
-`architect` first; the returned plan goes in the item's addendum.
+Launch every implementer in its own worktree at the tier for its size,
+through the harness's own mechanism for choosing a sub-agent's model (the
+run sheet names it). A sub-agent that inherits this session's context keeps
+the session's model; never set a tier on one. When an item needs a design
+decision before it can be implemented, write a brief and send it to the
+designer first; the returned plan goes in the item's addendum.
 
 ## 5. Slots and the queue
 
 - At most three implementers at once, one item each. An implementer never
   starts a second item.
-- Every implementer runs with `isolation: "worktree"`. The source file,
-  when gitignored, is absent there (section 6).
+- Every implementer runs in its own git worktree. The source file, when
+  gitignored, is absent there (section 6).
 - When a slot frees, fill it with the earliest queued item whose
   dependencies have landed and whose files do not overlap the agents still
   running. With nothing eligible, leave the slot empty rather than launch a
@@ -121,7 +130,7 @@ decision before it can be implemented, write a brief and send it to
 
 `references/agent-prompt.md` holds the fixed prompt and the addendum
 paragraphs. Fill the placeholders from the run sheet; do not paraphrase the
-fixed prompt. The `backlog-implementer` definition already carries the
+fixed prompt. The implementer's agent definition already carries the
 worktree, no-stash, rebase, refusal, one-item and report rules, so the
 addendum supplies only the per-run facts: SIZE, THE SOURCE, VERIFICATION,
 GOLDENS AND GENERATED FILES, SIBLINGS, COMMIT, DEFAULT BRANCH AND GRANTS,
@@ -169,7 +178,7 @@ repository, and the source.
 
 ## Gotchas
 
-- The permission classifier may refuse an agent's edit to a shared file
+- The harness's permission layer may refuse an agent's edit to a shared file
   outside its worktree (the source file, a spec), a plain gate run, or a
   rebase, and it treats `git worktree remove` and `git branch -D` as
   destructive. Tell agents: when refused, put the exact text of the edit at
@@ -185,12 +194,12 @@ repository, and the source.
 - The stash is shared across worktrees; forbid it. Worktrees are sometimes
   cut stale; the first command is a fast-forward merge of the default branch.
 - Gate steps that walk the tree (`gofmt -l .`, a docs check) pick up sibling
-  worktrees under `.claude/worktrees/`; the gate should list tracked files
-  or run on an export.
+  worktrees when the harness keeps them inside the repository; the gate
+  should list tracked files or run on an export.
 
 - Check `free -h` and `nproc` before the first launch. Three agents each
   running a gate with race-instrumented tests, a linter and a build at once
-  took down a 6 GiB VM twice on 2026-09-29. On a small host, put the gate
+  took down a 6 GiB VM twice. On a small host, put the gate
   behind a shared lock (`flock /tmp/<project>-gate.lock make check`) in
   every VERIFICATION paragraph, tell agents to iterate with targeted
   packages, `-p 2` and no `-race`, and run any whole-corpus measurement

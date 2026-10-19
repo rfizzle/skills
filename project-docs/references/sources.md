@@ -1,6 +1,6 @@
 # Sources
 
-Read on 2026-10-19. Each line says what the source contributes to the skill.
+Each line says what the source contributes to the skill.
 Quotes are as fetched; where a fetch tool paraphrased, it is marked.
 
 ## Agent-facing files

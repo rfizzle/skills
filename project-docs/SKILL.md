@@ -4,7 +4,6 @@ description: The document set for a small or medium repository that agents edit 
 metadata:
   author: rfizzle
   standard: agentskills.io
-  researched: 2026-10-19
 ---
 
 # Project documentation
@@ -24,7 +23,7 @@ per fact; everything else links.**
 |---|---|---|---|
 | `README.md` | a person deciding whether and how to use it | What is this, how do I install and run it? | one screen; links out |
 | `AGENTS.md` | every agent, every session | Where is the code, how is it checked, what bites? | under 200 lines; aim for 80–150 |
-| `CLAUDE.md` | Claude Code | nothing of its own: `@AGENTS.md` | 2 lines, or absent |
+| a client rules file (`CLAUDE.md`, `.cursor/rules`, ...) | one client | nothing of its own: a pointer to `AGENTS.md` | 2 lines, or absent |
 | `docs/README.md` | anyone opening `docs/` | What answers what, and when does each change? | a table |
 | `docs/product.md` | a person judging a feature request | What is it, for whom, what will it never do? | pages |
 | `docs/architecture.md` | a person judging a structural change | What are the big shapes, and why those? | pages; one diagram at most |
@@ -104,14 +103,15 @@ anything that is true this week only.
 - **Nested `AGENTS.md`** only for a sub-tree with its own toolchain (an
   `App/` beside a Go core). The nearest file wins; keep the nested one to the
   delta.
-- **`CLAUDE.md`** is `@AGENTS.md` and nothing else, or absent (Claude Code
-  reads `AGENTS.md` when no `CLAUDE.md` exists; if one exists it is the only
-  file read, so a `CLAUDE.md` with content of its own silently forks the
-  rules). Never a copy. Other tools' rule files follow the same shape: point,
-  don't duplicate.
-- **Hand-written, never generated.** An `/init` draft is a starting
-  inventory to prune, not a file to commit. Rules that must hold every time
-  are hooks or CI checks, not sentences; the file is advisory.
+- **A client's own rules file points at `AGENTS.md` and holds nothing
+  else**, or does not exist. `CLAUDE.md` is the line `@AGENTS.md`; other
+  clients' files are their equivalent include or a symlink. A client file
+  with content of its own silently forks the rules, because most clients
+  read only their own file when it exists. Never a copy.
+- **Hand-written, never generated.** A draft a tool generates from the tree
+  is a starting inventory to prune, not a file to commit. Rules that must
+  hold every time are hooks or CI checks, not sentences; the file is
+  advisory.
 
 ## README.md
 

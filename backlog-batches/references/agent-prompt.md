@@ -2,8 +2,9 @@
 
 ## Launch
 
-`subagent_type: "backlog-implementer"`, `isolation: "worktree"`, and
-`model` by size: `"sonnet"` for small and medium, `"opus"` for large. The
+Launch the implementer role from the run sheet in its own worktree, at the
+tier for its size (routine for small and medium, capable for large),
+through the mechanism the run sheet's "Worktree launch" line names. The
 agent definition carries the rules that never change between runs (worktree
 discipline, no stash, rebase on "head moved", refusals, one item only, the
 report shape). The prompt below carries the item and the run's facts.
@@ -19,7 +20,7 @@ Use verbatim, filling the angle-bracket placeholders from the run sheet.
 > verification plus the repository gate, stage only related repository
 > files, and create the listed conventional commit. This item is sized
 > <SIZE>: small needs no review; medium, review your own diff inline before
-> committing; large, spawn a `diff-reviewer` sub-agent to review the diff
+> committing; large, spawn the reviewer sub-agent <REVIEWER AGENT> to review the diff
 > against the criteria and fix what it evidences. Then <MARK DONE>. If
 > verification fails or you become blocked, and cannot work through it or
 > need input, do not commit or mark it complete; report the evidence and

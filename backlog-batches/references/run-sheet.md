@@ -15,8 +15,10 @@ Default branch:      <master|main>
 Gate:                <exact command>; tools present on this host: yes/no
 Forbidden:           <commands agents must not run>
 Commit rules:        <types, scopes, subject rules, body rules, trailers>
-Attribution:         <trailer lines>
-Models:              session Opus; backlog-implementer sonnet (small, medium) / opus (large); diff-reviewer Sonnet; design briefs to architect (Fable)
+Attribution:         <trailer lines the harness requires, or none>
+Roles:               implementer=<agent definition>; reviewer=<agent definition>; designer=<agent definition>
+Tiers:               routine=<model>; capable=<model>; frontier=<model>
+Worktree launch:     <how this harness gives a sub-agent its own worktree and model>
 Standing grants:     <user permissions to quote, verbatim, with date>
 Shared conflicts:    <file: resolution> ...
 Sizes:               <id: small|medium|large> ...
@@ -25,7 +27,7 @@ Status cadence:      every 5 landings
 Push:                only on request (ask in the first report)
 ```
 
-## Example (astimate, 2026-09-29)
+## Example (astimate on Claude Code)
 
 ```
 Project:             astimate, /Users/copierson/Projects/astimate
@@ -40,7 +42,9 @@ Gate:                make check (actionlint tidy fmt vet lint test selfcheck rea
 Forbidden:           calibration/rebuild run --live; replaying corpora; anything that clones or downloads
 Commit rules:        Conventional Commits per AGENTS.md; scopes from the story tags; no story ids in messages; SPEC.md updated in the same change
 Attribution:         Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
-Models:              session Opus; backlog-implementer sonnet (small, medium) / opus (large); diff-reviewer Sonnet; design briefs to architect (Fable)
+Roles:               implementer=backlog-implementer; reviewer=diff-reviewer; designer=architect
+Tiers:               routine=sonnet; capable=opus; frontier=fable
+Worktree launch:     Agent tool with subagent_type, isolation: "worktree", model by tier
 Standing grants:     "For future sub-agent reference: you are allowed to use `git merge --ff-only master` and `git rebase master` inside worktrees" (2026-09-27)
 Shared conflicts:    CHANGELOG.md Unreleased: keep both; SPEC.md: rebase; testdata goldens: regenerate with -update; internal/config/default.yaml and its goldens: rebase
 ```
