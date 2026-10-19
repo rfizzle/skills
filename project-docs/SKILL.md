@@ -2,7 +2,7 @@
 name: project-docs
 description: The document set for a small or medium repository that agents edit and people read, and the process that keeps it true — README.md, AGENTS.md (and the CLAUDE.md shim), docs/ with its index, design documents, decisions, dated research and reference pages, .agents/skills, and code comments. Use when setting up or auditing a repository's documentation, when asked to "update the docs", "write AGENTS.md", "add a decision" or "add an ADR", when deciding where a fact belongs or whether something is a document, a skill, a comment or a check, when a change moves a documented fact (a command, a path, an invariant, a decision), when AGENTS.md or a document is growing, and when writing or reviewing a code comment. Also settles Go repository layout (cmd/ and internal/, no pkg/). Not for building or placing a skill (that is create-skill) or for prose style in user-facing copy.
 metadata:
-  author: copierson
+  author: rfizzle
   standard: agentskills.io
   researched: 2026-10-19
 ---

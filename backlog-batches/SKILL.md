@@ -2,7 +2,7 @@
 name: backlog-batches
 description: Use this skill when the user asks to implement several backlog items, stories, tickets or issues in parallel, "in batches", "work the queue", "run the backlog", or "in their own worktrees", whatever the tracker is (a markdown backlog file such as .plan/BACKLOG.md or .backlog.md, GitHub Issues, GitLab issues, Jira, Linear, or a list pasted in the prompt). It is the orchestrator recipe: resolve the work source, size each item, run at most three `backlog-implementer` sub-agents (Sonnet for small and medium items, Opus for large) in their own git worktrees, review by measured size, land by fast-forward, rebase survivors, and file follow-ups instead of widening items. Not for a single item (use the plan and implement workflows) and not for tracker administration on its own.
 metadata:
-  author: copierson
+  author: rfizzle
   standard: agentskills.io
   supersedes: ~/.pcc/skills/backlog-batches (2026-09-13 version, markdown-only)
 ---

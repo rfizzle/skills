@@ -2,7 +2,7 @@
 name: create-skill
 description: Use when creating, scaffolding, or reviewing an Agent Skill (a SKILL.md-based capability) at the personal or project level, or when the user mentions the Agent Skills open standard, agentskills.io, or wants a reusable procedure turned into a skill. Guides correct placement under .agents/skills (mirrored into .claude/skills for Claude Code), SKILL.md frontmatter/naming rules, and description wording that triggers reliably. Not for one-off subagent definitions or slash-command-only files with no reusable procedure.
 metadata:
-  author: copierson
+  author: rfizzle
   standard: agentskills.io
 ---
 
