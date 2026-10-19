@@ -49,6 +49,24 @@ if [ ${#want[@]} -eq 0 ]; then
   exit 1
 fi
 
+# mirror <src> <dest>: copy every file of src over dest, then remove only the
+# files dest has that src no longer has, and the directories that leaves
+# empty. Nothing is removed wholesale.
+mirror() {
+  local src="$1" dest="$2" f rel
+  mkdir -p "$dest"
+  while IFS= read -r -d '' f; do
+    rel="${f#"$src"/}"
+    mkdir -p "$dest/$(dirname "$rel")"
+    cp -p "$f" "$dest/$rel"
+  done < <(find "$src" -type f ! -name .DS_Store -print0)
+  while IFS= read -r -d '' f; do
+    rel="${f#"$dest"/}"
+    [ -e "$src/$rel" ] || rm -f "$f"
+  done < <(find "$dest" -type f -print0)
+  find "$dest" -mindepth 1 -type d -empty -exec rmdir {} + 2>/dev/null || true
+}
+
 mkdir -p "$project/.agents/skills" "$project/scripts/skillscheck"
 for name in "${!want[@]}"; do
   if ! [[ "$name" =~ ^[a-z0-9][a-z0-9-]*$ ]]; then
@@ -57,19 +75,14 @@ for name in "${!want[@]}"; do
   if [ ! -f "$source_dir/$name/SKILL.md" ]; then
     echo "sync: no skill named $name in $source_dir" >&2; exit 1
   fi
-  dest="$project/.agents/skills/$name"
-  rm -rf "$dest"
-  cp -R "$source_dir/$name" "$dest"
-  find "$dest" -name .DS_Store -delete
+  mirror "$source_dir/$name" "$project/.agents/skills/$name"
 done
 cp "$source_dir/scripts/skillscheck/main.go" "$project/scripts/skillscheck/main.go"
 # project-docs brings its checker with it, vendored and hashed like skillscheck.
 vendor_docscheck=""
 if [ -n "${want[project-docs]:-}" ]; then
   vendor_docscheck=1
-  rm -rf "$project/scripts/docscheck"
-  mkdir -p "$project/scripts/docscheck"
-  cp "$source_dir/project-docs/scripts/docscheck/"*.go "$project/scripts/docscheck/"
+  mirror "$source_dir/project-docs/scripts/docscheck" "$project/scripts/docscheck"
 fi
 
 hash() { (cd "$project" && go run "$source_dir/scripts/skillscheck/main.go" -hash "$1"); }
