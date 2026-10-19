@@ -8,7 +8,7 @@ import (
 func TestSlugify(t *testing.T) {
 	tests := []struct{ in, want string }{
 		{"Go core", "go-core"},
-		{"3. Assignment & delegation", "3-assignment-delegation"},
+		{"3. Assignment & delegation", "3-assignment--delegation"},
 		{"SQL Injection — Critical", "sql-injection--critical"},
 		{"Graphical / Web UI", "graphical--web-ui"},
 		{"hearth WILL NOT (in this product)", "hearth-will-not-in-this-product"},
