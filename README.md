@@ -10,9 +10,9 @@ A project copies the skills it uses and records what it copied:
 
     ../skills/scripts/sync -C . project-docs sound-patterns
 
-That writes `.agents/skills/<name>/` for each skill, `scripts/skillscheck/`
-beside the project's other scripts, and `.agents/skills/shared.sum` naming
-this repository's commit and a content hash per path. The project's Makefile
+That writes a copy of each skill under the project's `.agents/skills/`, the
+checker under its `scripts/`, and a lock file, shared.sum, beside the
+skills, naming this repository's commit and a content hash per path. The project's Makefile
 gets two targets, and `ci` includes the second:
 
     skills-sync:  ../skills/scripts/sync -C .

@@ -72,7 +72,7 @@ func hashOf(dir string) (string, error) {
 		if err != nil {
 			return "", err
 		}
-		io.WriteString(h, rel)
+		h.Write([]byte(rel))
 		h.Write([]byte{0})
 		if _, err := io.Copy(h, f); err != nil {
 			f.Close()
