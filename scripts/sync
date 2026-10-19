@@ -5,7 +5,8 @@
 #
 # Copies each named skill (and every skill already listed in the project's
 # .agents/skills/shared.sum) into <project>/.agents/skills/<skill>, copies
-# scripts/skillscheck/main.go beside the project's other scripts, and rewrites
+# scripts/skillscheck/main.go beside the project's other scripts (and
+# scripts/docscheck/ when project-docs is among the skills), and rewrites
 # shared.sum with this repository's HEAD commit and a content hash per path.
 # The project's `make skills-check` verifies those hashes without needing this
 # repository, so CI catches a vendored copy that was edited in place.
@@ -62,6 +63,14 @@ for name in "${!want[@]}"; do
   find "$dest" -name .DS_Store -delete
 done
 cp "$source_dir/scripts/skillscheck/main.go" "$project/scripts/skillscheck/main.go"
+# project-docs brings its checker with it, vendored and hashed like skillscheck.
+vendor_docscheck=""
+if [ -n "${want[project-docs]:-}" ]; then
+  vendor_docscheck=1
+  rm -rf "$project/scripts/docscheck"
+  mkdir -p "$project/scripts/docscheck"
+  cp "$source_dir/project-docs/scripts/docscheck/"*.go "$project/scripts/docscheck/"
+fi
 
 hash() { (cd "$project" && go run "$source_dir/scripts/skillscheck/main.go" -hash "$1"); }
 {
@@ -72,6 +81,9 @@ hash() { (cd "$project" && go run "$source_dir/scripts/skillscheck/main.go" -has
     echo ".agents/skills/$name $commit $(hash ".agents/skills/$name")"
   done
   echo "scripts/skillscheck $commit $(hash scripts/skillscheck)"
+  if [ -n "$vendor_docscheck" ]; then
+    echo "scripts/docscheck $commit $(hash scripts/docscheck)"
+  fi
 } > "$sum"
 
 echo "sync: vendored $(printf '%s ' $(printf '%s\n' "${!want[@]}" | sort))at $commit into $project"
