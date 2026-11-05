@@ -11,7 +11,7 @@ func TestSlugify(t *testing.T) {
 		{"3. Assignment & delegation", "3-assignment--delegation"},
 		{"SQL Injection — Critical", "sql-injection--critical"},
 		{"Graphical / Web UI", "graphical--web-ui"},
-		{"hearth WILL NOT (in this product)", "hearth-will-not-in-this-product"},
+		{"app WILL NOT (in this product)", "app-will-not-in-this-product"},
 	}
 	for _, tt := range tests {
 		if got := slugify(tt.in); got != tt.want {
@@ -58,7 +58,7 @@ func TestMakeRe(t *testing.T) {
 	if m := makeRe.FindStringSubmatch("make sure the gate is green"); m != nil {
 		t.Fatalf("prose matched: got %q", m)
 	}
-	if m := makeLineRe.FindStringSubmatch("    make ci ASTIMATE=true"); m == nil || m[1] != "ci" {
+	if m := makeLineRe.FindStringSubmatch("    make ci VERBOSE=true"); m == nil || m[1] != "ci" {
 		t.Fatalf("fenced line: got %q", m)
 	}
 }

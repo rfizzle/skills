@@ -116,5 +116,5 @@ Quotes are as fetched; where a fetch tool paraphrased, it is marked.
 
 No authoritative writing on code citing documents by heading anchor with a
 CI check on the anchors. That convention is this skill's own, carried over
-from shhh and hearth, where it replaced about 2,600 story and section
+from two earlier repositories, where it replaced about 2,600 story and section
 references.

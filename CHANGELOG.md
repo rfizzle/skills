@@ -6,6 +6,12 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-11-05
+
+### Changed
+
+- `backlog-batches` run-sheet example, `project-docs` sources and docscheck test strings no longer name local paths or other repositories.
+
 ## [0.1.0] - 2026-11-05
 
 First tagged release.
