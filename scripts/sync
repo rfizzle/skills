@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Vendor shared skills from this repository into a project.
 #
-#   sync [-C <project>] [<skill>...]
+#   sync [-C <project>] [-r <tag>] [<skill>...]
+#
+# With -r, the skills are taken from that tag (or any ref) of this repository
+# instead of the working tree, and shared.sum records the tag, so a project
+# pins a release: `sync -C . -r v0.1.0`. Without -r it records HEAD's short
+# commit, as before.
 #
 # Copies each named skill (and every skill already listed in the project's
 # .agents/skills/shared.sum) into <project>/.agents/skills/<skill>, copies
@@ -17,21 +22,34 @@ set -euo pipefail
 
 source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 project="."
+ref=""
 while [ $# -gt 0 ]; do
   case "$1" in
     -C) project="$2"; shift 2 ;;
-    -h|--help) sed -n '2,15p' "$0"; exit 0 ;;
+    -r) ref="$2"; shift 2 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) break ;;
   esac
 done
 project="$(cd "$project" && pwd)"
 sum="$project/.agents/skills/shared.sum"
 
-if [ -n "$(git -C "$source_dir" status --porcelain)" ]; then
-  echo "sync: $source_dir has uncommitted changes; commit them first so shared.sum records a real commit" >&2
-  exit 1
+if [ -n "$ref" ]; then
+  # Export the ref into a scratch tree and vendor from that.
+  git -C "$source_dir" rev-parse --verify --quiet "$ref^{commit}" >/dev/null \
+    || { echo "sync: $ref is not a tag or commit in $source_dir" >&2; exit 1; }
+  export_dir="$(mktemp -d)"
+  trap 'rm -rf "$export_dir"' EXIT
+  git -C "$source_dir" archive "$ref" | tar -x -C "$export_dir"
+  source_dir="$export_dir"
+  commit="$ref"
+else
+  if [ -n "$(git -C "$source_dir" status --porcelain)" ]; then
+    echo "sync: $source_dir has uncommitted changes; commit them first so shared.sum records a real commit" >&2
+    exit 1
+  fi
+  commit="$(git -C "$source_dir" rev-parse --short HEAD)"
 fi
-commit="$(git -C "$source_dir" rev-parse --short HEAD)"
 
 # The set to vendor: arguments plus what is already recorded.
 declare -A want=()
@@ -87,9 +105,9 @@ fi
 
 hash() { (cd "$project" && go run "$source_dir/scripts/skillscheck/main.go" -hash "$1"); }
 {
-  echo "# Shared skills vendored from github.com/rfizzle/skills at the commit shown."
+  echo "# Shared skills vendored from github.com/rfizzle/skills at the tag or commit shown."
   echo "# Edit them there, then \`make skills-sync\`; \`make skills-check\` fails on a copy edited here."
-  echo "# path source-commit sha256"
+  echo "# path source-tag-or-commit sha256"
   for name in $(printf '%s\n' "${!want[@]}" | sort); do
     echo ".agents/skills/$name $commit $(hash ".agents/skills/$name")"
   done
