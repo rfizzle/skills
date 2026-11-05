@@ -56,10 +56,12 @@ var (
 	// "requires Go 1.26", "Go 1.26 or later", "Go 1.26+".
 	goVerRe  = regexp.MustCompile(`(?i)(?:requires?|needs?|minimum|at least)\s+Go 1\.(\d+)|\bGo 1\.(\d+)(?:\.\d+)?(?:\+| or (?:later|newer))`)
 	targetRe = regexp.MustCompile(`^([A-Za-z0-9_.-]+):`)
-	modGoRe  = regexp.MustCompile(`(?m)^go 1\.(\d+)`)
-	headRe   = regexp.MustCompile(`^#{1,6}\s+(.+?)\s*#*\s*$`)
-	slugDrop = regexp.MustCompile(`[^\p{L}\p{N} -]`)
-	dateRe   = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-`)
+	// includeRe matches GNU make's include, -include and sinclude lines.
+	includeRe = regexp.MustCompile(`^\s*(?:-include|sinclude|include)\s+(.+?)\s*$`)
+	modGoRe   = regexp.MustCompile(`(?m)^go 1\.(\d+)`)
+	headRe    = regexp.MustCompile(`^#{1,6}\s+(.+?)\s*#*\s*$`)
+	slugDrop  = regexp.MustCompile(`[^\p{L}\p{N} -]`)
+	dateRe    = regexp.MustCompile(`^\d{4}-\d{2}-\d{2}-`)
 )
 
 var (
@@ -167,14 +169,39 @@ func (c *checker) goFiles() []string {
 }
 
 func (c *checker) loadMakefile() {
-	f, err := os.Open("Makefile")
+	c.loadMakeTargets("Makefile", map[string]bool{})
+}
+
+// loadMakeTargets records the targets a makefile defines, following its
+// include, -include and sinclude lines, so targets from a vendored mk/*.mk
+// count as the project's own. A path that uses a make variable is skipped:
+// it cannot be resolved without running make.
+func (c *checker) loadMakeTargets(path string, seen map[string]bool) {
+	if seen[path] {
+		return
+	}
+	seen[path] = true
+	f, err := os.Open(path)
 	if err != nil {
 		return
 	}
 	defer f.Close()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
-		if m := targetRe.FindStringSubmatch(sc.Text()); m != nil {
+		line := sc.Text()
+		if m := includeRe.FindStringSubmatch(line); m != nil {
+			for _, pattern := range strings.Fields(m[1]) {
+				if strings.Contains(pattern, "$") {
+					continue
+				}
+				matches, _ := filepath.Glob(pattern)
+				for _, inc := range matches {
+					c.loadMakeTargets(inc, seen)
+				}
+			}
+			continue
+		}
+		if m := targetRe.FindStringSubmatch(line); m != nil {
 			c.targets[m[1]] = true
 		}
 	}

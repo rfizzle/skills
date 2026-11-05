@@ -1,6 +1,8 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
 	"regexp"
 	"testing"
 )
@@ -60,5 +62,30 @@ func TestMakeRe(t *testing.T) {
 	}
 	if m := makeLineRe.FindStringSubmatch("    make ci VERBOSE=true"); m == nil || m[1] != "ci" {
 		t.Fatalf("fenced line: got %q", m)
+	}
+}
+
+func TestLoadMakefileFollowsIncludes(t *testing.T) {
+	dir := t.TempDir()
+	write := func(name, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(filepath.Join(dir, name)), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	write("Makefile", "build:\n\tgo build\ninclude mk/gates.mk\n-include mk/*.local.mk\ninclude $(EXTRA)\n")
+	write("mk/gates.mk", "ci: check\ncheck:\ninclude Makefile\n")
+	write("mk/dev.local.mk", "dev-up:\n")
+	t.Chdir(dir)
+
+	c := &checker{targets: map[string]bool{}}
+	c.loadMakefile()
+	for _, want := range []string{"build", "ci", "check", "dev-up"} {
+		if !c.targets[want] {
+			t.Errorf("target %q not found; got %v", want, c.targets)
+		}
 	}
 }

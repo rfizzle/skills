@@ -6,6 +6,13 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-05
+
+### Fixed
+
+- docscheck follows `include`, `-include` and `sinclude` lines, so `make` targets defined in a vendored `mk/gates.mk` count as the project's own.
+- CI names the Node test files, which Node 22 needs.
+
 ## [0.2.0] - 2026-11-05
 
 ### Added
