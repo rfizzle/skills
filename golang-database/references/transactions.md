@@ -1,0 +1,52 @@
+# Transactions
+
+A repository that owns a multi-statement invariant exposes `WithinTx`, which
+runs a callback on a copy bound to one `pgx.Tx`.
+
+```go
+func (r *Repository) WithinTx(ctx context.Context, fn func(*Repository) error) (err error) {
+	tx, err := r.pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin tx: %w", err)
+	}
+	defer func() {
+		if rbErr := tx.Rollback(ctx); rbErr != nil && !errors.Is(rbErr, pgx.ErrTxClosed) {
+			err = errors.Join(err, fmt.Errorf("rollback tx: %w", rbErr))
+		}
+	}()
+	if err = fn(&Repository{pool: r.pool, db: tx}); err != nil {
+		return err
+	}
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit tx: %w", err)
+	}
+	return nil
+}
+```
+
+- The callback never calls `Commit` or `Rollback`, never keeps the scoped
+  copy, and never nests another `WithinTx`.
+- With sqlc, the scoped copy also carries `r.queries.WithTx(tx)`.
+- A transaction spanning two modules is a flow concern: the orchestrating
+  service owns it through a port, and the flow spec states the guarantee
+  (`contract-spec`).
+- The default isolation is READ COMMITTED. A stronger level is a contract
+  change stated in the module's doc comment, with the retry rule from
+  SKILL.md.
+
+## Queue claim
+
+```sql
+UPDATE jobs SET lease_owner = $1, lease_expires_at = now() + $2::interval
+WHERE id = (
+  SELECT id FROM jobs
+  WHERE state = 'pending' OR (state = 'running' AND lease_expires_at < now())
+  ORDER BY created_at, id
+  FOR UPDATE SKIP LOCKED
+  LIMIT 1
+)
+RETURNING id, payload;
+```
+
+Commit the claim, then do the work, then record the outcome in a second
+short statement guarded by the lease owner.
