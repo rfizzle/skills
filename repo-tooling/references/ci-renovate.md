@@ -8,11 +8,11 @@ The shape, independent of the CI system. Every job installs tools with
 | Job | Runs | Fails on |
 |---|---|---|
 | verify | `make ci` | any target failing |
-| integration | `make test-integration` with a PostgreSQL service container | any test failing |
+| integration (when applicable) | `make test-integration` with a PostgreSQL service container | any test failing |
 | vuln | `go tool govulncheck ./...` | a called vulnerable symbol |
-| image | `make docker-build`, then the image scan | a fixable high or critical finding |
-| api-compat | `oasdiff breaking <last-tag spec> api/openapi.yaml --fail-on ERR` | any breaking change in an existing version |
-| e2e | `make e2e` | any browser test failing |
+| image (when applicable) | `make docker-build`, then the image scan | a fixable high or critical finding |
+| api-compat (when applicable) | `oasdiff breaking <last-tag spec> api/openapi.yaml --fail-on ERR`; for protobuf, `buf breaking --against '.git#tag=<last-tag>'` | any breaking change in an existing version |
+| e2e (when applicable) | `make e2e` | any browser test failing |
 
 The last-tag spec is `git show $(git describe --tags --abbrev=0):api/openapi.yaml`.
 With no tag yet, the job passes and says so.

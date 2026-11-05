@@ -3,6 +3,7 @@
 ## Makefile skeleton
 
 Paths and generator commands are placeholders; keep the target names.
+Delete the targets for layers the project lacks.
 
 ```make
 GO          ?= go

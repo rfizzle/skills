@@ -18,13 +18,13 @@ and the security detail in `golang-security`.
 - `GET /healthz` is liveness: 200 while the process can serve a request. It
   checks no dependency; a database outage must not restart every replica.
 - `GET /readyz` is readiness: 200 only when the service can do its work.
-  It pings PostgreSQL with a short timeout (about a second) and checks the
+  It pings the database with a short timeout (about a second) and checks the
   schema is at the migration version the binary expects. Otherwise 503.
 - Both sit outside API versioning, need no authentication, and return a
   short status with no hostnames, versions or error text. `/metrics` sits
   beside them, reachable only from the scrape network.
-- The binary has a `healthcheck` subcommand that calls `/healthz`, for
-  runtime images without a shell.
+- The binary has a `healthcheck` subcommand that calls `/healthz`, when
+  the binary runs in a shell-less image.
 
 ## Shutdown
 
@@ -52,7 +52,7 @@ the context deadline.
 - RED per route template: request count, error count (5xx, and 4xx
   separately if alerted on), and a duration histogram. Workers and queues
   get the same per job type, plus queue depth and age of the oldest item.
-- Pool saturation for PostgreSQL (`pgxpool` stats) as gauges.
+- Pool saturation from the driver's pool stats as gauges.
 - OpenTelemetry traces on inbound requests, database calls and outbound
   calls; W3C `traceparent` propagated in and out; sampling from config.
 - Label, bucket and attribute rules: `golang-observability`.
@@ -81,8 +81,9 @@ the context deadline.
 
 ## Backups and restore
 
-- PostgreSQL has continuous backups with point-in-time recovery (WAL
-  archiving or the managed service's equivalent), encrypted, kept in a
+- The database has continuous backups (PITR on PostgreSQL through WAL
+  archiving or the managed service's equivalent; WAL-shipping or a scheduled
+  online backup for SQLite), encrypted, kept in a
   separate account or location, with stated retention.
 - A restore drill runs on a schedule (at least quarterly) and after any
   backup change: restore to a scratch instance at a chosen time, run the

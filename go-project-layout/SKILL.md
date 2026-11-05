@@ -17,6 +17,12 @@ change.
 
 ## The shape
 
+This is the default shape for a service with a generated transport and more
+than a handful of packages. A smaller program keeps a flat `internal/` under
+project-docs' base rule; every rule under "Rules the check cannot see" and
+the grab-bag ban still apply, and its `architecture-check` enforces whatever
+direction its `AGENTS.md` states.
+
 ```
 cmd/<app>/main.go          thin: parse, call into internal/app or internal/cli
 api/openapi.yaml           the HTTP contract (api-contract)
@@ -126,6 +132,8 @@ adding a port. Never by widening the check.
 `make architecture-check` runs a script that derives every rule above from
 `go list`, never from grep over source text:
 
+- A flat layout still gets the check: grab-bag names, no package importing
+  `cmd/`, and any one-way edges the project declares.
 - Collect edges with `go list -f` over `.Imports`, `.TestImports` and
   `.XTestImports`. A boundary crossed only by a test is still crossed.
 - Collect the graph twice, default tags and `-tags integration`, so

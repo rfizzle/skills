@@ -1,6 +1,6 @@
 ---
 name: contract-spec
-description: Use this skill before building, reimplementing or behaviourally refactoring a Go business module (a package under internal/modules), or a capability that spans two or more modules such as a pipeline, queue hand-off, multi-step workflow, reconciliation loop or delivery path. Triggers include "spec a module", "write a module proposal", "design the contract", "write the interface first", "spec the flow", "what happens if step N crashes", and stating an exactly-once, ordering or idempotency guarantee across modules; also when a module's exported API, interface or error contract changes, when modules change how they hand work to each other, and when reviewing a built module or flow against its contract. Not for the HTTP contract (api-contract), file placement (go-project-layout), doc comment form (project-docs), or planning a feature into stories (plan-feature).
+description: Use this skill before building, reimplementing or behaviourally refactoring a Go business module (a business package: internal/modules/<m> in the service layout, internal/<pkg> in a flat one), or a capability that spans two or more modules such as a pipeline, queue hand-off, multi-step workflow, reconciliation loop or delivery path. Triggers include "spec a module", "write a module proposal", "design the contract", "write the interface first", "spec the flow", "what happens if step N crashes", and stating an exactly-once, ordering or idempotency guarantee across modules; also when a module's exported API, interface or error contract changes, when modules change how they hand work to each other, and when reviewing a built module or flow against its contract. Not for the HTTP contract (api-contract), file placement (go-project-layout), doc comment form (project-docs), or planning a feature into stories (plan-feature).
 license: MIT
 metadata:
   author: rfizzle
@@ -13,7 +13,7 @@ Contract before code. One method, two scopes:
 
 | Scope | File | After the build |
 |---|---|---|
-| One module | `internal/modules/<module>/<module>.spec.md` | moved into code; the file is cut to its purpose |
+| One module | `internal/modules/<module>/<module>.spec.md` (flat layout: `internal/<pkg>/<pkg>.spec.md`) | moved into code; the file is cut to its purpose |
 | A flow across modules | `docs/flows/<name>.flow.md` | stays prose; no single package owns it |
 
 A path one module owns is a module spec. A cross-module change updates the

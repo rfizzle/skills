@@ -1,6 +1,6 @@
 ---
 name: repo-tooling
-description: Use this skill when setting up or auditing the build and tooling of a Go + PostgreSQL service with a Tailwind frontend, or when touching its Makefile, go.mod toolchain or tool directives, Node or pnpm pins, Dockerfile, compose.yaml, environment configuration, CI pipeline, Renovate config, linter limits, pre-commit hook or coverage floor. Triggers include "add a make target", "pin this tool", "write the Dockerfile", "the image uses Alpine", "add a local Postgres", "add a config variable", "CI should check X", "Renovate MRs fail go mod tidy", and "what does make ci run". Not for release tagging and changelogs (use release), runtime health, metrics and runbooks (use service-operations), or the content of docs-check and skills-check (project-docs and the skills README own those).
+description: Use this skill when setting up or auditing the build and tooling of a Go service or tool (PostgreSQL and a Tailwind frontend when it has them), or when touching its Makefile, go.mod toolchain or tool directives, Node or pnpm pins, Dockerfile, compose.yaml, environment configuration, CI pipeline, Renovate config, linter limits, pre-commit hook or coverage floor. Triggers include "add a make target", "pin this tool", "write the Dockerfile", "the image uses Alpine", "add a local Postgres", "add a config variable", "CI should check X", "Renovate MRs fail go mod tidy", and "what does make ci run". Not for release tagging and changelogs (use release), runtime health, metrics and runbooks (use service-operations), or the content of docs-check and skills-check (project-docs and the skills README own those).
 license: MIT
 metadata:
   author: rfizzle
@@ -15,6 +15,9 @@ wraps. Every tool version is pinned in a file the repository owns, and
 `make env` proves the host matches.
 
 ## Standard targets
+
+Targets whose layer the project lacks (no image, no frontend, no external
+database) are omitted, not stubbed.
 
 | Target | Does |
 |---|---|
@@ -61,6 +64,8 @@ Rules:
 
 ## Containers
 
+When the project ships an image:
+
 - One multi-stage `Dockerfile`: a frontend build stage, a Go build stage,
   and a runtime stage. The Go binary embeds the built frontend; the image
   holds one binary.
@@ -79,8 +84,13 @@ Rules:
   the runtime image, OCI labels for source, revision, version.
 - A `.dockerignore` excludes `.git`, `node_modules`, build outputs and
   `.env`.
+- A systemd-packaged binary is released by GoReleaser with checksums, SBOM
+  and signature; the same `-trimpath`, `CGO_ENABLED=0` and version stamping
+  rules apply.
 
 ## Local stack
+
+When it needs a local service:
 
 - `compose.yaml` runs PostgreSQL (`ghcr.io/rfizzle/postgres`, digest-pinned) with a
   healthcheck and a named volume, bound to `127.0.0.1`. The app service
@@ -108,10 +118,11 @@ Rules:
 
 ## CI and dependencies
 
-- The verify job runs `make ci`. Separate jobs build the image
-  (`make docker-build`), run `govulncheck ./...`, scan the image
-  (Trivy or Grype; fail on fixable high and critical), and run `oasdiff
-  breaking` against the OpenAPI file at the last release tag.
+- The verify job runs `make ci`. Separate jobs run `govulncheck ./...`, the
+  image build and scan when there is an image (Trivy or Grype; fail on
+  fixable high and critical), and the API breaking check for the project's
+  contract against the last release tag (`oasdiff breaking` for OpenAPI,
+  `buf breaking` for protobuf).
 - CI uses the same pins: Go from `go.mod`, Node from `.nvmrc`, tools from
   `make tools`. CI images follow the container rules.
 - Renovate manages Go modules, `tool` directives, npm, Dockerfile and
@@ -143,11 +154,11 @@ Adopt these where the repository can hold them; each is a target in
 - `make help` lists every standard target that applies; `make ci` passes on
   a clean clone after `make tools`.
 - `make env` passes, and no tool is installed at an unpinned version.
-- Every `FROM` and Compose image is digest-pinned and none is Alpine; the
-  runtime image runs as non-root and holds one binary.
+- Every `FROM` and Compose image (where there is one) is digest-pinned and
+  none is Alpine; the runtime image runs as non-root and holds one binary.
 - Configuration is one prefix into one typed struct; no secret prints.
-- CI runs `make ci`, the image build, govulncheck, the image scan and
-  oasdiff; Renovate runs tidy and lockfile updates.
+- CI runs `make ci`, govulncheck, the image build and scan when there is an
+  image, and the API breaking check; Renovate runs tidy and lockfile updates.
 
 ## References
 

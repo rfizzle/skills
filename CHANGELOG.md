@@ -6,6 +6,16 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-11-05
+
+### Added
+
+- `skillscheck -sum <file>` verifies a lock file other than `shared.sum`, and hashing accepts a single file, so a project can vendor go-scaffold's gate kit and check it the same way. Existing sums are unchanged.
+
+### Changed
+
+- PostgreSQL, OpenAPI-first HTTP, a container image and the `internal/modules` layout are defaults a project's `AGENTS.md` may override, not rules. `golang-database` allows SQLite through `database/sql`; `repo-tooling` and `release` cover GoReleaser/systemd packaging and `buf breaking`; `go-project-layout` and `contract-spec` accept a flat `internal/`.
+
 ## [0.1.1] - 2026-11-05
 
 ### Changed

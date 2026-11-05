@@ -10,7 +10,7 @@ metadata:
 # Release
 
 A release is an annotated SemVer tag on the default branch, a dated
-CHANGELOG section, and the image CI builds from that tag. The agent prepares
+CHANGELOG section, and the artifacts CI builds from that tag (image, archives, packages). The agent prepares
 it locally. **The owner pushes and deploys.** The agent stops before any
 `git push`, tag push, pipeline trigger or deploy step, and reports the exact
 commands instead.
@@ -31,9 +31,9 @@ MINOR and anything else bumps PATCH.
 
 - **HTTP API.** A breaking change (removed or renamed field, changed type
   or meaning, optional to required, changed error code or status) never
-  ships in an existing version. It goes to `/api/v2` for the affected
+  ships in an existing version. It goes to a new API version (`/api/v2`, or a new proto package) for the affected
   resources; v1 stays, marked `deprecated: true` with a `Sunset` header.
-  `oasdiff breaking` against the last tag's spec must report nothing for
+  The API breaking check (`oasdiff breaking` or `buf breaking`) against the last tag must report nothing for
   existing versions (`api-contract`). Removing v1 after its sunset date is
   the MAJOR release.
 - **Schema.** Renames, drops and type changes use expand and contract
@@ -81,8 +81,8 @@ starts with **Breaking:** and says what to do. Template:
 1. Check the start: on the default branch, clean tree, up to date with its
    remote (`git fetch`, then compare; never pull or push without being
    asked).
-2. `make ci` passes, the integration tier passes, and `oasdiff breaking`
-   against the last tag is clean or every finding is in a new API version.
+2. `make ci` passes, the integration tier passes, and the API breaking check
+   (oasdiff or `buf breaking`) against the last tag is clean or every finding is in a new API version.
 3. Walk the release's migrations up, down and up again against a scratch
    database.
 4. Pick the number from the bump table. If the release holds a destructive
@@ -109,7 +109,7 @@ starts with **Breaking:** and says what to do. Template:
   breaking entry says what to do.
 - The bump matches the table; any MAJOR or destructive change has the
   owner's go-ahead.
-- `make ci`, the integration tier, oasdiff and the migration walk passed.
+- `make ci`, the integration tier, the API breaking check and the migration walk passed.
 - Nothing was pushed, triggered or deployed.
 
 ## References

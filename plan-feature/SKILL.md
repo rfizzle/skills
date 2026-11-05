@@ -47,10 +47,10 @@ Cut one story per layer touched, skipping layers the feature does not touch:
 | # | Layer | Hand off to | Owner sees |
 |---|---|---|---|
 | 1 | schema | `golang-database`: numbered up/down migration, expand step only | a plain-English summary of the schema change |
-| 2 | API contract | `api-contract`: OpenAPI edit plus generated code | a plain-English summary of the API change |
+| 2 | API contract | `api-contract`: the contract edit for the project's transport, plus generated code | a plain-English summary of the API change |
 | 3 | backend | `contract-spec` for a new module or a cross-module flow | a summary of the contract and its decisions |
-| 4 | frontend components | `ui-component-contract`, tokens via `design-tokens` | the stories in Storybook, light and dark |
-| 5 | view | `ui-component-contract`, five async states | the stories in Storybook, light and dark |
+| 4 | frontend components | `ui-component-contract`, tokens via `design-tokens` | the stories in Storybook, or the project's component review surface, light and dark |
+| 5 | view | `ui-component-contract`, five async states | the stories in Storybook, or the project's component review surface, light and dark |
 | 6 | end-to-end | the frontend framework skill | nothing |
 
 Contract specs and cards are the agent's working files. The owner is shown a

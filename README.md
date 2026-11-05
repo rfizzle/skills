@@ -4,9 +4,11 @@ The skills shared by every one of my repositories, in the
 [Agent Skills](https://agentskills.io) shape: one directory per skill with a
 `SKILL.md`. Status: the source of truth; projects vendor copies.
 
-Stack they assume: Go, PostgreSQL with pgx, OpenAPI-first HTTP, Tailwind CSS
-4, Docker images from [rfizzle/images](https://github.com/rfizzle/images),
-Linux, Renovate, and a Makefile as the command interface. Frontend skills are
+Defaults unless a project's `AGENTS.md` names another choice: PostgreSQL with
+pgx, OpenAPI-first HTTP, a container image from
+[rfizzle/images](https://github.com/rfizzle/images). Always: Go, Linux,
+Renovate, a Makefile as the command interface, Tailwind CSS 4 when there is a
+UI. Frontend skills are
 framework-neutral; Svelte and React mechanics belong to framework skills.
 
 ## Skills
