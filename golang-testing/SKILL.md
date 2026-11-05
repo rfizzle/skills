@@ -1,6 +1,6 @@
 ---
 name: golang-testing
-description: "Design, write, review, and debug Go tests, including table-driven unit tests, HTTP tests, integration tests, race detection, fuzzing, deterministic concurrency tests with testing/synctest, benchmarks, fixtures, and coverage. Use for any Go test change or test-strategy decision. Not for database fakes (see the database skill) or benchmark measurement methodology (see golang-benchmark)."
+description: "Design, write, review, and debug Go tests, including table-driven unit tests, HTTP tests, integration tests, race detection, fuzzing, deterministic concurrency tests with testing/synctest, benchmarks, fixtures, and coverage. Use for any Go test change or test-strategy decision. Not for database fakes and pgxmock (golang-database) or benchmark measurement methodology (see golang-benchmark)."
 license: MIT
 metadata:
   author: rfizzle
@@ -15,7 +15,8 @@ library solely because an example uses one.
 
 ## Required preflight
 
-Run the repository's generation step before every test command.
+Run the repository's generation step (`make generate`) before every test command:
+tests compiled against stale generated code pass or fail for the wrong reason.
 
 Prefer the repository's test target, integration-test target, and lint target over ad hoc
 commands.
@@ -25,6 +26,13 @@ Use a focused `go test` command only after the preflight and retain `-race` when
 ## Test structure
 
 - Name tests for observable behavior: `TestType_Method` or `TestFunction`.
+- A documented invariant gets its own test named for the behaviour, not the method:
+  `TestLease_ExpiredLeaseIsReclaimable`. The name is the contract a reader greps for;
+  `contract-spec` turns each approved invariant into one such test.
+- An invariant test must fail when the behaviour breaks; check by breaking it once.
+- A runnable `Example` with `// Output:` documents the main entry point
+  (`project-docs`); an interface with two or more implementations gets a conformance
+  suite (`go-conformance-suite`).
 - Use descriptive lowercase subtest names.
 - Use table-driven tests when cases share setup and assertion shape; do not force a table
   around a single behavior with unique setup.
@@ -62,10 +70,14 @@ func TestParseStatus(t *testing.T) {
 
 ## Repository and integration tests
 
-A database fake belongs in the database skill.
+Database fakes and pgxmock belong in `golang-database`.
 
 - Use `//go:build integration` for tests requiring PostgreSQL, object storage, or other
-  containerized services.
+  containerized services, never `testing.Short()`. Lint and vet see tagged files only
+  when run with the tag; make the integration target and the architecture check pass
+  `-tags integration`.
+- A missing container runtime skips the test locally; CI sets the harness's
+  require-containers variable so the skip becomes a failure.
 - Use unique IDs and cleanup so integration tests can run repeatedly and concurrently.
 - Test real PostgreSQL behavior for constraints, migrations, locking, and query semantics.
 
@@ -113,7 +125,8 @@ only if the project deliberately adopts and maintains that dependency.
 
 ## Review checklist
 
-- New behavior, errors, and documented invariants are covered.
+- New behavior, errors, and documented invariants are covered; each invariant has a
+  test named for its behaviour.
 - Assertions fail with enough context to diagnose the case.
 - Tests do not depend on timeouts, order, or shared mutable globals.
 - Mocks model consumer interfaces, not implementation internals.

@@ -1,18 +1,12 @@
----
-name: repo-align
-description: Assess a repository against the project-docs standard and reconcile it, in that order. Use when asked to "assess", "audit", "align", "reconcile" or "bring up to standard" a repository's documentation, AGENTS.md, README, docs/, skills or comments; when asked whether a repo "follows the standard" or "is aligned"; when adopting the shared skills (make skills-sync) in a repo for the first time; or when several sibling repositories have drifted and the user wants the gap measured before it is closed. Produces a scored assessment first and makes changes only in the reconcile phase, each step its own commit. Not for writing the standard itself (project-docs), building a skill (create-skill), or a routine doc update that rides with a code change.
-metadata:
-  author: rfizzle
-  standard: agentskills.io
----
-
-# Repository alignment
+# Aligning a repository: assess, then reconcile
 
 Two phases, never merged. **Assess** reads and measures; it changes nothing
 and ends with a report the person can act on. **Reconcile** makes the
 changes, one commit per step, in an order that keeps `make ci` green
-throughout. The standard being measured against is the `project-docs`
-skill; this skill only says how to measure and in what order to fix.
+throughout. The standard being measured against is the rest of
+`project-docs`; this page only says how to measure and in what order to fix.
+Use it when asked to assess, audit, align or reconcile a repository, or when
+adopting the shared skills in a repository for the first time.
 
 The skills repository is beside the project as `../skills` unless the
 Makefile says otherwise (`SKILLS_SOURCE`).
@@ -49,7 +43,8 @@ with a `file:line`; no restatement of the standard.
    time-bound. Verdict per file: keep, split, merge into X, delete, or freeze
    as `research/<date>-<topic>.md`. Note whether `docs/README.md` exists and
    whether its table matches the tree. Note how decisions are recorded, if
-   at all.
+   at all, and count records that fail the test in `decisions.md`. List
+   unit specs that still restate a built contract.
 6. **Skills classification.** For each skill: shared (exists in `../skills`;
    compare with `diff -r` and note drift), project (repo-specific procedure
    worth keeping), noise (restates language conventions, employer-specific,
@@ -81,17 +76,18 @@ assessment marked them not needed.
    `docs-check`, add `scripts/docscheck` from `project-docs` and the target,
    and put it in `ci`. Fix nothing else yet; a red `docs-check` at this
    point is expected and is the next step's input.
-2. **AGENTS.md.** Rewrite from the template in `project-docs`, from the
+2. **AGENTS.md.** Rewrite from `templates.md`, from the
    Makefile and the tree, not from the old file. Then diff against the old
    file and carry over only gotchas and invariants that earn a line. Mark
-   unbuilt paths "(planned)". the client rules file (`CLAUDE.md` and the
+   unbuilt paths "(planned)". The client rules file (`CLAUDE.md` and the
    like) becomes a pointer to `AGENTS.md` or is deleted. Nested agent files are reduced to their delta.
 3. **README.** Trim to the person's questions; move the rest to where the
    assessment said.
 4. **docs/.** Create or fix `docs/README.md` first, then apply the per-file
    verdicts: merges, splits, deletes, freezes. Rename headings only with
    their citations, in the same commit. Record the decisions that are
-   already made and still contested, with ids.
+   already made and still contested, with date-slug ids; cut records that
+   are not decisions and unit specs down to their purpose.
 5. **docs-check green.** Fix every line the checker prints. Cite or delete
    uncited design headings.
 6. **Skills.** Delete the noise. Promote candidates by copying them into
@@ -101,7 +97,7 @@ assessment marked them not needed.
    script, then read every changed site: a mechanical rewrite that produces
    prose you would not have written needs a person. Commit per package.
 8. **Comments, judgement.** Package by package, apply the comment rules of
-   `project-docs`. This is slow and is usually filed as backlog items
+   `comments.md`. This is slow and is usually filed as backlog items
    rather than done in the alignment session.
 
 Definition of done: `make ci` green with `docs-check` and `skills-check` in

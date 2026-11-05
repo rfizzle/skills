@@ -29,6 +29,15 @@ ln -s ../../.agents/skills/<name> .claude/skills/<name>
 
 `.agents/skills/<name>` is the source of truth; `.claude/skills/<name>` is just a discovery pointer. Never write skill content directly into the `.claude/skills` copy.
 
+## When to write a skill, and how to keep it small
+
+- **Only after an observed failure.** Write a skill when a real session went wrong in a way a procedure would have prevented, and name that failure. Prefer composing or extending existing skills over adding one.
+- **Add what the model lacks; omit what it knows.** A skill that restates the language, a popular library's docs, or general engineering advice gives near-zero uplift. Keep project conventions, gotchas, exact commands, and choice points with their rule.
+- **If a rule can be a check, build the check.** A lint rule, test, or CI gate holds every time; a sentence in a skill holds when the model remembers it.
+- **The description is the trigger.** All when-to-use goes in the description, not the body. Use distinct trigger phrases rather than synonyms of one, and end with "Not for X (use Y)" for each near-miss skill.
+- **One procedure, a short body.** Aim for under ~150 lines; move detail to `references/`. Multi-stage choreography across several skills is a sign to cut, not to add.
+- **Test before keeping or deleting.** Run a few realistic prompts with and without the skill and compare. Keep it only if the difference shows; delete it if it does not.
+
 ## Steps to create a new skill
 
 1. **Pick a name**: lowercase letters, digits, hyphens only; 1-64 chars; no leading/trailing/consecutive hyphens; must match the directory name exactly.
@@ -41,8 +50,8 @@ ln -s ../../.agents/skills/<name> .claude/skills/<name>
    └── assets/             # optional: templates, static resources
    ```
 3. **Write frontmatter** — `name` and `description` are required. See `references/specification.md` for the full field table (`license`, `compatibility`, `metadata`, `allowed-tools`) and exact constraints.
-4. **Write the description to trigger reliably**: imperative ("Use this skill when..."), state user intent not implementation, list both obvious and non-obvious trigger phrases, and state what it's *not* for if there's a near-miss risk. Max 1024 chars. See `references/description-writing.md` before finalizing wording — description quality is the single biggest lever on whether the skill actually gets used.
-5. **Write the body** for an agent that already knows general concepts — only include what it wouldn't already know (project conventions, gotchas, exact commands, non-obvious edge cases). Keep `SKILL.md` under ~500 lines / 5000 tokens; push detailed reference material, templates, and schemas into `references/` or `assets/` and tell the agent when to load each one. See `references/best-practices.md` for patterns (gotchas sections, templates, checklists, validation loops, plan-validate-execute).
+4. **Write the description to trigger reliably**: imperative ("Use this skill when..."), state user intent not implementation, list both obvious and non-obvious trigger phrases, and end with "Not for X (use Y)" when a near-miss skill exists. Max 1024 chars. See `references/description-writing.md` before finalizing wording — description quality is the single biggest lever on whether the skill actually gets used.
+5. **Write the body** for an agent that already knows general concepts — only include what it wouldn't already know (project conventions, gotchas, exact commands, non-obvious edge cases). Keep `SKILL.md` under ~150 lines (the spec's hard ceiling is ~500 lines / 5000 tokens); push detailed reference material, templates, and schemas into `references/` or `assets/` and tell the agent when to load each one. See `references/best-practices.md` for patterns (gotchas sections, templates, checklists, validation loops, plan-validate-execute).
 6. **Symlink into each client's own directory** as shown above for the clients that need it; check a client's docs before assuming `.agents/skills/` is auto-discovered.
 7. **Sanity-check**: read the finished `SKILL.md` back and ask "would an agent that has never seen this before know exactly when and how to use it?" Try 2-3 realistic prompts that should trigger it and 1-2 near-miss prompts that shouldn't.
 

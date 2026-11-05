@@ -21,7 +21,7 @@ Place the integration constraint before the package declaration:
 ```go
 //go:build integration
 
-package sessions
+package store
 ```
 
 Do not use `testing.Short()` as the primary separation mechanism; tagged files should not

@@ -1,154 +1,72 @@
-# Resource Management Patterns
+# Resource management
 
-## Defer Close Immediately
+## Bounded pools
 
-`defer Close()` MUST be called immediately after opening — NEVER delay. This prevents leaks when code is modified later and new return paths are added:
-
-```go
-// Good — defer is right next to open
-f, err := os.Open(path)
-if err != nil {
-    return err
-}
-defer f.Close()
-
-// Bad — Close() is far from Open(), easy to forget when adding early returns
-f, err := os.Open(path)
-if err != nil {
-    return err
-}
-// ... 50 lines of code ...
-f.Close() // might never run if a new return is added above
-```
-
-This applies to all closeable resources: files, SQL rows, HTTP response bodies, gzip readers, bufio scanners wrapping readers, etc.
+A pool has a fixed maximum. A buffered channel is the simplest bounded pool,
+and `Get` honours cancellation:
 
 ```go
-resp, err := http.Get(url)
-if err != nil {
-    return err
-}
-defer resp.Body.Close()
-
-rows, err := db.Query(ctx, query)
-if err != nil {
-    return err
-}
-defer rows.Close()
-```
-
-## `runtime.AddCleanup` over `runtime.SetFinalizer`
-
-`runtime.AddCleanup` SHOULD be preferred over `runtime.SetFinalizer` (Go 1.24+):
-
-```go
-type Resource struct {
-    handle uintptr
-}
-
-func NewResource() *Resource {
-    r := &Resource{handle: acquireHandle()}
-    runtime.AddCleanup(r, func(handle uintptr) {
-        releaseHandle(handle)
-    }, r.handle)
-    return r
-}
-```
-
-`AddCleanup` is preferred because:
-
-- Multiple cleanups can be attached to the same object
-- The cleanup function receives a copy of the value, not the object itself — no resurrection risk
-- Cleanups run even if the object is part of a cycle
-
-## Resource Pools
-
-Resource pools SHOULD use channels with a fixed capacity for bounded allocation. Use channel-based pools or `sync.Pool` to manage limited resources between consumers. Always set a maximum size:
-
-```go
-type ConnPool struct {
-    conns chan *Conn
-}
-
-func NewConnPool(maxSize int, factory func() (*Conn, error)) (*ConnPool, error) {
-    pool := &ConnPool{
-        conns: make(chan *Conn, maxSize),
-    }
-    // Pre-fill with initial connections
-    for range maxSize {
-        conn, err := factory()
-        if err != nil {
-            return nil, fmt.Errorf("creating connection: %w", err)
-        }
-        pool.conns <- conn
-    }
-    return pool, nil
-}
+type ConnPool struct{ conns chan *Conn }
 
 func (p *ConnPool) Get(ctx context.Context) (*Conn, error) {
-    select {
-    case conn := <-p.conns:
-        return conn, nil
-    case <-ctx.Done():
-        return nil, ctx.Err()
-    }
+	select {
+	case c := <-p.conns:
+		return c, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
 }
 
-func (p *ConnPool) Put(conn *Conn) {
-    select {
-    case p.conns <- conn:
-    default:
-        conn.Close() // pool is full, discard
-    }
+func (p *ConnPool) Put(c *Conn) {
+	select {
+	case p.conns <- c:
+	default:
+		_ = c.Close() // pool full; best-effort discard
+	}
 }
 ```
 
-## Graceful Shutdown
+Use the pool a driver already provides (pgxpool, `http.Transport`) before
+writing one. `sync.Pool` is for reusable scratch memory, not for limiting
+how many of something exist.
 
-Graceful shutdown MUST use `signal.NotifyContext` for clean termination. All resources (connections, files, channels) MUST be drained before process exit. Use `os/signal` and context cancellation:
+## `runtime.AddCleanup`
+
+For a non-memory resource tied to an object's lifetime (Go 1.24+). Unlike
+`SetFinalizer`, several cleanups can attach to one object, the cleanup gets
+a value rather than the object (no resurrection), and cycles do not block
+it. It is a backstop; an explicit `Close` is still the contract.
+
+```go
+r := &Resource{handle: acquire()}
+runtime.AddCleanup(r, release, r.handle)
+```
+
+## Shutdown sequence
+
+`main` stays thin: it creates the signal context and hands it to the
+composition root (`go-project-layout`), which starts components in
+dependency order and stops them in reverse.
 
 ```go
 func main() {
-    ctx, stop := signal.NotifyContext(context.Background(),
-        syscall.SIGINT, syscall.SIGTERM,
-    )
-    defer stop()
-
-    srv := &http.Server{Addr: ":8080", Handler: router}
-
-    // Start server in background
-    go func() {
-        if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-            slog.Error("server error", "error", err)
-        }
-    }()
-
-    slog.Info("server started", "addr", ":8080")
-
-    // Wait for interrupt signal
-    <-ctx.Done()
-    slog.Info("shutting down...")
-
-    // Give outstanding requests time to complete
-    shutdownCtx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-    defer cancel()
-
-    if err := srv.Shutdown(shutdownCtx); err != nil {
-        slog.Error("shutdown error", "error", err)
-    }
-
-    // Close other resources: database connections, message queues, etc.
-    db.Close()
-    slog.Info("shutdown complete")
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	if err := app.Run(ctx); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
 ```
 
-This pattern applies to any long-running service — gRPC servers, message consumers, background workers. The key elements are:
+Inside `app.Run`:
 
-1. Capture OS signals with `signal.NotifyContext`
-2. Start the server in a goroutine
-3. Block on context cancellation
-4. Shut down with a timeout to drain in-flight requests
-5. Close all remaining resources in order
-
-For goroutine shutdown patterns, see the `golang-concurrency` skill.
+1. Build dependencies in order: config, logger, database pool, modules,
+   HTTP server.
+2. Start the server and background workers in goroutines that report their
+   error on a channel or through an errgroup (`golang-concurrency`).
+3. Wait for `ctx.Done()` or the first component error.
+4. Shut down with a fresh deadline (`context.WithTimeout(context.Background(), 30*time.Second)`),
+   since `ctx` is already cancelled: stop accepting requests
+   (`srv.Shutdown`), stop and wait for workers, then close the pool.
+5. Return the first meaningful error, joined with shutdown errors.

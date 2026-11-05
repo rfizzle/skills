@@ -1,8 +1,66 @@
-# Code comments: before and after
+# Code comments
+
+## Contents
+
+- The rules (this section)
+- Before and after: worked pairs, from "What the code already says" to "A
+  number that was chosen"
+
+A comment is written for the next person to edit the line, in plain prose,
+and it earns its place by saying something the code cannot. Before writing
+one, decide which of these it is, and if it is none, delete it:
+
+- **Why this and not the obvious alternative.** The reader is about to
+  "simplify" it back.
+- **What breaks if it changes, and what that looks like.** Lead with the
+  symptom, because the symptom is what the next person will see.
+- **A constraint from outside this file.** A protocol quirk, an OS limit, a
+  vendor's dialect, a measured number.
+- **A non-obvious invariant**, especially one the types do not hold.
+- **A deliberate no-op or ignored value.** One line separates a choice from
+  an unfinished edit.
+
+What never earns its place:
+
+- **A story, ticket, epic, sprint or plan id.** It points at something the
+  reader cannot open. Say what the code does and why.
+- **History as explanation.** Keep history only when it stops a regression,
+  and then name what broke, not when.
+- **A restatement of the signature**, or a cross-reference in place of the
+  reason.
+- **Obscurity.** If a reader needs the author beside them to parse it, it
+  has failed.
+- **A reference in data.** A doc or spec pointer in a string literal becomes
+  test output, an error message or a committed fixture.
+- **Edit annotations and banners.** "Added for X", "Updated to handle Y",
+  "Fixed", a row of dashes, a section title in a comment, an emoji.
+- **A reason you were not given.** If the reason is unknown, say what the
+  code does and leave the why to the person who knows it.
+
+Existing comments are the previous editor's reasons. A targeted edit keeps
+them; a rewrite that drops one says so in the report, and a comment that has
+become false is corrected, not deleted.
+
+Go doc comment form is in `code.md`.
+
+The citation convention ties comments to design documents: the reason in
+prose first, then the pointer, and only for a product or design decision:
+
+```go
+// Act-tier tools always go through the approval gate: the core cannot know
+// whether a tool changed something outside the workspace, so it assumes it
+// did. See docs/model.md#approval.
+```
+
+Local mechanics get the sentence and no pointer. Density is the test, not
+length: the most valuable comments are often the longest, and the least
+valuable are one-line cross-references.
+
+# Before and after
 
 Each pair is a real change from a sibling repository. They are examples of
-judgement, not a style to copy; the test is always the one in `SKILL.md`:
-does this say something the code cannot?
+judgement, not a style to copy; the test is always the one above: does this
+say something the code cannot?
 
 ## What the code already says
 

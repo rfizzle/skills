@@ -124,7 +124,9 @@ the code is; skills say how a change is made.
 |---|---|---|
 | `product.md` | What is it, for whom, and what will it never do? | the product changes |
 | `architecture.md` | What are the big shapes, and why those? | a shape changes |
-| `decisions.md` | What was decided, when and why; what is open? | a decision is made |
+| `flows/` | How does work cross modules, and what if a step fails? | a hand-off changes |
+| `runbooks/` | An alert fired; what do I check and do? | an alert changes |
+| `decisions.md` | What was decided, when and why? | a decision is made |
 | `research/` | Dated snapshots | never; a new look is a new dated file |
 
 - Documents name no code symbol; code cites documents by path and heading.
@@ -138,14 +140,14 @@ the code is; skills say how a change is made.
 
 ## A decision record
 
-As a row or heading in `docs/decisions.md`, or as
-`docs/decisions/NNNN-slug.md`. Same fields either way.
+As a heading in `docs/decisions.md`, or as `docs/decisions/<id>.md`. Same
+fields either way. Write one only if it passes the test in `decisions.md`.
 
 ```markdown
-## D<n>: <the question, as a question>
+## <YYYY-MM-DD-slug>: <the question, as a question>
 
 - Date: <YYYY-MM-DD>
-- Status: accepted | proposed | superseded by D<m>
+- Status: accepted | proposed | superseded by <id>
 
 **Context.** <What forced the choice; the constraints that are not in the
 code.>
@@ -158,8 +160,8 @@ code.>
 and when.>
 ```
 
-Ids are permanent and never reused. A superseded record keeps its text and
-changes only its status line.
+Ids are the decision date plus a slug, permanent and never reused. A
+superseded record keeps its text and changes only its status line.
 
 ## Makefile target
 

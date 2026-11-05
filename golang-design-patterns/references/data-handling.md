@@ -1,64 +1,68 @@
-# Data Handling Patterns
+# Data handling
 
-## Iterators for Large Data (Go 1.23+)
+## string, []byte, []rune
 
-Process large datasets without allocating everything into memory:
+| Type | Default for | Use when |
+|---|---|---|
+| `string` | everything | immutable values, map keys, display |
+| `[]byte` | I/O | writing to an `io.Writer`, building output, mutation |
+| `[]rune` | Unicode work | an index or length must count characters, not bytes |
+
+Each conversion allocates. Stay in one type until you need the other, and
+build strings in a loop with `strings.Builder` or `bytes.Buffer`.
+
+## Iterators for large result sets
+
+Return an `iter.Seq2[T, error]` instead of a slice when a caller may read
+more rows than fit comfortably in memory. The iterator owns the rows and
+closes them however the caller's loop ends:
 
 ```go
-// Bad — loads all rows into memory
-func AllUsers(db *sql.DB) ([]User, error) {
-    rows, err := db.Query("SELECT * FROM users")
-    // ... scan all into slice
-}
-
-// Good — iterator yields one at a time
-func AllUsers(db *sql.DB) iter.Seq2[User, error] {
-    return func(yield func(User, error) bool) {
-        rows, err := db.Query("SELECT * FROM users")
-        if err != nil {
-            yield(User{}, err)
-            return
-        }
-        defer rows.Close()
-
-        for rows.Next() {
-            var u User
-            if err := rows.Scan(&u.ID, &u.Name, &u.Email); err != nil {
-                yield(User{}, err)
-                return
-            }
-            if !yield(u, nil) {
-                return
-            }
-        }
-    }
+func (s *Store) Users(ctx context.Context) iter.Seq2[User, error] {
+	return func(yield func(User, error) bool) {
+		rows, err := s.db.Query(ctx, `SELECT id, name, email FROM users ORDER BY id`)
+		if err != nil {
+			yield(User{}, fmt.Errorf("query users: %w", err))
+			return
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var u User
+			if err := rows.Scan(&u.ID, &u.Name, &u.Email); err != nil {
+				yield(User{}, fmt.Errorf("scan user: %w", err))
+				return
+			}
+			if !yield(u, nil) {
+				return
+			}
+		}
+		if err := rows.Err(); err != nil {
+			yield(User{}, fmt.Errorf("iterate users: %w", err))
+		}
+	}
 }
 ```
 
-## Streaming Large Transfers
+Query shape, pagination and transactions are `golang-database`.
 
-When transferring large data between services (for example, one million database rows),
-use standard iterators or explicit streaming to keep memory bounded:
+## Streaming a large response
+
+Encode each item as it arrives so memory stays constant. Once the first
+byte is written the status is sent, so a mid-stream failure can only end the
+response; record it and stop:
 
 ```go
-// Stream JSON array to HTTP response — constant memory
-func (h *Handler) ExportUsers(w http.ResponseWriter, r *http.Request) {
-    w.Header().Set("Content-Type", "application/json")
-    w.Write([]byte("["))
-
-    first := true
-    for user, err := range h.repo.AllUsers(r.Context()) {
-        if err != nil {
-            slog.Error("streaming user", "error", err)
-            return
-        }
-        if !first {
-            w.Write([]byte(","))
-        }
-        json.NewEncoder(w).Encode(user)
-        first = false
-    }
-
-    w.Write([]byte("]"))
+enc := json.NewEncoder(w)
+for u, err := range h.users.Users(r.Context()) {
+	if err != nil {
+		h.log.ErrorContext(r.Context(), "stream users", "err", err)
+		return
+	}
+	if err := enc.Encode(u); err != nil {
+		return // client went away
+	}
 }
 ```
+
+Prefer newline-delimited JSON for streams; a JSON array needs hand-written
+brackets and commas around the encoder.

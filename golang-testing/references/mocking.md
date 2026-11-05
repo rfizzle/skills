@@ -10,13 +10,13 @@
 
 ## Consumer interfaces
 
-Mock the behavior consumed by the unit, not a concrete implementation. Preserve central
-shared domain interfaces where the architecture establishes them; define module-private
-ports next to their consumer.
+Mock the behavior consumed by the unit, not a concrete implementation. Define the port
+next to its consumer. Only small vocabulary interfaces (the `io.Reader` kind) are shared,
+and those are tested with a conformance suite rather than mocked per consumer.
 
 ```go
-type sessionGetter interface {
-    GetByID(context.Context, uuid.UUID) (*domain.Session, error)
+type orderGetter interface {
+    GetByID(context.Context, uuid.UUID) (*domain.Order, error)
 }
 ```
 
@@ -25,14 +25,14 @@ type sessionGetter interface {
 Small hand-written fakes stay type-safe and require no framework:
 
 ```go
-type fakeSessionGetter struct {
-    getByID func(context.Context, uuid.UUID) (*domain.Session, error)
+type fakeOrderGetter struct {
+    getByID func(context.Context, uuid.UUID) (*domain.Order, error)
 }
 
-func (f fakeSessionGetter) GetByID(
+func (f fakeOrderGetter) GetByID(
     ctx context.Context,
     id uuid.UUID,
-) (*domain.Session, error) {
+) (*domain.Order, error) {
     return f.getByID(ctx, id)
 }
 ```
