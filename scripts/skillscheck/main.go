@@ -7,12 +7,14 @@
 // copy left behind by a sync is caught the same way.
 //
 // Run with no arguments from the repository root to verify. Run with
-// -hash DIR to print the hash of one directory; the sync script uses that
-// mode so that there is exactly one definition of the hash.
+// -sum FILE to verify a different sum file. Run with -hash PATH to print the
+// hash of one directory or file; the sync script uses that mode so that there
+// is exactly one definition of the hash.
 //
 // The hash covers every regular file under the directory, in sorted path
-// order, as path, NUL, content, NUL. Modes and timestamps are not part of
-// it: git does not preserve them either.
+// order, as path, NUL, content, NUL. A single file hashes as its base name,
+// NUL, content, NUL. Modes and timestamps are not part of it: git does not
+// preserve them either.
 package main
 
 import (
@@ -29,10 +31,11 @@ import (
 	"strings"
 )
 
-const sumFile = ".agents/skills/shared.sum"
+const defaultSumFile = ".agents/skills/shared.sum"
 
 func main() {
 	hashDir := flag.String("hash", "", "print the content hash of this directory and exit")
+	sum := flag.String("sum", defaultSumFile, "verify this sum file")
 	flag.Parse()
 	if *hashDir != "" {
 		h, err := hashOf(*hashDir)
@@ -43,13 +46,21 @@ func main() {
 		fmt.Println(h)
 		return
 	}
-	os.Exit(verify())
+	os.Exit(verify(*sum, os.Stdout, os.Stderr))
 }
 
-// hashOf returns the hex SHA-256 of a directory's files, sorted by path.
+// hashOf returns the hex SHA-256 of a directory's files, sorted by path, or
+// of a single regular file.
 func hashOf(dir string) (string, error) {
+	info, err := os.Stat(dir)
+	if err != nil {
+		return "", err
+	}
+	if !info.IsDir() {
+		return hashFiles(filepath.Dir(dir), []string{filepath.Base(dir)})
+	}
 	var paths []string
-	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
+	err = filepath.WalkDir(dir, func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
@@ -66,6 +77,11 @@ func hashOf(dir string) (string, error) {
 		return "", err
 	}
 	sort.Strings(paths)
+	return hashFiles(dir, paths)
+}
+
+// hashFiles hashes the named files under dir as path, NUL, content, NUL.
+func hashFiles(dir string, paths []string) (string, error) {
 	h := sha256.New()
 	for _, rel := range paths {
 		f, err := os.Open(filepath.Join(dir, filepath.FromSlash(rel)))
@@ -85,14 +101,14 @@ func hashOf(dir string) (string, error) {
 }
 
 // verify reads the sum file and checks every entry. It returns the exit code.
-func verify() int {
+func verify(sumFile string, stdout, stderr io.Writer) int {
 	f, err := os.Open(sumFile)
 	if err != nil {
 		if os.IsNotExist(err) {
-			fmt.Println("skillscheck: no", sumFile, "so no shared skills to verify")
+			fmt.Fprintln(stdout, "skillscheck: no", sumFile, "so no shared skills to verify")
 			return 0
 		}
-		fmt.Fprintln(os.Stderr, "skillscheck:", err)
+		fmt.Fprintln(stderr, "skillscheck:", err)
 		return 2
 	}
 	defer f.Close()
@@ -108,32 +124,32 @@ func verify() int {
 		}
 		fields := strings.Fields(line)
 		if len(fields) != 3 {
-			fmt.Printf("%s:%d: want \"<path> <source-commit> <sha256>\", got %q\n", sumFile, n, line)
+			fmt.Fprintf(stdout, "%s:%d: want \"<path> <source-commit> <sha256>\", got %q\n", sumFile, n, line)
 			problems++
 			continue
 		}
 		path, commit, want := fields[0], fields[1], fields[2]
 		listed[path] = true
 		if _, err := os.Stat(path); err != nil {
-			fmt.Printf("%s:%d: %s is listed but missing; run make skills-sync\n", sumFile, n, path)
+			fmt.Fprintf(stdout, "%s:%d: %s is listed but missing; run make skills-sync\n", sumFile, n, path)
 			problems++
 			continue
 		}
 		got, err := hashOf(path)
 		if err != nil {
-			fmt.Printf("%s:%d: %s: %v\n", sumFile, n, path, err)
+			fmt.Fprintf(stdout, "%s:%d: %s: %v\n", sumFile, n, path, err)
 			problems++
 			continue
 		}
 		if got != want {
-			fmt.Printf("%s:%d: %s differs from the copy vendored at %s. Shared skills are edited in the skills repository, then `make skills-sync`; a local edit here is a fork.\n", sumFile, n, path, commit)
+			fmt.Fprintf(stdout, "%s:%d: %s differs from the copy recorded at %s. Shared skills are edited in the skills repository, then `make skills-sync`; a local edit here is a fork.\n", sumFile, n, path, commit)
 			problems++
 		}
 	}
 	if problems > 0 {
-		fmt.Printf("skillscheck: %d problem(s)\n", problems)
+		fmt.Fprintf(stdout, "skillscheck: %d problem(s)\n", problems)
 		return 1
 	}
-	fmt.Printf("skillscheck: %d shared path(s) match their source\n", len(listed))
+	fmt.Fprintf(stdout, "skillscheck: %d shared path(s) match their source\n", len(listed))
 	return 0
 }
