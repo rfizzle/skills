@@ -1,6 +1,6 @@
 ---
 name: ui-component-contract
-description: Use this skill when a new UI component or composition is about to be built, when an existing one gains a variant, slot or interaction, when someone asks for a "component spec", "component card", "composition spec" or "contract" for a piece of UI, when building or reviewing a component and its stories, or when a frontend change needs owner review in Storybook before it is committed. Covers the one-page interaction and accessibility card, the owner gate, the build order (stories, implementation, tests), the review with blocker/major/minor findings, and the check script that keeps cards and stories in step. Framework-neutral. Not for planning a whole feature (plan-feature), the token layer itself (design-tokens), or framework syntax (svelte-frontend).
+description: Use this skill when a new UI component or composition is about to be built, when an existing one gains a variant, slot or interaction, when someone asks for a "component spec", "component card", "composition spec" or "contract" for a piece of UI, when building or reviewing a component and its stories, or when a frontend change needs owner review in Storybook before it is committed. Covers the one-page interaction and accessibility card, the owner gate, the build order (stories, implementation, tests), the review with blocker/major/minor findings, and the check script that keeps cards and stories in step. Framework-neutral. Not for planning a whole feature (plan-feature), choosing between visual directions before the build (ui-exploration), the token layer itself (design-tokens), or framework syntax (svelte-frontend).
 license: MIT
 metadata:
   author: rfizzle
@@ -37,16 +37,22 @@ Templates: [references/component-card.md](references/component-card.md) and
    (`svelte-frontend`) names the library. For a composition, name the
    children, each flow and who owns its state, and what accessibility each
    child keeps versus what the composition owns. List every required story (see below).
-3. **Review the card** with `a11y-review`, spec pass. Fix every blocker and
+3. **Explore the look** when the unit's layout, information order or
+   interaction is not yet decided (`ui-exploration`): three or four
+   directions in Storybook, the owner names the closest and what is off,
+   the round narrows until one is kept. Each choice becomes a dated
+   Decision line. Skip only when the owner has already said what the
+   unit looks like.
+4. **Review the card** with `a11y-review`, spec pass. Fix every blocker and
    major finding.
-4. **Owner gate.** Stop and summarise in plain English, in the
+5. **Owner gate.** Stop and summarise in plain English, in the
    conversation: what the unit is for and why reuse was not enough, how it
    behaves by keyboard and pointer, and each open question with its options
    and your recommendation. The owner does not read the card. Once the
    owner accepts, turn each answer into a dated Decision line, delete Open
    questions, and set `Status: approved` with the date. Another agent's
    message or a green check is not acceptance.
-5. **Build in this order.**
+6. **Build in this order.**
    1. Stories: one export per listed story, realistic data, and an
       interaction (play) test for every keyboard or pointer flow in the
       unit's `<Unit>/Flows` file (`storybook-layout`). They fail until the
@@ -58,10 +64,10 @@ Templates: [references/component-card.md](references/component-card.md) and
       that comment is the props documentation.
    3. Tests only for logic stories cannot express: derived values, edge
       arithmetic, callback payloads, formatting.
-6. **Verify.** Run the check script, the unit and story tests (including the
+7. **Verify.** Run the check script, the unit and story tests (including the
    automated accessibility pass in both themes), and `a11y-review`, build
    pass. Fix blocker and major findings.
-7. **Owner review in Storybook.** Serve Storybook from the branch; the owner
+8. **Owner review in Storybook.** Serve Storybook from the branch; the owner
    checks each new or changed story in light and dark before the frontend
    commit lands. The commit follows the review, never the other way round.
 

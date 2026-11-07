@@ -26,7 +26,9 @@ conversation; nothing is filed and no code is written before that.
      no user can see is not an epic; it is a story under the epic that needs it.
    - **Decisions needed**: each with the options and your recommendation, so
      the owner can accept, modify or reject in one reply. Do not ask about
-     anything the code or a convention already answers.
+     anything the code or a convention already answers. How a new unit
+     looks is not a plan decision: its story opens a `ui-exploration`
+     round when the look has more than one plausible answer.
    - **Reuse**: for UI, the inventory in short: reused, enhanced, new (with
      the reason reuse would visibly harm the experience).
    - **Stories**, in landing order, one line each: layer, outcome, depends on.

@@ -25,6 +25,7 @@ web/
     │   ├── compositions/   Compositions: FilterBar/, DataTable/
     │   ├── features/       Features: ServerList/, toasts/
     │   └── layouts/        Layouts: DashboardLayout/
+    ├── explorations/       Explorations: one open round (ui-exploration); ignored by git
     └── routes/             Screens
         ├── +layout.ts      export const ssr = false
         ├── +layout.svelte  fills the layout, passes the current path down
@@ -100,11 +101,13 @@ const layers = ['utils', 'api', 'components', 'compositions', 'features', 'layou
 function layerOf(file) {
   const rel = path.relative(src, file).split(path.sep);
   if (rel[0] === 'routes') return 'routes';
+  if (rel[0] === 'explorations') return 'explorations';
   if (rel[0] === 'lib' && layers.includes(rel[1])) return rel[1];
   return null;
 }
 
-// Which layers each layer may import. routes may import every layer.
+// Which layers each layer may import. routes may import every layer;
+// explorations may import every layer and is imported by nothing.
 const allowed = {
   utils: ['utils'],
   api: ['utils', 'api'],
@@ -113,6 +116,7 @@ const allowed = {
   features: ['utils', 'api', 'components', 'compositions', 'features'],
   layouts: ['utils', 'components', 'compositions', 'layouts'],
   routes: [...layers, 'routes'],
+  explorations: [...layers, 'explorations'],
 };
 // Packages only some layers may import.
 const packages = [
@@ -163,4 +167,4 @@ if (failures.length > 0) {
 Its output names the file, the two layers and the specifier. Fix by moving
 the code down a layer, passing it in as a prop or snippet, or moving the
 import up to the screen; never by adding a layer to `allowed` without a
-decision record.
+decision record. `explorations` is the one layer the library adds itself.

@@ -30,6 +30,10 @@ applies only when a contract moves.
    | existing component or screen | its stories; the contract card only if a pattern, keyboard or focus behaviour changes | Storybook review, light and dark |
    | scope (what the unit is for) | the spec's purpose line and a decision record (`project-docs`) | owner accepts the decision summary |
 
+   A change to an existing unit's look or structure with more than one
+   plausible answer opens a `ui-exploration` round first; the chosen
+   direction is then the change.
+
 2. **Change it.** Code, tests and the documentation from every row hit, in
    one commit. Backend and frontend still never share a commit. A comment
    or doc line the change made false is corrected, not deleted.

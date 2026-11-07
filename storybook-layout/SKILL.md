@@ -1,6 +1,6 @@
 ---
 name: storybook-layout
-description: Use this skill when adding, renaming or moving a Storybook story file, when choosing a story's title or its stories' names and order, when setting up or reorganising a Storybook sidebar, when a gallery, "all together", kitchen-sink, screen or page story is about to be written, when the owner says the sidebar is cluttered, inconsistent or hard to review, or when reviewing a UI branch in Storybook and the grouping gets in the way. Holds the one sidebar shape every project uses: fixed roots in a fixed order, one entry per unit by its code name with Default first, extra files only as Flows, Examples or a named part, and every screen under Screens. Framework-neutral. Not for what a unit's stories must prove or its card (ui-component-contract), nor for tokens or themes (design-tokens).
+description: Use this skill when adding, renaming or moving a Storybook story file, when choosing a story's title or its stories' names and order, when setting up or reorganising a Storybook sidebar, when a gallery, "all together", kitchen-sink, screen or page story is about to be written, when the owner says the sidebar is cluttered, inconsistent or hard to review, or when reviewing a UI branch in Storybook and the grouping gets in the way. Holds the one sidebar shape every project uses: fixed roots in a fixed order, one entry per unit by its code name with Default first, extra files only as Flows, Examples or a named part, and every screen under Screens. Framework-neutral. Not for what a unit's stories must prove or its card (ui-component-contract), the round that chooses between directions (ui-exploration), nor for tokens or themes (design-tokens).
 license: MIT
 metadata:
   author: rfizzle
@@ -31,8 +31,11 @@ under every component, docs first, combinations last.
 | `Features` | units that know the domain |
 | `Layouts` | frames with slots and no domain logic |
 | `Screens` | whole screens, composed at the highest layer available |
+| `Explorations` | the open exploration's directions, one story each (`ui-exploration`); gitignored, never on the default branch |
 
 A project with fewer layers drops roots; it never adds a root or renames one.
+`Explorations` exists only while a round is open (`ui-exploration`) and is
+empty on the default branch.
 Order them with `storySort` in the preview (below); import order is not an
 order.
 
@@ -81,7 +84,8 @@ suit the sidebar.
 1. Print every title: `grep -rh "title:" --include='*.stories.*' src .storybook`.
    Each must match `Docs/…`, `Foundations/…`, `<Root>/<UnitName>`,
    `<Root>/<UnitName>/Flows`, `<Root>/<UnitName>/Flows: <topic>`,
-   `<Root>/<UnitName>/Examples`, `<Root>/<UnitName>/<Part>` or `Screens/<Screen>`.
+   `<Root>/<UnitName>/Examples`, `<Root>/<UnitName>/<Part>`, `Screens/<Screen>`
+   or `Explorations/<UnitName>`.
 2. Fix titles and story order; rename exports only when `Default` is not
    first, and mirror every rename in the unit's card and in any story that
    imports it.
@@ -89,7 +93,7 @@ suit the sidebar.
 4. Set the root order in the preview:
 
    ```js
-   options: { storySort: { order: ['Docs', 'Foundations', 'Components', 'Compositions', 'Features', 'Layouts', 'Screens'] } }
+   options: { storySort: { order: ['Docs', 'Foundations', 'Components', 'Compositions', 'Features', 'Layouts', 'Screens', 'Explorations'] } }
    ```
 
 5. Run the card check and the story tests; the story count may fall only by

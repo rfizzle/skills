@@ -75,6 +75,7 @@ Svelte 4 syntax fails the build.
 | `lib/features` | `Features` | compositions, components, `lib/api`, utils |
 | `lib/layouts` | `Layouts` | compositions, components, utils |
 | `routes` | `Screens` | everything above; `$app/*` |
+| `explorations` | `Explorations` | everything above; imported by nothing; in `.gitignore` (`ui-exploration`) |
 
 This is the import rule `storybook-layout` refers to;
 `scripts/check-imports.mjs` in `make web-lint` enforces it, and with domain
