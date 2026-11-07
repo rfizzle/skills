@@ -6,6 +6,7 @@
 - Frontend jobs
 - Workflow conventions
 - renovate.json
+- The skills bump
 
 ## CI jobs
 
@@ -215,3 +216,71 @@ jobs:
 - When tidy fails in a Renovate branch, the bot could not fetch a module:
   add `hostRules` for the private host and set `GOPRIVATE` in the bot's
   environment, or move the importing file out of the main module.
+
+## The skills bump
+
+Renovate cannot bump the vendored skills: `shared.sum` carries a content
+hash per path, so changing the tag alone fails `skills-check`. A small
+workflow does the whole move instead, weekly after the images, and on
+demand:
+
+```yaml
+# .github/workflows/skills-bump.yml
+name: skills-bump
+on:
+  schedule:
+    - cron: "0 8 * * 1"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@<sha> # v<x.y.z>
+        with:
+          token: ${{ secrets.SKILLS_BUMP_TOKEN }}
+      - uses: actions/checkout@<sha> # v<x.y.z>
+        with:
+          repository: <owner>/skills
+          path: .skills-source
+          fetch-depth: 0
+      - uses: actions/setup-go@<sha> # v<x.y.z>
+        with:
+          go-version-file: go.mod
+      - name: Vendor the newest release when it is newer than the lock
+        env:
+          GH_TOKEN: ${{ secrets.SKILLS_BUMP_TOKEN }}
+        run: |
+          latest="$(git -C .skills-source tag --sort=-v:refname | head -1)"
+          current="$(awk '!/^#/ && NF { print $2; exit }' .agents/skills/shared.sum)"
+          [ "$latest" != "$current" ] || { echo "at $current"; exit 0; }
+          git ls-remote --exit-code origin "refs/heads/skills/$latest" >/dev/null \
+            && { echo "skills/$latest is already open"; exit 0; }
+          make skills-sync SKILLS_REF="$latest" SKILLS_SOURCE=.skills-source
+          make skills-check
+          git config user.name  "skills-bump"
+          git config user.email "skills-bump@users.noreply.github.com"
+          git checkout -b "skills/$latest"
+          git add .agents/skills scripts/skillscheck
+          [ ! -d scripts/docscheck ] || git add scripts/docscheck
+          git commit -m "build(skills): vendor shared skills $latest" \
+            -m "Changelog: https://github.com/<owner>/skills/blob/$latest/CHANGELOG.md"
+          git push -u origin "skills/$latest"
+          gh pr create --fill
+```
+
+- `SKILLS_BUMP_TOKEN` is a fine-grained token with contents and pull
+  requests write on this repository only. The default `GITHUB_TOKEN` cannot
+  be used: a push made with it starts no other workflow, so the pull request
+  would have no checks to go green.
+- `.skills-source` is the checkout the sync reads from; it is never
+  committed (`git add` names its paths) and the job's clone is discarded.
+- The commit type is `build`, the type `git-workflow` gives a vendored
+  dependency; older `chore(skills)` commits in a project predate that rule.
+- The pull request merges like any other: `verify` runs `skills-check`
+  against the new lock, and the owner reads the linked changelog. A skill
+  that changed a rule a project relies on is a review, not a rubber stamp.
+- Cutting a release (`release`) is what makes this fire; a project that
+  wants a bump today runs the workflow by hand or `make skills-sync
+  SKILLS_REF=<tag>` locally and commits the result with the same message.

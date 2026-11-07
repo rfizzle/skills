@@ -25,10 +25,12 @@ IMAGE       ?= ghcr.io/<owner>/<app>
 COMPOSE     ?= docker compose
 E2E_PROJECT ?= $(notdir $(CURDIR))-e2e
 E2E_ARGS    ?= --project=chromium
+SKILLS_SOURCE ?= ../skills
+SKILLS_REF    ?=
 
 .PHONY: help tools env hooks generate generate-check test test-integration \
-        lint architecture-check docs-check skills-check web-lint web-test \
-        web-budget storybook-build e2e docker-build image-check dev dev-up \
+        lint architecture-check docs-check skills-check skills-sync web-lint \
+        web-test web-budget storybook-build e2e docker-build image-check dev dev-up \
         dev-down dev-reset seed proto-lint proto-breaking ci
 
 help: ## Show this help
@@ -76,6 +78,10 @@ docs-check: ## Verify documentation links, paths, commands and ids
 
 skills-check: ## Fail if a vendored shared skill was edited in place
 	@$(GO) run ./scripts/skillscheck
+
+skills-sync: ## Re-vendor the shared skills from a release tag: make skills-sync SKILLS_REF=<tag>
+	@test -n "$(SKILLS_REF)" || { echo "set SKILLS_REF=<tag> (git -C $(SKILLS_SOURCE) tag --sort=-v:refname | head -1)"; exit 1; }
+	@$(SKILLS_SOURCE)/scripts/sync -C . -r $(SKILLS_REF)
 
 web-lint: ## Frontend type checks and lint
 	@pnpm --dir web run check

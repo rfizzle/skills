@@ -30,6 +30,7 @@ database) are omitted, not stubbed.
 | `architecture-check` | fails on an import that crosses a layer boundary |
 | `docs-check` | the documentation checker (`project-docs`) |
 | `skills-check` | vendored shared skills match their lock file |
+| `skills-sync` | re-vendors the shared skills from a release tag (`SKILLS_REF=<tag>`); the weekly bump workflow runs it |
 | `web-lint` | type checks and lint for the frontend |
 | `web-test` | frontend unit tests and stories as tests |
 | `web-budget` | builds the frontend and fails on a bundle over budget |
