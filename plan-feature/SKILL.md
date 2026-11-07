@@ -84,7 +84,7 @@ summary of what they decide, never asked to open them.
   and stop. Change nothing.
 - **Verification is short.** Acceptance criteria name bounded tests; never
   long soak or race loops.
-- **Never push.** The agent commits locally; the owner pushes.
+- **The push is the owner's** (`git-workflow`). The agent commits locally.
 - **Every gate is a plain-English summary** in the conversation: what was
   decided, the options, your recommendation. The owner does not read specs,
   cards or briefs.

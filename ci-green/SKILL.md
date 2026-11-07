@@ -1,6 +1,6 @@
 ---
 name: ci-green
-description: Use this skill before pushing to the default branch or telling the owner a batch is ready to push, when CI is red or "the pipeline failed", when commits were pushed on top of a failing run, when a check exists only in CI and not in the local gate ("make ci" versus "make check"), when a test or check is flaky in CI, when writing a pre-push hook, or when deciding what "done" means for a change that lands straight on the default branch. Holds the rule that the push gate is the CI target, not the fast gate; that a push is watched and a red run is fixed forward before anything else lands; that a check encoding a product fact names it; and the pre-push hook that refuses to pile commits onto a red branch. Not for staging, commit messages and history (git-workflow), the Makefile and CI layout themselves (repo-tooling), release tagging (release), or batch orchestration (backlog-batches, which cites this skill for its landing gate).
+description: Use this skill before pushing to the default branch or telling the owner a batch is ready to push, when CI is red or "the pipeline failed", when commits were pushed on top of a failing run, when a check exists only in CI and not in the local gate ("make ci" versus "make check"), when a test or check is flaky in CI, when writing a pre-push hook, or when deciding what "done" means for a change that lands straight on the default branch. Holds the rule that the push gate is the CI target, not the fast gate; that a push is watched and a red run is fixed forward before anything else lands; that a check encoding a product fact names it; and the pre-push hook that refuses to pile commits onto a red branch. Not for staging, commit messages and history (git-workflow), the Makefile, the pipeline's layout and speed (repo-tooling), release tagging (release), or batch orchestration (backlog-batches, which cites this skill for its landing gate).
 license: MIT
 metadata:
   author: rfizzle
@@ -32,8 +32,9 @@ that pushed does not end while the run is pending.
 
 **Red is fixed first.** When the default branch's latest run is red,
 nothing else lands on it until a commit makes it green: fix forward in the
-same session, or revert the commit that broke it. A new push onto a red
-branch is refused by the pre-push hook below.
+same session, or revert the commit that broke it. The fixing commit
+carries a `Fixes-CI: <run url>` trailer; the pre-push hook below refuses
+any other push onto a red or still-running default branch.
 
 **A flaky check is a bug.** A failure that passes on rerun is fixed or
 quarantined the same day (`browser-e2e` has the quarantine shape); it is
@@ -48,6 +49,9 @@ ordinary feature is a test of the feature, not a hidden assumption of the
 gate.
 
 ## Procedure
+
+CI here is GitHub Actions; another system swaps the `gh` commands for its
+own and keeps the steps.
 
 1. Before the first push of a session, read the workflow: which job runs
    which target, and which targets are in the CI target but not in the fast
@@ -91,15 +95,14 @@ gate.
 - Branch protection with required checks blocks direct pushes to the
   default branch; a solo repository that commits straight to it relies on
   the hook and the watch instead, and says so in its agent instructions.
-- A worktree kept inside the repository directory (`tmp/worktrees/<name>`)
-  is not clean for a release or reproducibility check: Go's VCS stamp walks
+- A worktree kept inside the repository directory is not clean for a release or reproducibility check: Go's VCS stamp walks
   past the worktree's `.git` file to the parent repository and records the
   main checkout's HEAD, so two builds minutes apart differ when the main
   branch moved between them. Put the landing-gate worktree beside the
   repository, not inside it, or use a `git archive` export.
-- Several commits pushed at once get one run on the tip; a red run names
-  the tip, and bisecting means running the CI target on earlier commits
-  locally, which is why the batch runs it before the push.
+- Several commits pushed at once get one run on the tip, so a red run does
+  not say which commit broke it; the batch runs the CI target before the
+  push for that reason.
 
 ## References
 

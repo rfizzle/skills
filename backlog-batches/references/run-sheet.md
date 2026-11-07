@@ -46,7 +46,7 @@ Commit rules:        Conventional Commits per AGENTS.md; scopes from the story t
 Attribution:         Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
 Roles:               implementer=backlog-implementer; reviewer=diff-reviewer; designer=architect
 Tiers:               routine=sonnet; capable=opus; frontier=fable
-Worktree launch:     Agent tool with subagent_type, isolation: "worktree", model by tier
+Worktree launch:     Agent tool with subagent_type, isolation: "worktree", model by tier; `git worktree add ../<name>` when the harness places worktrees inside the repository (ci-green)
 Standing grants:     "For future sub-agent reference: you are allowed to use `git merge --ff-only master` and `git rebase master` inside worktrees" (2026-09-27)
 Shared conflicts:    CHANGELOG.md Unreleased: keep both; SPEC.md: rebase; testdata goldens: regenerate with -update; internal/config/default.yaml and its goldens: rebase
 ```

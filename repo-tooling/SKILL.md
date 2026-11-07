@@ -167,9 +167,11 @@ Adopt these where the repository can hold them; each is a target in
 - **Maintainability ratchet**: a per-package check against the base branch
   (duplication, untested exports, globals, package size) that may only get
   better, with exemptions that carry a reason and an expiry.
-- **Pre-commit hook** in `.githooks/pre-commit`, enabled by `make hooks`
-  (`git config core.hooksPath .githooks`). It runs the fast checks only;
-  CI is the gate that cannot be bypassed.
+- **Hooks** in `.githooks/pre-commit` and `.githooks/pre-push`, enabled by
+  `make hooks` (`git config core.hooksPath .githooks`). Pre-commit runs the
+  fast checks only; pre-push refuses a push onto a red default branch and
+  runs the CI-only checks that finish in minutes (`ci-green`); CI is the
+  gate that cannot be bypassed.
 - **Coverage floor** in `scripts/coverage-baseline.env`, checked by the
   coverage step of `make test`. It is raised as coverage grows; lowering it
   needs a reviewed reason.

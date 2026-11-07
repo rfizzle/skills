@@ -9,10 +9,11 @@ All notable changes to this repository. The format follows
 ### Added
 
 - `git-workflow`: the commit discipline in one place: stage named paths (never `-A`, `.` or `-a`) and read the cached diff, Conventional Commits with a body that says why and no tracker ids, one change per commit, amend and rebase only what has not left the machine, fast-forward landing, worktrees beside the repository, and the push as the owner's decision through `ci-green`'s gate. `plan-feature` and the AGENTS.md template point to it.
-- `ci-green`: the push discipline after a day of red runs nobody saw: the push gate is the CI target, not the fast gate; a push is watched and a red run is fixed forward before anything else lands; a flaky check is a bug; a check that encodes a product fact names it; and a pre-push hook that refuses to pile commits onto a red default branch and runs the CI-only fast checks.
+- `ci-green`: the push discipline after a day of red runs nobody saw: the push gate is the CI target, not the fast gate; a push is watched and a red run is fixed forward before anything else lands; a flaky check is a bug; a check that encodes a product fact names it; and a pre-push hook that refuses a push onto a red or still-running default branch unless the push carries a `Fixes-CI:` trailer or a revert, then runs the CI-only fast checks on the pushed head.
 
 ### Changed
 
+- `repo-tooling` names the pre-push hook beside pre-commit; `plan-feature` and the AGENTS.md template state the push rule once, as `git-workflow`'s.
 - `backlog-batches`: the run sheet names a landing gate (the CI target) beside the per-item gate, and the orchestrator runs it once on a batch's final head before reporting the head ready to push (`ci-green`).
 
 ## [0.4.0] - 2026-11-07

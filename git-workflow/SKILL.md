@@ -45,27 +45,19 @@ constraint that forced the shape, the alternative that was rejected.
 Wrapped at 72. No story, ticket or plan id; the tracker links here.
 ```
 
-| Type | For |
-| --- | --- |
-| `feat` | behaviour a user or operator gains |
-| `fix` | behaviour that was wrong |
-| `refactor` | the same behaviour, a different shape |
-| `perf` | the same behaviour, measured faster |
-| `test` | tests only |
-| `docs` | documents and comments only |
-| `build` | Makefile, dependencies, Dockerfile, generators |
-| `ci` | workflows and hooks |
-| `chore` | releases and housekeeping that fit no other type |
-| `revert` | an exact revert, naming the reverted subject |
+Types are the Conventional Commits set (`feat`, `fix`, `refactor`, `perf`,
+`test`, `docs`, `build`, `ci`, `chore`, `revert`). The three that get
+confused here: `build` is the Makefile, dependencies, Dockerfile and
+generators; `ci` is workflows and hooks; `chore` is a release or
+housekeeping that fits nothing else, never a disguised `feat` or `fix`.
 
 Rules:
 
 - The scope is the package, skill or area, lower case; omit it when the
   change spans the repository.
 - A subject that needs "and", "also" or "plus" is two commits.
-- A breaking change puts `!` after the scope and a `BREAKING CHANGE:`
-  footer saying what to do; `release` reads it for the bump.
-- The body is for why. What changed is in the diff.
+- A breaking change carries the `BREAKING CHANGE:` footer saying what to
+  do; `release` reads it for the bump.
 
 ## The shape of a commit
 
@@ -79,22 +71,22 @@ Rules:
   in the same commit (`project-docs`).
 - The fast gate (`make check`) passes before every commit, and the hooks
   run. Never `--no-verify`; a failing hook is a finding to fix or report,
-  not a flag to skip.
+  not a flag to skip. The CI gate belongs to the push, not the commit
+  (`ci-green`).
 
 ## History
 
-- **Amend and rebase only what has not left the machine.** After a push,
-  fix forward with a new commit. The only exception is a branch of your
-  own that nobody has pulled, and then `--force-with-lease`, never
-  `--force`.
+- **Amend and rebase only a hash nobody else holds**: not pushed, not
+  told to another session or agent (`backlog-batches`). Otherwise fix
+  forward with a new commit. The one exception is a branch of your own
+  that nobody has pulled, and then `--force-with-lease`, never `--force`.
 - **The default branch moves forward only.** Land by fast-forward after a
   rebase onto its head; no merge commits, no force-push, ever
   (`backlog-batches` has the landing protocol).
 - **No stash.** Commit a work-in-progress on the branch and amend it
   before it leaves, or use a worktree. A stash is state nobody can see.
-- **Worktrees sit beside the repository**, never inside it: a worktree
-  under the repository tree is stamped with the main checkout's HEAD and
-  is picked up by every tree-walking check (`ci-green`).
+- **Worktrees sit beside the repository**, never inside it (`ci-green`
+  has why).
 - **Look before destroying.** `git clean -n` before `git clean -f`;
   `git status` before `git reset --hard` or `git checkout -- .`; never
   discard changes you did not make. Do not remove another session's
@@ -113,24 +105,22 @@ Rules:
 - Start from the remote: `git fetch` and compare before the first commit
   of a session. `git pull --rebase` only on your own clean branch; never a
   `git pull` that creates a merge commit on the default branch.
-- Hooks are installed once per clone with `make hooks` and checked with
-  `git config core.hooksPath`; a clone without them has no local guard.
+- Hooks are installed once per clone with `make hooks`; a clone without
+  them has no local guard (`ci-green`).
 
 ## Gotchas
 
-- `git add -A` stages the whole tree from any directory: the worktree
-  under `tmp/`, the `.env`, the build output you were about to ignore.
+- `git add -A` stages the whole tree from any directory: a worktree inside
+  the repository, the `.env`, the build output you were about to ignore.
 - `git commit -a` misses new files and includes the unrelated edit you
   forgot about.
 - `git add .` after a generator or install run stages lockfile churn you
   did not mean to ship.
 - An amend after a push leaves CI, the other session and the owner's clone
   on a hash that no longer exists.
-- A commit that passes `make check` can still fail `make ci`; that is why
-  the push, not the commit, carries the CI gate (`ci-green`).
 - A diff that touches every line of a file is a line-ending or formatter
-  change, not the change you meant; keep `core.autocrlf` off on WSL and
-  commit the reformat on its own.
+  change, not the change you meant; keep `core.autocrlf` off and commit
+  a reformat on its own.
 - A story id in a subject, body or branch name outlives the tracker; the
   tracker links to the commit, never the reverse.
 
