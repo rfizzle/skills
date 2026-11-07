@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-11-08
+
 ### Added
 
 - `git-workflow`: the commit discipline in one place: stage named paths (never `-A`, `.` or `-a`) and read the cached diff, Conventional Commits with a body that says why and no tracker ids, one change per commit, amend and rebase only what has not left the machine, fast-forward landing, worktrees beside the repository, and the push as the owner's decision through `ci-green`'s gate. `plan-feature` and the AGENTS.md template point to it.
