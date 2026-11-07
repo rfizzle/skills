@@ -6,6 +6,10 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `storybook-layout`: the one Storybook sidebar shape: fixed roots in a fixed order, one entry per unit by its code name with `Default` first, extra files only as `Flows`, `Examples` or a named part, and every screen under `Screens`.
+
 ## [0.2.1] - 2026-11-05
 
 ### Fixed

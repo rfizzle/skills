@@ -19,7 +19,7 @@ framework-neutral; Svelte and React mechanics belong to framework skills.
 | Repository and docs | `project-docs`, `go-project-layout`, `repo-tooling`, `service-operations`, `create-skill`, `sound-patterns` |
 | API and data | `api-contract`, `golang-database` |
 | Go | `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
-| UI | `ui-patterns`, `ui-component-contract`, `design-tokens`, `a11y-review` |
+| UI | `ui-patterns`, `ui-component-contract`, `design-tokens`, `a11y-review`, `storybook-layout` |
 
 A skill exists because something went wrong without it. It holds what a
 capable model would not do unprompted; a rule a machine can check becomes a
