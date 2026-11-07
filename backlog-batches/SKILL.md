@@ -170,11 +170,14 @@ repository, and the source.
 - Push only when the user asks, and ask in the first report whether to push
   per batch.
 - At the end of a batch: a table of item, commit hash, files changed, review
-  level, follow-ups; then the next batch's first three. Run the final
-  repository-wide check on a `git archive` export if any check walks the
-  worktree directory. Cleanup of merged worktrees is the user's call: list
-  them with the commands (`git worktree unlock`, `git worktree remove`,
-  `git branch -D`, `git worktree prune`).
+  level, follow-ups; then the next batch's first three. Before the head is
+  reported ready to push, run the landing gate from the run sheet (the CI
+  target, not the per-item gate) once on the batch's final head, in a
+  clean worktree or `git archive` export, and report its result with the
+  commit it ran on; `ci-green` has the rule and the push discipline.
+  Cleanup of merged worktrees is the user's call: list them with the
+  commands (`git worktree unlock`, `git worktree remove`, `git branch -D`,
+  `git worktree prune`).
 
 ## Gotchas
 

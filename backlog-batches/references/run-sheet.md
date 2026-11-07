@@ -13,6 +13,7 @@ Finish line:         <the items or milestone that end this run>
 Parked list:         <where non-qualifying follow-ups go>
 Default branch:      <master|main>
 Gate:                <exact command>; tools present on this host: yes/no
+Landing gate:        <the CI target, run once by the orchestrator on the batch's final head in a clean worktree before the head is reported ready to push>
 Forbidden:           <commands agents must not run>
 Commit rules:        <types, scopes, subject rules, body rules, trailers>
 Attribution:         <trailer lines the harness requires, or none>
@@ -39,6 +40,7 @@ Finish line:         S-153, S-155, S-156, S-157, S-159 landed; S-154 and S-161 a
 Parked list:         one-line notes under "## Later" in .backlog.md
 Default branch:      master
 Gate:                make check (actionlint tidy fmt vet lint test selfcheck readme-check); golangci-lint installed 2026-09-29
+Landing gate:        make ci on the final head, in a clean worktree
 Forbidden:           commands that hit live services; long replays; anything that clones or downloads
 Commit rules:        Conventional Commits per AGENTS.md; scopes from the story tags; no story ids in messages; SPEC.md updated in the same change
 Attribution:         Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>

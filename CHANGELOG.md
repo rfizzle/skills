@@ -6,6 +6,14 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `ci-green`: the push discipline after a day of red runs nobody saw: the push gate is the CI target, not the fast gate; a push is watched and a red run is fixed forward before anything else lands; a flaky check is a bug; a check that encodes a product fact names it; and a pre-push hook that refuses to pile commits onto a red default branch and runs the CI-only fast checks.
+
+### Changed
+
+- `backlog-batches`: the run sheet names a landing gate (the CI target) beside the per-item gate, and the orchestrator runs it once on a batch's final head before reporting the head ready to push (`ci-green`).
+
 ## [0.4.0] - 2026-11-07
 
 ### Added
