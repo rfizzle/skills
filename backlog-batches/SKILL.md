@@ -166,7 +166,7 @@ repository, and the source.
 
 - After every five landings, or when the user asks: landed, remaining,
   decisions waiting on the user, follow-ups filed and parked, backlog growth
-  since kickoff.
+  since kickoff, in the `checkpoint` report shape (decisions waiting first).
 - Push only when the user asks, and ask in the first report whether to push
   per batch.
 - At the end of a batch: a table of item, commit hash, files changed, review

@@ -16,11 +16,12 @@ framework-neutral; Svelte mechanics belong to the framework skill,
 
 | Area | Skills |
 | --- | --- |
-| Planning and process | `plan-feature`, `contract-spec`, `iterate`, `backlog-batches`, `git-workflow`, `ci-green`, `release`, `deploy` |
+| Planning and process | `plan-feature`, `contract-spec`, `iterate`, `backlog-batches`, `checkpoint`, `git-workflow`, `ci-green`, `release`, `deploy` |
 | Repository and docs | `project-docs`, `go-project-layout`, `repo-tooling`, `container-image`, `service-operations`, `create-skill`, `sound-patterns` |
 | API and data | `connect-rpc`, `api-contract`, `golang-database`, `go-background-jobs` |
 | Go | `go-http-server`, `go-auth`, `go-library`, `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
 | UI | `svelte-frontend`, `frontend-api-client`, `browser-e2e`, `ui-patterns`, `ui-component-contract`, `ui-exploration`, `design-tokens`, `a11y-review`, `storybook-layout` |
+| Hosts and operations | `guided-ops`, `cloudflare-edge`, `credential-rotation` |
 
 A skill exists because something went wrong without it. It holds what a
 capable model would not do unprompted; a rule a machine can check becomes a
@@ -60,6 +61,8 @@ The validator checks frontmatter, size, links, that description pointers like
 
 Releases are SemVer tags with an entry in [CHANGELOG.md](CHANGELOG.md):
 removing or renaming a skill is MAJOR (after 1.0), a new skill MINOR, a
-wording fix PATCH. Projects move by re-running `skills-sync` with the new tag.
+wording fix PATCH. Projects move by re-running `skills-sync` with the new tag,
+or let the weekly bump workflow in `repo-tooling/references/ci-renovate.md`
+open the pull request.
 
 MIT licence.

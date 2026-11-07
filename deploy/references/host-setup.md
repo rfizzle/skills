@@ -101,8 +101,8 @@ units' logs with `journalctl --user -u <app>`.
 ## Firewall
 
 Nothing inbound. Before turning it on, make sure SSH works through the
-tunnel (a Cloudflare Access application on an `ssh.<domain>` ingress to
-`ssh://127.0.0.1:22`) or through the provider's console; otherwise this
+tunnel (a Cloudflare Access application on an `ssh.<host>.<zone>` ingress
+to `ssh://127.0.0.1:22`, `cloudflare-edge`) or through the provider's console; otherwise this
 locks the owner out.
 
 ```text

@@ -55,10 +55,18 @@ purpose and the rest points at the story.
 check, how to mitigate, how to roll back. The `service-operations` skill has
 the shape.
 
-`docs/runbooks/deploy.md` is the one runbook no alert owns: preconditions,
+`docs/runbooks/deploy.md` is a runbook no alert owns: preconditions,
 the deploy commands, verification, rollback and who to tell. Every alert
 page's bad-deploy fix links its rollback heading. The `deploy` skill has
 the template.
+
+`docs/runbooks/<device-role>.md` is a device's page, also owned by no
+alert: what was set on a device by hand or by the agent, where its secrets
+live, and what to do if it breaks. The `guided-ops` skill has the template.
+
+`docs/edge.md` is the host's exposure list: every hostname and open port
+with its tunnel, Access policy or the reason it has none, and the date it
+was last checked from outside. The `cloudflare-edge` skill has the format.
 
 ## Incidents
 

@@ -1,7 +1,8 @@
 # Run sheet
 
 Filled once per run, quoted in every prompt. Keep it in the session
-scratchpad and paste the relevant lines into each addendum.
+scratchpad and paste the relevant lines into each addendum; before the
+session may end, copy it beside the state note (`checkpoint`).
 
 ```
 Project:             <name and main checkout path>

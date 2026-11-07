@@ -6,6 +6,18 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `checkpoint`: the one report shape for "what's the status", "now what" and "what do you need from me" (needs you first, then landed, running, blocked, next three), the state note the next context needs before a summary or the end of a session, and the rule that "did you do X" is answered with evidence gathered now.
+- `guided-ops`: directing the owner through a console, dashboard or device the agent cannot drive: blocks of at most three numbered steps with what the owner should see, physical actions in a message of their own, the agent does everything it can reach itself and asks for missing access once with the reason, secrets never cross the chat, every item in a UI decision gets an answer, and a device record in the runbooks.
+- `cloudflare-edge`: the one way a service is exposed: a tunnel with an Access policy per hostname, never a port forward, vendor relay or public SSH port; the new-hostname procedure, the dashboard map by product area, the host side of a tunnel, and a quarterly audit.
+- `credential-rotation`: after an incident or exposure: contain, back up and prove the restore, rebuild, then rotate one credential at a time with an old-refused and new-accepted probe; never a vault master key, disk key or recovery set without a fresh verified export; revoke what is not needed again; the record added to the incident postmortem.
+
+### Changed
+
+- `repo-tooling`: a `skills-sync` target (`SKILLS_REF=<tag>`) and a weekly skills-bump workflow that re-vendors the newest release and opens the pull request, since Renovate cannot regenerate the lock file's hashes.
+- `backlog-batches` reports in the `checkpoint` shape and copies its run sheet beside the state note before a session may end; `project-docs` names the device record's home under runbooks.
+
 ## [0.6.0] - 2026-11-08
 
 ### Added
