@@ -16,7 +16,7 @@ framework-neutral; Svelte mechanics belong to the framework skill,
 
 | Area | Skills |
 | --- | --- |
-| Planning and process | `plan-feature`, `contract-spec`, `iterate`, `backlog-batches`, `ci-green`, `release`, `deploy` |
+| Planning and process | `plan-feature`, `contract-spec`, `iterate`, `backlog-batches`, `git-workflow`, `ci-green`, `release`, `deploy` |
 | Repository and docs | `project-docs`, `go-project-layout`, `repo-tooling`, `container-image`, `service-operations`, `create-skill`, `sound-patterns` |
 | API and data | `connect-rpc`, `api-contract`, `golang-database`, `go-background-jobs` |
 | Go | `go-http-server`, `go-auth`, `go-library`, `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |

@@ -76,6 +76,7 @@ summary of what they decide, never asked to open them.
 - One story, one or a few commits; never two stories in one commit.
 - Work found along the way becomes a new story, proposed to the owner. A
   running story never widens to take it.
+- Staging, message shape, history and pushing: `git-workflow`.
 
 ## Working with the owner
 

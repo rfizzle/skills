@@ -63,6 +63,7 @@ tests or expand documentation unless the requested behaviour needs it.
 - Subject: `type(scope): subject`, imperative, lower case, under 72
   characters. A subject that needs "and" is two commits.
 - The push is the person's. Never push.
+- The rest of the rule set: `git-workflow`; the push gate: `ci-green`.
 
 ## Architecture
 
