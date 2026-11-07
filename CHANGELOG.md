@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-11-08
+
 ### Added
 
 - `ui-exploration`: the round that puts the choice before the polish for a new or redesigned UI unit: one question, three or four directions that disagree on a named axis, each a complete on-token unit shown at true size under an `Explorations` Storybook root, a hand-over with a recommendation, then narrowing on the owner's "closest, and what is still off" until one direction is kept and promoted through `ui-component-contract`; the exploration directory is gitignored and deleted at promotion.
