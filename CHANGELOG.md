@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-11-07
+
 ### Added
 
 - `svelte-frontend`: the framework skill the UI skills defer to: Svelte 5 runes, bits-ui as the primitive library, the `web/src` layout with an import-direction check, Svelte CSF stories, the vitest, Storybook and Playwright test stack, lint and format, and the embedded SvelteKit build.
