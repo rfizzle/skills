@@ -4,15 +4,18 @@ The fields are what `backlog-batches` reads from an item. Write it in the
 tracker's own format.
 
 ```markdown
-### S-124: List endpoint returns exports for the caller (E-12)
+### S-124: ListExports returns the caller's exports (E-12)
 
 - Layer: API contract
 - Depends on: S-123
-- Touches: api/openapi.yaml, internal/api/gen/
+- Touches: proto/acme/exports/v1/exports.proto, internal/api/gen/, web/src/lib/api/gen/
 - Overlaps: none
 
 Acceptance criteria:
-- [ ] `GET /api/v1/exports` with `cursor`, `limit`, `nextCursor`
-- [ ] `TestListExports_PagesByCursor` passes
-- [ ] Deploys alone: the operation is new; the handler returns 501 until S-125
+- [ ] `ExportService.ListExports` with `page_size`, `page_token`, `next_page_token`
+- [ ] `TestListExports_PagesByToken` passes
+- [ ] Deploys alone: the RPC is new; it answers `unimplemented` until S-125
 ```
+
+In an OpenAPI project the story touches `api/openapi.yaml` and names the
+operation (`GET /api/v1/exports`, answering 501 until the backend lands).

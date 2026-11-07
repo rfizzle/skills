@@ -42,9 +42,10 @@ name**: `Components/StateDot`, `Layouts/DashboardLayout`, never
 shows is the name the code, the card and the test output use.
 
 **Stories inside a unit, in this order:** `Default` first, always; then the
-states in the order the project's cards use (loading, empty, error,
-unreachable, long content, phone and other sizes); then variants; then
-`Playground` with controls where a unit has variants worth exploring. Story
+states in the order `ui-component-contract` names them (`Loading`, `Empty`,
+`LoadError`, `Partial`), then `WithLongContent`, phone and other sizes;
+then variants; then `Playground` with controls where a unit has variants
+worth exploring. Story
 names are PascalCase exports; the card lists them in the same order.
 
 **Extra files only as a child of the unit, with one of three names:**
@@ -71,7 +72,8 @@ assertion, do not drop it.
 
 **Files stay beside their units.** The title decides the sidebar; a screen
 story file lives in the directory of its highest layer, where the import
-rule already allows it. Never move a story file across layer directories to
+rule (the framework skill, `svelte-frontend`, defines and checks it)
+already allows it. Never move a story file across layer directories to
 suit the sidebar.
 
 ## Procedure

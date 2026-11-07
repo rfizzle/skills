@@ -92,7 +92,7 @@ a `var()` cycle, and a missing required theme.
 
 ## Class lint requirements
 
-Over component and view sources (not the token file):
+Over unit and screen sources (not the token file):
 
 - palette utilities: `(bg|text|border|ring|fill|stroke|from|to|via|outline|shadow|decoration|accent|caret)-(slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d+`;
 - arbitrary values: a utility followed by `-[...]` containing a colour or a

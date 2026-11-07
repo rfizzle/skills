@@ -42,7 +42,7 @@ Release vX.Y.Z
 - [ ] Default branch, clean tree, level with its remote
 - [ ] `make ci` passes
 - [ ] Integration tier passes
-- [ ] `oasdiff breaking` vs vPREV: clean, or findings only in a new API version
+- [ ] `buf breaking` (or `oasdiff breaking`) vs vPREV: clean, or findings only in a new API version
 - [ ] Migrations walked up, down, up on a scratch database
 - [ ] Bump matches the policy: MAJOR | MINOR | PATCH because <reason>
 - [ ] Owner go-ahead for MAJOR or destructive migration (date), or not needed
@@ -53,5 +53,15 @@ Release vX.Y.Z
 For the owner to run:
     git push origin <branch>
     git push origin vX.Y.Z
-    <deploy step>
+    then deploy per docs/runbooks/deploy.md, staging first, prod with the same digest:
+      cosign verify ghcr.io/<owner>/<app>@sha256:<digest from the release workflow> ...
+      podman pull ghcr.io/<owner>/<app>@sha256:<digest>
+      pin the digest in <app>.container and <app>-migrate.container; systemctl --user daemon-reload
+      systemctl --user start <app>-migrate.service
+      systemctl --user restart <app>.service
+    Rollback: the previous digest from deploys.log, same pin, daemon-reload, restart.
 ```
+
+The deploy commands in full, and why they run in that order, are in the
+`deploy` skill and the project's `docs/runbooks/deploy.md`. A project that
+ships a Debian package or has no deploy names its own step here instead.

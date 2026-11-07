@@ -4,12 +4,12 @@
 
 - [Defense-in-Depth Layers](#defense-in-depth-layers)
 - [Zero Trust Principles](#zero-trust-principles)
-- [Authentication Pattern Selection](#authentication-pattern-selection)
+- [Authentication and Authorization](#authentication-and-authorization)
 - [HTTP Security Headers](#http-security-headers)
 - [Security Anti-Patterns](#security-anti-patterns)
 
 
-Defense-in-depth, Zero Trust, and authentication patterns for Go services.
+Defense-in-depth, Zero Trust, and where authentication lives for Go services.
 
 ## Defense-in-Depth Layers
 
@@ -24,47 +24,12 @@ Layer 4: DATA     — Encryption at rest/transit, access controls, backups
 
 ### Go Implementation by Layer
 
-**Layer 1 — Rate Limiting Middleware:**
-
-```go
-import "golang.org/x/time/rate"
-
-// Global rate limiter
-func RateLimitMiddleware(rps float64, burst int) func(http.Handler) http.Handler {
-    limiter := rate.NewLimiter(rate.Limit(rps), burst)
-    return func(next http.Handler) http.Handler {
-        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-            if !limiter.Allow() {
-                http.Error(w, "Too Many Requests", http.StatusTooManyRequests)
-                return
-            }
-            next.ServeHTTP(w, r)
-        })
-    }
-}
-```
-
-**Per-client rate limiting** prevents a single abuser from exhausting the global limit:
-
-```go
-type ClientRateLimiter struct {
-    mu      sync.Mutex
-    clients map[string]*rate.Limiter
-    rps     rate.Limit
-    burst   int
-}
-
-func (crl *ClientRateLimiter) GetLimiter(clientIP string) *rate.Limiter {
-    crl.mu.Lock()
-    defer crl.mu.Unlock()
-    if limiter, exists := crl.clients[clientIP]; exists {
-        return limiter
-    }
-    limiter := rate.NewLimiter(crl.rps, crl.burst)
-    crl.clients[clientIP] = limiter
-    return limiter
-}
-```
+**Layer 1 — Rate Limiting:** one limiter per client, keyed by the user,
+else the API key, else the client IP, in middleware after authentication,
+answering 429 with `Retry-After`. Never a single global `rate.NewLimiter`:
+one abuser exhausts it and every other client is refused. The middleware,
+its key function and the sweep of idle keys are in `go-http-server`
+(`references/server.md`); per-account sign-in limits are in `go-auth`.
 
 **Layer 2 — mTLS for Service-to-Service:**
 
@@ -99,6 +64,8 @@ func MaxBodySize(maxBytes int64) func(http.Handler) http.Handler {
 }
 ```
 
+The per-route body limits and where they sit in the chain: `go-http-server`.
+
 **Layer 4 — Encryption at Rest (AES-GCM):**
 
 Use `crypto/aes` with GCM mode for authenticated encryption. See [Cryptography Security](./cryptography.md) for full `EncryptAESGCM`/`DecryptAESGCM` implementations, algorithm selection guide, and envelope encryption for key rotation.
@@ -110,115 +77,37 @@ Use `crypto/aes` with GCM mode for authenticated encryption. See [Cryptography S
 | Principle | Implementation |
 | --- | --- |
 | Verify explicitly | Authenticate and authorize every request — no implicit trust from network location |
-| Least privilege | Grant minimum permissions; use short-lived tokens (15min access, 7d refresh) |
+| Least privilege | Grant minimum permissions; sessions and keys expire and can be revoked server-side |
 | Assume breach | Segment services, encrypt all communication, log all access for anomaly detection |
 
-```go
-// Zero Trust middleware: verify identity + permissions on every request
-func ZeroTrustMiddleware(next http.Handler) http.Handler {
-    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-        // 1. Verify token
-        claims, err := validateJWT(r.Header.Get("Authorization"))
-        if err != nil {
-            http.Error(w, "Unauthorized", http.StatusUnauthorized)
-            return
-        }
-        // 2. Verify permissions for this specific resource
-        if !hasPermission(claims.Subject, r.Method, r.URL.Path) {
-            http.Error(w, "Forbidden", http.StatusForbidden)
-            return
-        }
-        // 3. Audit log
-        logger.Info("access_granted",
-            "user", claims.Subject,
-            "method", r.Method,
-            "path", r.URL.Path,
-            "ip", r.RemoteAddr,
-        )
-        ctx := context.WithValue(r.Context(), userClaimsKey, claims)
-        next.ServeHTTP(w, r.WithContext(ctx))
-    })
-}
-```
+In a Go service this is the auth middleware resolving the principal on
+every request and each module checking the permission for each operation,
+with the tenant in every query; see `go-auth`.
 
 ---
 
-## Authentication Pattern Selection
+## Authentication and Authorization
 
-| Use Case | Recommended Pattern | Go Implementation |
+The default for a Go service with a browser frontend (server-side opaque
+sessions, argon2id, TOTP, API keys for machines, CSRF defence, per-operation
+authorization, the browser side) is `go-auth`, including when JWT and OIDC
+are acceptable. Review against it. What it does not cover:
+
+| Case | Pattern | Go implementation |
 | --- | --- | --- |
-| Web application | OAuth 2.0 + PKCE with OIDC | `golang.org/x/oauth2` |
-| API authentication | JWT with short expiry + refresh tokens | `github.com/golang-jwt/jwt/v5` |
-| Service-to-service | mTLS with certificate rotation | `crypto/tls` with `tls.LoadX509KeyPair` |
-| CLI/Automation | API keys with IP allowlisting | Custom middleware with `net.ParseIP` |
-| High security | FIDO2/WebAuthn hardware keys | `github.com/go-webauthn/webauthn` |
+| Service-to-service inside one trust domain | mTLS with certificate rotation (Layer 2 above) | `crypto/tls` |
+| Phishing-resistant sign-in, when the owner asks for it | FIDO2/WebAuthn passkeys, feeding the same session | `github.com/go-webauthn/webauthn` |
 
-### JWT Validation — Complete Example
-
-JWT validation must pin the signing algorithm to prevent algorithm confusion attacks (where an attacker switches RS256 to HS256 and signs with the public key):
-
-```go
-import "github.com/golang-jwt/jwt/v5"
-
-func validateJWT(authHeader string) (*jwt.RegisteredClaims, error) {
-    tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-    token, err := jwt.ParseWithClaims(tokenString, &jwt.RegisteredClaims{},
-        func(token *jwt.Token) (interface{}, error) {
-            // Pin signing algorithm — prevents algorithm confusion
-            if _, ok := token.Method.(*jwt.SigningMethodRSA); !ok {
-                return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
-            }
-            return publicKey, nil
-        },
-        jwt.WithIssuer("your-issuer"),
-        jwt.WithAudience("your-audience"),
-        jwt.WithExpirationRequired(),
-    )
-    if err != nil { return nil, err }
-    claims, ok := token.Claims.(*jwt.RegisteredClaims)
-    if !ok { return nil, errors.New("invalid claims") }
-    return claims, nil
-}
-```
-
-### Password Hashing — Argon2id
-
-Argon2id is the recommended password hashing algorithm (memory-hard, resists GPU attacks). For algorithm comparison (bcrypt, scrypt, PBKDF2), see [Cryptography Security](./cryptography.md).
-
-```go
-import "golang.org/x/crypto/argon2"
-
-type PasswordConfig struct {
-    Time    uint32 // iterations
-    Memory  uint32 // KB
-    Threads uint8
-    KeyLen  uint32
-    SaltLen uint32
-}
-
-// OWASP recommended parameters
-var DefaultConfig = PasswordConfig{
-    Time: 3, Memory: 64 * 1024, Threads: 4, KeyLen: 32, SaltLen: 16,
-}
-
-func HashPassword(password string, cfg PasswordConfig) (string, error) {
-    salt := make([]byte, cfg.SaltLen)
-    if _, err := rand.Read(salt); err != nil { return "", err }
-    hash := argon2.IDKey([]byte(password), salt, cfg.Time, cfg.Memory, cfg.Threads, cfg.KeyLen)
-    // Encode salt + hash for storage
-    return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
-        argon2.Version, cfg.Memory, cfg.Time, cfg.Threads,
-        base64.RawStdEncoding.EncodeToString(salt),
-        base64.RawStdEncoding.EncodeToString(hash),
-    ), nil
-}
-```
+Password hashing parameters live in `go-auth`; algorithm choice in
+[Cryptography Security](./cryptography.md).
 
 ---
 
 ## HTTP Security Headers
 
-Set on every response via middleware:
+Set on every response via middleware. A service that serves an embedded SPA
+builds its CSP from the build and uses `frame-ancestors` (`go-http-server`);
+the generic version:
 
 ```go
 func SecurityHeadersMiddleware(next http.Handler) http.Handler {
@@ -251,7 +140,7 @@ func SecurityHeadersMiddleware(next http.Handler) http.Handler {
 | --- | --- | --- |
 | Security through obscurity | Hidden admin URLs are discoverable via fuzzing, logs, or source code | Authentication + authorization on all endpoints |
 | Trusting client headers | `X-Forwarded-For`, `X-Is-Admin` — clients forge any header | Server-side identity verification; trust proxy headers only from known load balancers |
-| Client-side authorization | JavaScript checks are trivially bypassed by any HTTP client | Server-side `if !user.HasRole("admin")` on every protected handler |
+| Client-side authorization | JavaScript checks are trivially bypassed by any HTTP client | Server-side check in the module for every operation (`go-auth`) |
 | Shared secrets across environments | Staging breach → production compromise | Per-environment secrets via secret manager |
 | Catching and ignoring crypto errors | `_, _ = encrypt(data)` silently proceeds with unencrypted data | Always check error returns — fail closed, never open |
 | Rolling your own crypto | Custom encryption hasn't been analyzed by cryptographers | Use `crypto/aes` GCM, `golang.org/x/crypto/argon2` |
@@ -265,13 +154,13 @@ func badHandler(w http.ResponseWriter, r *http.Request) {
     }
 }
 
-// Correct: server-side identity verification
-func goodHandler(w http.ResponseWriter, r *http.Request) {
-    claims := r.Context().Value(userClaimsKey).(*jwt.RegisteredClaims)
-    if !hasRole(claims.Subject, "admin") {
-        http.Error(w, "Forbidden", http.StatusForbidden)
-        return
+// Correct: the identity comes from the server-side session, and the module
+// that owns the operation decides (go-auth)
+func (s *Service) ResetUserPassword(ctx context.Context, id domain.UserID) error {
+    p := domain.CurrentUser(ctx)
+    if !p.Has(domain.PermMembersManage) {
+        return domain.ErrForbidden
     }
-    adminPanel(w, r)
+    // ...
 }
 ```

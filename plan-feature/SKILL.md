@@ -1,6 +1,6 @@
 ---
 name: plan-feature
-description: Use this skill when a new user-visible feature, page, view, workflow or capability is requested and has to be planned before any code is written, or when the user asks to "plan the feature", "break this down", "split this into stories", "write the epic", "scope this", "what already exists and what is new", or "what order should this land in", or asks how big a story or commit may be or how commits are named. Produces one plain-English plan in the conversation (the outcome, the decisions needed with a recommendation each, and an epic of per-layer stories in landing order: schema, API contract, backend, frontend components, view, end-to-end), and writes the stories to the backlog only after the owner accepts. Not for a change to existing behaviour (use iterate), a single new UI component (use ui-component-contract), or running several accepted stories in parallel (use backlog-batches).
+description: Use this skill when a new user-visible feature, page, view, workflow or capability is requested and has to be planned before any code is written, or when the user asks to "plan the feature", "break this down", "split this into stories", "write the epic", "scope this", "what already exists and what is new", or "what order should this land in", or asks how big a story or commit may be or how commits are named. Produces one plain-English plan in the conversation (the outcome, the decisions needed with a recommendation each, and an epic of per-layer stories in landing order: schema, API contract, backend, frontend components, screen, end-to-end), and writes the stories to the backlog only after the owner accepts. Not for a change to existing behaviour (use iterate), a single new UI component (use ui-component-contract), or running several accepted stories in parallel (use backlog-batches).
 license: MIT
 metadata:
   author: rfizzle
@@ -16,8 +16,8 @@ conversation; nothing is filed and no code is written before that.
 ## Procedure
 
 1. **Read the request and what exists.** Read the linked issue, the
-   contracts it touches (OpenAPI, schema, module and flow contracts) and the
-   current view, if any. If the feature has UI, take the inventory in
+   contracts it touches (the API contract, schema, module and flow contracts) and the
+   current screen, if any. If the feature has UI, take the inventory in
    [references/ui-inventory.md](references/ui-inventory.md): every element
    classified exists, enhance or new, the interaction map, and where each
    piece of state lives.
@@ -47,19 +47,19 @@ Cut one story per layer touched, skipping layers the feature does not touch:
 | # | Layer | Hand off to | Owner sees |
 |---|---|---|---|
 | 1 | schema | `golang-database`: numbered up/down migration, expand step only | a plain-English summary of the schema change |
-| 2 | API contract | `api-contract`: the contract edit for the project's transport, plus generated code | a plain-English summary of the API change |
+| 2 | API contract | `connect-rpc` (proto under `proto/`, the default) or `api-contract` (`api/openapi.yaml`): the contract edit plus generated code | a plain-English summary of the API change |
 | 3 | backend | `contract-spec` for a new module or a cross-module flow | a summary of the contract and its decisions |
 | 4 | frontend components | `ui-component-contract`, tokens via `design-tokens` | the stories in Storybook, or the project's component review surface, light and dark |
-| 5 | view | `ui-component-contract`, five async states | the stories in Storybook, or the project's component review surface, light and dark |
-| 6 | end-to-end | the frontend framework skill | nothing |
+| 5 | screen | `ui-component-contract`, five async states | the stories in Storybook, or the project's component review surface, light and dark |
+| 6 | end-to-end | `browser-e2e`, framework mechanics from the framework skill (`svelte-frontend`) | nothing |
 
 Contract specs and cards are the agent's working files. The owner is shown a
 summary of what they decide, never asked to open them.
 
 - **Deployable alone.** Schema adds, never drops, in the same release. API
   changes are additive. Backend code is reachable only through the new
-  contract or a flag. Components ship in Storybook before any view uses
-  them. The view sits behind a flag or an unlinked route until its
+  contract or a flag. Components ship in Storybook before any screen uses
+  them. The screen sits behind a flag or an unlinked route until its
   end-to-end story lands. A story that cannot ship alone is cut wrong.
 - **Size.** About 400 changed lines, excluding generated code. A larger
   story splits by behaviour within its layer, never by mixing layers.
@@ -113,5 +113,5 @@ later changes go through `iterate`.
   too far: that detail belongs in the contract work of each story.
 - If more than about five UI units are new, split the epic or ask the owner
   which slice ships first.
-- A "new composition" that is a view-local arrangement of existing units is
-  usually wrong; arrange it in the view.
+- A "new composition" that is a screen-local arrangement of existing units
+  is usually wrong; arrange it in the screen.

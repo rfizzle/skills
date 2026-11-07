@@ -16,7 +16,7 @@ and those are tested with a conformance suite rather than mocked per consumer.
 
 ```go
 type orderGetter interface {
-    GetByID(context.Context, uuid.UUID) (*domain.Order, error)
+    GetByID(context.Context, string) (*domain.Order, error)
 }
 ```
 
@@ -26,12 +26,12 @@ Small hand-written fakes stay type-safe and require no framework:
 
 ```go
 type fakeOrderGetter struct {
-    getByID func(context.Context, uuid.UUID) (*domain.Order, error)
+    getByID func(context.Context, string) (*domain.Order, error)
 }
 
 func (f fakeOrderGetter) GetByID(
     ctx context.Context,
-    id uuid.UUID,
+    id string,
 ) (*domain.Order, error) {
     return f.getByID(ctx, id)
 }

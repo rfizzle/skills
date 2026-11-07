@@ -20,7 +20,7 @@ goroutine.
 func testContext(t *testing.T) context.Context {
     t.Helper()
 
-    ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+    ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
     t.Cleanup(cancel)
     return ctx
 }

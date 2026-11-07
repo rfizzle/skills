@@ -3,6 +3,16 @@
 Skeletons, not content. Every placeholder in angle brackets is replaced or
 the line is deleted; nothing is left as boilerplate.
 
+## Contents
+
+- AGENTS.md
+- CLAUDE.md
+- README.md
+- docs/README.md
+- A decision record
+- A postmortem
+- Makefile target
+
 ## AGENTS.md
 
 ```markdown
@@ -126,6 +136,8 @@ the code is; skills say how a change is made.
 | `architecture.md` | What are the big shapes, and why those? | a shape changes |
 | `flows/` | How does work cross modules, and what if a step fails? | a hand-off changes |
 | `runbooks/` | An alert fired; what do I check and do? | an alert changes |
+| `runbooks/deploy.md` | How do I deploy, verify and roll back? | the deploy changes |
+| `incidents/` | What went wrong, and what did we change? | an incident closes |
 | `decisions.md` | What was decided, when and why? | a decision is made |
 | `research/` | Dated snapshots | never; a new look is a new dated file |
 
@@ -162,6 +174,40 @@ and when.>
 
 Ids are the decision date plus a slug, permanent and never reused. A
 superseded record keeps its text and changes only its status line.
+
+## A postmortem
+
+`docs/incidents/YYYY-MM-DD-<slug>.md`, dated by the incident's start.
+Blameless: systems and decisions are causes, people are not.
+
+```markdown
+# <YYYY-MM-DD>: <what users saw, in a few words>
+
+Alert: [<AlertName>](../runbooks/<alert-name>.md). Severity: page | ticket.
+
+## Impact
+
+<Who was affected, how, for how long (start and end in UTC), what data if
+any was lost.>
+
+## Timeline (UTC)
+
+- HH:MM <detected: how>
+- HH:MM <each action and what it showed>
+- HH:MM <mitigated: by what>
+
+## Cause
+
+<The chain of conditions, ending at the change or fault that started it.>
+
+## What worked
+
+<What shortened it: an alert, a runbook step, the rollback.>
+
+## Action items
+
+- <Change, stated as the outcome.> Filed: <date>.
+```
 
 ## Makefile target
 

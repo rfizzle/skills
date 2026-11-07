@@ -37,16 +37,20 @@ func (r *Repository) WithinTx(ctx context.Context, fn func(*Repository) error) (
 ## Queue claim
 
 ```sql
-UPDATE jobs SET lease_owner = $1, lease_expires_at = now() + $2::interval
-WHERE id = (
+UPDATE jobs
+SET state = 'running', attempts = attempts + 1,
+    leased_by = $1, leased_until = now() + make_interval(secs => $2)
+WHERE id IN (
   SELECT id FROM jobs
-  WHERE state = 'pending' OR (state = 'running' AND lease_expires_at < now())
-  ORDER BY created_at, id
+  WHERE state = 'queued' AND run_at <= now()
+  ORDER BY run_at, id
+  LIMIT $3
   FOR UPDATE SKIP LOCKED
-  LIMIT 1
 )
-RETURNING id, payload;
+RETURNING id, kind, payload, attempts;
 ```
 
 Commit the claim, then do the work, then record the outcome in a second
-short statement guarded by the lease owner.
+short statement fenced by `id`, `state = 'running'` and the returned
+`attempts`. The full queue (leases, retries, schedules):
+`go-background-jobs`.

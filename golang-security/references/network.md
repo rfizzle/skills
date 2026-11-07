@@ -7,6 +7,7 @@
 - [Slowloris Attack Vulnerability — Medium](#slowloris-attack-vulnerability--medium)
 - [Insecure HTTP Server Configuration — Medium](#insecure-http-server-configuration--medium)
 - [Observable Timing (Timing Attacks) — Medium](#observable-timing-timing-attacks--medium)
+- [Session Fixation — High](#session-fixation--high)
 - [Exposed pprof Profiling Endpoints — High](#exposed-pprof-profiling-endpoints--high)
 - [XXE Vulnerability — High](#xxe-vulnerability--high)
 - [Permissive Regex Validation — Low](#permissive-regex-validation--low)
@@ -18,7 +19,7 @@ Network and web security vulnerabilities can lead to data leakage and unauthoriz
 **Rules:**
 
 1. Redirects MUST be validated against an allowlist of domains.
-2. HTTP servers MUST configure `ReadTimeout`, `WriteTimeout`, and `IdleTimeout`.
+2. HTTP servers MUST configure `ReadHeaderTimeout`, `ReadTimeout`, `WriteTimeout`, and `IdleTimeout` (a service's values and the streaming exception: `go-http-server`).
 3. Pprof endpoints MUST NEVER be exposed publicly.
 4. XML parsers MUST disable XXE — reject `<!DOCTYPE` and `<!ENTITY` declarations.
 
@@ -54,6 +55,9 @@ if !isAllowedDomain(u.Host) {
 }
 http.Redirect(w, r, target, http.StatusFound)
 ```
+
+A sign-in return URL is narrower still: a same-origin path only, checked in
+the browser before navigating (`go-auth`, browser reference).
 
 ---
 
@@ -96,13 +100,17 @@ server := &http.Server{
 
 ```go
 server := &http.Server{
-    Addr:         ":8080",
-    ReadTimeout:  5 * time.Second,
-    WriteTimeout: 10 * time.Second,
-    IdleTimeout:  120 * time.Second,
-    MaxHeaderBytes: 1 << 20, // Limit header size to 1MB
+    Addr:              ":8080",
+    ReadHeaderTimeout: 5 * time.Second,
+    ReadTimeout:       5 * time.Second,
+    WriteTimeout:      10 * time.Second,
+    IdleTimeout:       120 * time.Second,
+    MaxHeaderBytes:    1 << 20, // Limit header size to 1MB
 }
 ```
+
+`go-http-server` holds the full field table, including why `WriteTimeout`
+is 0 on a service that streams and how unary routes get their deadline.
 
 ---
 
@@ -153,8 +161,8 @@ func checkToken(input, expected string) bool {
     return subtle.ConstantTimeCompare([]byte(input), []byte(expected)) == 1
 }
 
-// For passwords, use Argon2id (preferred) or bcrypt — they handle hashing
-// and constant-time comparison internally:
+// For passwords, use Argon2id (preferred) or bcrypt, comparing the derived
+// key in constant time; parameters and the unknown-account dummy hash are in go-auth:
 // argon2: hash := argon2.IDKey([]byte(password), salt, 3, 64*1024, 4, 32)
 // bcrypt: err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(password))
 
@@ -167,6 +175,15 @@ func verifyHMAC(message, messageMAC, key []byte) bool {
     return hmac.Equal(messageMAC, expectedMAC) // Constant-time
 }
 ```
+
+---
+
+## Session Fixation — High
+
+An attacker who plants a session id before sign-in owns the session after
+it if the id survives authentication. Issue a new id and delete the old one
+on sign-in, password change and second-factor changes; the default session
+design and its tests are in `go-auth`.
 
 ---
 

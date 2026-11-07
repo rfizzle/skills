@@ -133,6 +133,9 @@ only if the project deliberately adopts and maintains that dependency.
 - Integration boundaries use the integration build tag and real services intentionally.
 - Race-sensitive code is exercised under `-race`.
 - No new test dependency was added without clear value and approval.
+- No flaky test is retried in CI. Within the day it is quarantined behind a `flaky` build
+  tag or a `t.Skip` naming its linked issue, then fixed or deleted before the next release.
+  The cause is usually time, ordering or shared state; look there first.
 
 Read [helpers](references/helpers.md) and [mocking](references/mocking.md) only when the
 task needs those deeper patterns.

@@ -25,7 +25,8 @@ direction its `AGENTS.md` states.
 
 ```
 cmd/<app>/main.go          thin: parse, call into internal/app or internal/cli
-api/openapi.yaml           the HTTP contract (api-contract)
+proto/                     the API contract: Connect by default (connect-rpc)
+api/openapi.yaml           or OpenAPI for a REST service (api-contract)
 migrations/                numbered up/down SQL (golang-database)
 internal/
   app/                     composition root: builds every concrete, owns start/stop
@@ -122,8 +123,9 @@ adding a port. Never by widening the check.
 5. Repository and queries per `golang-database`.
 6. Construct it in `internal/app` and inject it; add it to the start/stop
    order if it owns a goroutine (`golang-concurrency`).
-7. If it is exposed over HTTP, change `api/openapi.yaml` first
-   (`api-contract`), regenerate, then map it in `controller`.
+7. If it is exposed over the API, change the contract first (proto under
+   `proto/` with Connect by default, or `api/openapi.yaml`; `connect-rpc`,
+   `api-contract`), regenerate, then map it in `controller`.
 8. If it takes part in a capability other modules share, update the flow:
    `contract-spec`.
 

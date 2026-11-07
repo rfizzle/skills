@@ -13,7 +13,7 @@
 - **Container queries for reusable units**: a component or composition that
   can sit in a sidebar or full width adapts to its container (`@container`
   and `@sm:`/`@md:` variants), not to the viewport. Viewport breakpoints are
-  for page-level layout in views.
+  for page-level layout in screens.
 - **No forks**: one unit adapts; do not build separate mobile and desktop
   components or hide duplicate markup per breakpoint.
 - **Order**: DOM order is reading and focus order at every width. Visual
@@ -34,7 +34,7 @@
 
 - [ ] Base styles are the narrow layout; breakpoints added only where content breaks.
 - [ ] No horizontal scroll at 320 px except labelled, focusable 2D regions.
-- [ ] Reusable units use container queries; views use viewport breakpoints.
+- [ ] Reusable units use container queries; screens use viewport breakpoints.
 - [ ] No duplicate mobile/desktop markup.
 - [ ] Focus and reading order follow the DOM at every width.
 - [ ] Targets at least 24 by 24 px or spaced per WCAG 2.5.8.

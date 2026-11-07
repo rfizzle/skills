@@ -283,6 +283,11 @@ if strings.Contains(u.Hostname(), "metadata.") {
 }
 ```
 
+A hostname check at parse time is not enough: DNS can change between the
+check and the dial. Check the dialled address in `net.Dialer.Control`, and
+disable the proxy and redirect following on the client: `NewUserURLClient`
+in `go-http-server` (`references/streaming-and-clients.md`).
+
 ---
 
 ## Unsafe Deserialization — Critical

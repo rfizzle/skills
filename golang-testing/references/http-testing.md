@@ -1,6 +1,10 @@
 # HTTP Handler Testing
 
 Use `httptest` package for testing HTTP handlers without starting a server.
+Assert with the standard library: compare, then `t.Errorf` or `t.Fatalf` with the
+request, the got value and the want value. Use `cmp.Diff` for structured bodies only when
+`github.com/google/go-cmp` is already in `go.mod`; otherwise decode the body and compare
+the fields the contract names.
 
 ## Basic Handler Test
 
@@ -25,8 +29,6 @@ func TestCreateUserHandler(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            is := assert.New(t)
-
             req := httptest.NewRequest(http.MethodPost, "/users", strings.NewReader(tt.body))
             req.Header.Set("Content-Type", "application/json")
 
@@ -34,7 +36,9 @@ func TestCreateUserHandler(t *testing.T) {
             handler := http.HandlerFunc(CreateUserHandler)
             handler.ServeHTTP(w, req)
 
-            is.Equal(tt.expectedStatus, w.Code)
+            if w.Code != tt.expectedStatus {
+                t.Errorf("POST /users status = %d, want %d; body: %s", w.Code, tt.expectedStatus, w.Body)
+            }
         })
     }
 }
@@ -66,8 +70,6 @@ func TestListUsersHandler(t *testing.T) {
 
     for _, tt := range tests {
         t.Run(tt.name, func(t *testing.T) {
-            is := assert.New(t)
-
             req := httptest.NewRequest(http.MethodGet, "/users"+tt.query, nil)
             if tt.authHeader != "" {
                 req.Header.Set("Authorization", tt.authHeader)
@@ -77,7 +79,9 @@ func TestListUsersHandler(t *testing.T) {
             handler := AuthMiddleware(ListUsersHandler)
             handler.ServeHTTP(w, req)
 
-            is.Equal(tt.expectedStatus, w.Code)
+            if w.Code != tt.expectedStatus {
+                t.Errorf("GET /users%s status = %d, want %d", tt.query, w.Code, tt.expectedStatus)
+            }
         })
     }
 }

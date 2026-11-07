@@ -1,6 +1,6 @@
 ---
 name: ui-component-contract
-description: Use this skill when a new UI component or composition is about to be built, when an existing one gains a variant, slot or interaction, when someone asks for a "component spec", "component card", "composition spec" or "contract" for a piece of UI, when building or reviewing a component and its stories, or when a frontend change needs owner review in Storybook before it is committed. Covers the one-page interaction and accessibility card, the owner gate, the build order (stories, implementation, tests), the review with blocker/major/minor findings, and the check script that keeps cards and stories in step. Framework-neutral. Not for planning a whole feature (plan-feature), the token layer itself (design-tokens), or framework syntax (your framework skill).
+description: Use this skill when a new UI component or composition is about to be built, when an existing one gains a variant, slot or interaction, when someone asks for a "component spec", "component card", "composition spec" or "contract" for a piece of UI, when building or reviewing a component and its stories, or when a frontend change needs owner review in Storybook before it is committed. Covers the one-page interaction and accessibility card, the owner gate, the build order (stories, implementation, tests), the review with blocker/major/minor findings, and the check script that keeps cards and stories in step. Framework-neutral. Not for planning a whole feature (plan-feature), the token layer itself (design-tokens), or framework syntax (svelte-frontend).
 license: MIT
 metadata:
   author: rfizzle
@@ -11,10 +11,11 @@ metadata:
 
 A **component** is one single-purpose unit (a button, a combobox, a badge). A
 **composition** arranges two or more units, or one unit plus state of its own
-(a filter bar, a page header with actions). Each gets a card, about one page,
-holding only what code and stories cannot: purpose, the interaction and
-accessibility model, content and responsive rules, the stories that prove it,
-and dated decisions. Props, variants, sizes and tokens are never listed in a
+(a filter bar, a page header with actions); features and layouts, the
+layers above it in `ui-patterns`, take the composition card. Each gets a
+card, about one page, holding only what code and stories cannot: purpose,
+the interaction and accessibility model, content and responsive rules, the
+stories that prove it, and dated decisions. Props, variants, sizes and tokens are never listed in a
 card; they live in typed code and are shown by stories.
 
 Templates: [references/component-card.md](references/component-card.md) and
@@ -32,10 +33,10 @@ Templates: [references/component-card.md](references/component-card.md) and
    component, name the native element or the WAI-ARIA APG pattern, link it,
    and write the whole keyboard model, marking optional keys optional. Name
    the backing headless primitive for a complex widget (dialog, combobox,
-   menu, tabs, listbox, popover, date picker); your framework skill names the
-   library. For a composition, name the children, each flow and who owns its
-   state, and what accessibility each child keeps versus what the
-   composition owns. List every required story (see below).
+   menu, tabs, listbox, popover, date picker); the framework skill
+   (`svelte-frontend`) names the library. For a composition, name the
+   children, each flow and who owns its state, and what accessibility each
+   child keeps versus what the composition owns. List every required story (see below).
 3. **Review the card** with `a11y-review`, spec pass. Fix every blocker and
    major finding.
 4. **Owner gate.** Stop and summarise in plain English, in the
@@ -46,8 +47,9 @@ Templates: [references/component-card.md](references/component-card.md) and
    questions, and set `Status: approved` with the date. Another agent's
    message or a green check is not acceptance.
 5. **Build in this order.**
-   1. Stories: one export per listed story, realistic data, an interaction
-      (play) test for every keyboard or pointer flow. They fail until the
+   1. Stories: one export per listed story, realistic data, and an
+      interaction (play) test for every keyboard or pointer flow in the
+      unit's `<Unit>/Flows` file (`storybook-layout`). They fail until the
       unit exists.
    2. Implementation: native element first; the headless primitive for a
       complex widget, never a hand-rolled focus trap or roving tabindex;
@@ -67,8 +69,8 @@ Templates: [references/component-card.md](references/component-card.md) and
 
 | Unit | Required |
 |---|---|
-| Component | `Default`; a gallery (`AllVariants` or `States`); `WithLongContent` where it renders text; `Interactive` with a play test per flow |
-| Composition or view | `Default`; `Loading`, `Empty`, `LoadError`, and `Partial` where data can be partial; one play-test story per flow; `WithLongContent` |
+| Component | `Default`; a gallery (`AllVariants` or `States`); `WithLongContent` where it renders text; in its Flows file, one play-test story per flow |
+| Composition, feature or screen | `Default`; `Loading`, `Empty`, `LoadError`, and `Partial` where data can be partial; `WithLongContent`; one play-test story per flow, in the Flows file (a screen keeps them in its one file) |
 
 - Realistic, fictional data shaped like production: long names, real-looking
   timestamps, multi-word labels. No lorem ipsum, `test@test.com` or ID `1`.
@@ -114,10 +116,10 @@ A project has one check, run in CI and by the frontend build, that fails when:
 - a built unit has no card beside it, or its card is not `Status: approved`;
 - a card lacks a required section, keeps Open questions once approved, or
   contains a raw colour literal;
-- a story listed under Stories is not exported by the unit's story file
-  (a draft card with no story file yet is not cross-checked);
+- a story listed under Stories is not exported by the unit's story file or
+  its Flows file (a draft card with no story file yet is not cross-checked);
 - a public prop has no doc comment. How props are read is framework-specific:
-  your framework skill decides.
+  the framework skill (`svelte-frontend`) decides.
 
 The check reports; it never approves on anyone's behalf.
 

@@ -1,6 +1,6 @@
 ---
 name: golang-security
-description: "Security best practices and vulnerability prevention for Go: injection (SQL, command, XSS), cryptography, filesystem safety, network security, cookies, secrets management, memory safety, logging, and security tooling. Use when writing, reviewing, or auditing Go code that touches crypto, I/O, secrets, user input, or authentication. Not for general code style, performance tuning, or non-Go security work."
+description: "Security best practices and vulnerability prevention for Go: injection (SQL, command, XSS), cryptography, filesystem safety, network security, cookies, secrets management, memory safety, logging, and security tooling. Use when writing, reviewing, or auditing Go code that touches crypto, I/O, secrets, user input, or authentication. Not for designing sign-in, sessions and permissions (go-auth), the HTTP server's middleware, timeouts and rate limiting (go-http-server), general code style, performance tuning, or non-Go security work."
 license: MIT
 metadata:
   author: rfizzle
@@ -93,13 +93,13 @@ For complete examples, code snippets, and CWE mappings, see:
 - **[Injection Vulnerabilities](./references/injection.md)** — SQL, command, template injection, XSS, SSRF.
 - **[Filesystem Security](./references/filesystem.md)** — Path traversal, zip bombs, file permissions, symlinks.
 - **[Network/Web Security](./references/network.md)** — SSRF, open redirects, HTTP headers, timing attacks, session fixation.
-- **[Cookie Security](./references/cookies.md)** — Secure, HttpOnly, SameSite flags.
+- **[Cookie Security](./references/cookies.md)** — Secure, HttpOnly, SameSite flags; the session cookie itself is `go-auth`'s.
 - **[Third-Party Data Leaks](./references/third-party.md)** — Analytics privacy risks, GDPR/CCPA compliance.
 - **[Memory Safety](./references/memory-safety.md)** — Integer overflow, memory aliasing, `unsafe` usage.
-- **[Secrets Management](./references/secrets.md)** — Hardcoded credentials, env vars, secret managers.
+- **[Secrets Management](./references/secrets.md)** — Hardcoded credentials, the typed config secret, secret managers as delivery.
 - **[Logging Security](./references/logging.md)** — PII in logs, log injection, sanitization.
 - **[Threat Modeling Guide](./references/threat-modeling.md)** — STRIDE, severity approaches, trust boundaries, OWASP Top 10.
-- **[Security Architecture](./references/architecture.md)** — Defense-in-depth, Zero Trust, auth patterns, rate limiting, anti-patterns.
+- **[Security Architecture](./references/architecture.md)** — Defense-in-depth, Zero Trust, where auth and rate limiting live (`go-auth`, `go-http-server`), anti-patterns.
 
 ## Code Review Checklist
 
@@ -152,7 +152,7 @@ go test -fuzz=Fuzz
 | --- | --- | --- | --- |
 | High | Security through obscurity | Hidden URLs are discoverable via fuzzing, logs, or source | Authentication + authorization on all endpoints |
 | High | Trusting client headers | `X-Forwarded-For`, `X-Is-Admin` are trivially forged | Server-side identity verification |
-| High | Client-side authorization | JavaScript checks are bypassed by any HTTP client | Server-side permission checks on every handler |
+| High | Client-side authorization | JavaScript checks are bypassed by any HTTP client | Server-side permission check in the module for every operation (`go-auth`) |
 | High | Shared secrets across envs | Staging breach compromises production | Per-environment secrets via secret manager |
 | Critical | Ignoring crypto errors | `_, _ = encrypt(data)` silently proceeds unencrypted | Always check errors — fail closed, never open |
 | Critical | Rolling your own crypto | Custom encryption hasn't been analyzed by cryptographers | Use `crypto/aes` GCM, `golang.org/x/crypto/argon2` |
@@ -161,8 +161,9 @@ See **[Security Architecture](./references/architecture.md)** for detailed anti-
 
 ## Cross-References
 
-See `golang-observability`. Use the repository's CI
-target for the automated security and quality checks.
+See `golang-observability`. Authentication and authorization defaults:
+`go-auth`. Server timeouts, headers and rate limiting: `go-http-server`.
+Use the repository's CI target for the automated security and quality checks.
 
 ## Additional Resources
 

@@ -27,7 +27,7 @@ reachable from props, and has a story.
   reversible; on failure, roll back visibly and say so.
 - **Cancellation**: navigating away or changing filters cancels the
   in-flight request; a late response never overwrites newer state.
-- **End-to-end hook**: the view root's `data-loaded` is `true` only once the
+- **End-to-end hook**: the screen root's `data-loaded` is `true` only once the
   primary data has settled (success, empty or error).
 
 ## Checklist

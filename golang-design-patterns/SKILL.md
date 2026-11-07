@@ -46,6 +46,11 @@ constructed in the composition root and passed in.
   unexported fields beat a doc comment saying "must be positive".
 - Domain values are data with validating constructors, not self-mutating
   models (`go-project-layout`).
+- Time is stored and compared in UTC; a `time.Location` comes from user
+  data at the edge, only to display or to interpret a user's input.
+- Money is integer minor units with its currency beside it, never a float.
+- Durations are `time.Duration`, never bare ints; config and wire formats
+  parse into one at the edge (`30s`, not `30`).
 - Choosing among `string`, `[]byte` and `[]rune`, and streaming large result
   sets with iterators: [data-handling.md](references/data-handling.md).
 

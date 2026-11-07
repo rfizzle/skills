@@ -1,6 +1,6 @@
 ---
 name: api-contract
-description: Use this skill when adding or changing an HTTP API operation, path, schema, field, status code, error shape, header or security scheme in a spec-first Go service; when editing api/openapi.yaml or regenerating the transport code; when the controller no longer satisfies the generated interface or generated code drifts; when deciding whether a change is breaking and needs /api/v2; when deprecating or sunsetting an endpoint; or when designing errors (RFC 9457 Problem Details), pagination, IDs, timestamps or idempotency keys. Also use it to review an OpenAPI diff before the owner's contract gate. Not for package placement (go-project-layout), persistence (golang-database), or business logic inside a module. Not for a protobuf/Connect API (versioning by proto package and `buf breaking`; a skill for it is written when a project has one).
+description: Use this skill when adding or changing an HTTP API operation, path, schema, field, status code, error shape, header or security scheme in a spec-first Go service; when editing api/openapi.yaml or regenerating the transport code; when the controller no longer satisfies the generated interface or generated code drifts; when deciding whether a change is breaking and needs /api/v2; when deprecating or sunsetting an endpoint; or when designing errors (RFC 9457 Problem Details), pagination, IDs, timestamps or idempotency keys. Also use it to review an OpenAPI diff before the owner's contract gate. Not for package placement (go-project-layout), persistence (golang-database), or business logic inside a module. It covers OpenAPI/REST services only; not for a protobuf/Connect API, the default for new services (connect-rpc).
 license: MIT
 metadata:
   author: rfizzle
@@ -10,9 +10,11 @@ metadata:
 # API contract
 
 `api/openapi.yaml` (OpenAPI 3.1) is the contract. The transport under
-`internal/api/<gen>/` is generated from it and never edited. A change starts
-in the YAML, is regenerated, is reviewed by the owner as a diff, then mapped
-at the edge.
+`internal/api/<gen>/` is generated from it by ogen, the default generator,
+and never edited. A change starts in the YAML, is regenerated, is reviewed
+by the owner as a diff, then mapped at the edge. OpenAPI is for a public
+REST API or an existing OpenAPI service; new services default to Connect
+(`connect-rpc`).
 
 ## Who owns what
 
@@ -66,8 +68,14 @@ a deliberate break passes only because it is in a new version.
   non-2xx. `type` is a stable absolute URI per error kind
   (`https://<host>/problems/<kebab-name>`), never changed once shipped;
   `title` fixed per type; `detail` human, safe, never a raw error or SQL;
-  extension members for machine fields (`errors` for field validation).
-  Each operation declares the Problem types it can return.
+  extension members for machine fields. Each operation declares the
+  Problem types it can return.
+- **Field errors**: a validation Problem carries
+  `errors: [{ "pointer": "/body/email", "detail": "Enter a valid email address." }]`.
+  `pointer` is a JSON Pointer (RFC 6901) into the request, rooted at its
+  part (`/body/address/postcode`, `/query/limit`); one entry per field;
+  `detail` is user-safe text shown beside the field. Forms map it onto
+  their fields (`frontend-api-client`).
 - **JSON**: camelCase names. Timestamps RFC 3339 in UTC (`2026-01-02T15:04:05Z`).
   IDs are opaque strings; clients never parse them.
 - **Pagination**: cursor-based. Request `cursor` and `limit` (with a declared

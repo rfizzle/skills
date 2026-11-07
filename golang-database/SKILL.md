@@ -92,7 +92,9 @@ The schema is deployed once a migration is applied anywhere shared. Rules:
    CONCURRENTLY` (outside a transaction), `ADD CONSTRAINT ... NOT VALID`
    then `VALIDATE`, and `SET lock_timeout` in the migration.
 6. No secrets or environment-specific data in a migration.
-7. The schema change is its own story and its own commit, landing first; the
+7. `migrate up` on a schema already ahead of the binary exits 0, so the
+   restart after a rollback (`deploy`) succeeds.
+8. The schema change is its own story and its own commit, landing first; the
    owner reviews the up and down SQL (schema gate).
 
 See [migrations](references/migrations.md) for the expand/contract recipes.

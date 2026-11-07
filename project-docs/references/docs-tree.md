@@ -55,6 +55,21 @@ purpose and the rest points at the story.
 check, how to mitigate, how to roll back. The `service-operations` skill has
 the shape.
 
+`docs/runbooks/deploy.md` is the one runbook no alert owns: preconditions,
+the deploy commands, verification, rollback and who to tell. Every alert
+page's bad-deploy fix links its rollback heading. The `deploy` skill has
+the template.
+
+## Incidents
+
+`docs/incidents/YYYY-MM-DD-<slug>.md`, one blameless postmortem per
+incident, written within a week: timeline, impact, cause, what worked,
+action items. Action items are filed in the tracker and listed by title,
+never by id. The alert's runbook page links the postmortem; the
+postmortem is not edited after its action items are filed, except to fix
+a fact. The `service-operations` skill says when one is owed; the
+template is in `templates.md`.
+
 ## Decisions
 
 See `decisions.md`.

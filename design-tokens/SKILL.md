@@ -74,9 +74,15 @@ named `duration-*` utilities.
   styles. A missing role is a token request, not an arbitrary value.
 - The caller's class input is merged last through the project's class-merge
   helper (clsx plus tailwind-merge or equivalent), so a caller override
-  wins. Your framework skill decides how the class input is spelled.
+  wins. The framework skill (`svelte-frontend`) decides how the class input
+  is spelled.
 - Variants are a small typed lookup from variant name to class string, kept
   in the unit. Add a variant library only if the project already has one.
+- The prettier Tailwind class-sort plugin is required, so class order is
+  never a review comment or a noisy diff.
+- No `@apply` inside units: a repeated class string becomes a unit or a
+  variant. `@utility`, in the token file, only for a pattern used in three
+  or more places.
 - `dark:` utilities are rare: tokens already switch. Use `dark:` only for a
   genuinely theme-specific behaviour, not to recolour.
 - Every focusable element shows a `focus-visible:` ring using `ring-focus`;

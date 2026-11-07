@@ -6,7 +6,7 @@ the frontend stories; it is not a file the owner reads.
 ## Elements
 
 List every UI element the feature needs and search the existing tokens,
-components, compositions and views for each. Classify, in this order of
+components, compositions, features, layouts and screens for each. Classify, in this order of
 preference:
 
 - **Exists**: reuse as-is; note its path.
@@ -23,7 +23,7 @@ here. Cross-cutting UX rules come from `ui-patterns`; cite, do not restate.
 
 For each piece of data: the API operation that serves it and whether it is
 fetched, derived or user input. An operation that does not exist yet becomes
-an API-contract story ahead of the view.
+an API-contract story ahead of the screen.
 
 ## Interaction map
 

@@ -5,21 +5,22 @@ The skills shared by every one of my repositories, in the
 `SKILL.md`. Status: the source of truth; projects vendor copies.
 
 Defaults unless a project's `AGENTS.md` names another choice: PostgreSQL with
-pgx, OpenAPI-first HTTP, a container image from
-[rfizzle/images](https://github.com/rfizzle/images). Always: Go, Linux,
-Renovate, a Makefile as the command interface, Tailwind CSS 4 when there is a
-UI. Frontend skills are
-framework-neutral; Svelte and React mechanics belong to framework skills.
+pgx, Connect RPC (OpenAPI-first with ogen for public REST), a container image
+from [rfizzle/images](https://github.com/rfizzle/images) deployed under
+systemd with Podman. Always: Go, Linux, Renovate, a Makefile as the command
+interface, Tailwind CSS 4 when there is a UI. Frontend skills are
+framework-neutral; Svelte mechanics belong to the framework skill,
+`svelte-frontend`.
 
 ## Skills
 
 | Area | Skills |
 | --- | --- |
-| Planning and process | `plan-feature`, `contract-spec`, `iterate`, `backlog-batches`, `release` |
-| Repository and docs | `project-docs`, `go-project-layout`, `repo-tooling`, `service-operations`, `create-skill`, `sound-patterns` |
-| API and data | `api-contract`, `golang-database` |
-| Go | `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
-| UI | `ui-patterns`, `ui-component-contract`, `design-tokens`, `a11y-review`, `storybook-layout` |
+| Planning and process | `plan-feature`, `contract-spec`, `iterate`, `backlog-batches`, `release`, `deploy` |
+| Repository and docs | `project-docs`, `go-project-layout`, `repo-tooling`, `container-image`, `service-operations`, `create-skill`, `sound-patterns` |
+| API and data | `connect-rpc`, `api-contract`, `golang-database`, `go-background-jobs` |
+| Go | `go-http-server`, `go-auth`, `go-library`, `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
+| UI | `svelte-frontend`, `frontend-api-client`, `browser-e2e`, `ui-patterns`, `ui-component-contract`, `design-tokens`, `a11y-review`, `storybook-layout` |
 
 A skill exists because something went wrong without it. It holds what a
 capable model would not do unprompted; a rule a machine can check becomes a

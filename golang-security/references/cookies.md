@@ -19,6 +19,11 @@ Cookie security is critical for preventing session hijacking and XSS exploitatio
 2. Cookies MUST set `Secure` in production (HTTPS only).
 3. `SameSite` SHOULD be `Lax` or `Strict` — use `None` only when cross-site access is required.
 
+The session cookie itself (`__Host-session`, an opaque server-side id,
+`SameSite=Lax`, rotation, CSRF defence, the loopback-only dev exception)
+is defined by `go-auth`; review a session against it. This file covers
+cookies in general.
+
 ---
 
 ## HTTP-Only Flag Missing — Medium
@@ -39,11 +44,11 @@ cookie := &http.Cookie{
 
 ```go
 cookie := &http.Cookie{
-    Name:     "session",
+    Name:     "__Host-session",
     Value:    sessionID,
     HttpOnly: true,   // Prevents JavaScript access
     Secure:   true,   // Only sends over HTTPS
-    SameSite: http.SameSiteStrictMode,
+    SameSite: http.SameSiteLaxMode,
     Path:     "/",
     MaxAge:   3600,
 }
@@ -101,7 +106,9 @@ cookie := &http.Cookie{
 **Good:**
 
 ```go
-// Strict for high-security operations
+// Strict: never sent on arrival from another site, so a session cookie set
+// Strict makes a user who follows an emailed link look signed out. Use it
+// for a cookie only same-site requests need, not for the session (go-auth).
 authCookie := &http.Cookie{
     Name:     "auth",
     Value:    token,
@@ -159,6 +166,10 @@ hostCookie := &http.Cookie{
 
 ## Gorilla Sessions Cookie Security — High
 
+A cookie store keeps the session in the browser, where it cannot be revoked;
+new code uses server-side sessions (`go-auth`). When reviewing existing
+code that uses one:
+
 **Bad:**
 
 ```go
@@ -195,10 +206,10 @@ store.Options = &sessions.Options{
 - [ ] Use short `MaxAge` expiration
 - [ ] Avoid setting cookie `Domain` unless necessary
 - [ ] Validate cookie values on every request
-- [ ] Use cryptographically signed cookies
+- [ ] A session cookie holds only an opaque random id; any other data in a cookie is signed
 - [ ] Rotate cookie secrets regularly
 - [ ] Clear cookies on logout
-- [ ] Use double-submit cookie pattern for CSRF protection
+- [ ] CSRF: `SameSite=Lax`, `http.CrossOriginProtection` and a required custom header (`go-auth`); no double-submit token by default
 
 ---
 

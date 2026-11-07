@@ -5,9 +5,14 @@ against production; the target is a scratch instance that is deleted
 afterwards.
 
 1. Pick a restore point: a timestamp inside the retention window, not the
-   latest, so point-in-time recovery is exercised.
+   latest, so point-in-time recovery is exercised. With nightly dumps
+   only, pick a dump other than the newest from the off-host copy.
 2. Restore to a new scratch instance with the provider's PITR, or base
-   backup plus WAL replay. Start a timer.
+   backup plus WAL replay. Start a timer. On the default deploy target
+   (`deploy`) without WAL archiving, fetch the dump from the off-host copy
+   (`restic restore`), not the host's own directory, start a throwaway
+   `ghcr.io/rfizzle/postgres` container and `pg_restore --no-owner` the
+   dump into it; the restore point is the dump's timestamp.
 3. Point the service binary at it (read-only credentials) and run its
    migration status: the version must match the release deployed at the
    restore point.

@@ -1,6 +1,6 @@
 ---
 name: service-operations
-description: Use this skill when making a Go service operable or checking that it is, before its first deploy or when adding an alert, a dependency or a launch flag. Covers /healthz and /readyz, graceful shutdown, structured slog with request IDs, RED metrics, traces, feature flags (typed, from config, removed after launch), runbooks with one page per alert, and backups with a tested restore drill. Triggers include "add a health check", "readiness probe", "request ID", "what should we alert on", "write a runbook", "add a feature flag", "remove the flag", "how do we restore", "backup drill", and "is this ready for production". Not for choosing metric types, label rules or span attributes in detail (use golang-observability), secret handling or hardening (use golang-security), or build, image and CI setup (use repo-tooling).
+description: Use this skill when making a Go service operable or checking that it is, before its first deploy or when adding an alert, a dependency or a launch flag. Covers /healthz and /readyz, graceful shutdown, structured slog with request IDs, RED metrics, traces, feature flags (typed, from config, removed after launch), runbooks with one page per alert, and backups with a tested restore drill. Triggers include "add a health check", "readiness probe", "request ID", "what should we alert on", "write a runbook", "add a feature flag", "remove the flag", "how do we restore", "backup drill", "is this ready for production", "write a postmortem" and "what do we do after the outage". Not for deploying, promoting or rolling back a release (use deploy), choosing metric types, label rules or span attributes in detail (use golang-observability), secret handling or hardening (use golang-security), build and CI setup (use repo-tooling), or the container image (use container-image).
 license: MIT
 metadata:
   author: rfizzle
@@ -19,18 +19,21 @@ and the security detail in `golang-security`.
   checks no dependency; a database outage must not restart every replica.
 - `GET /readyz` is readiness: 200 only when the service can do its work.
   It pings the database with a short timeout (about a second) and checks the
-  schema is at the migration version the binary expects. Otherwise 503.
+  schema is at or past the migration version the binary needs, so the
+  previous release still passes after a rollback (`deploy`). Otherwise 503.
 - Both sit outside API versioning, need no authentication, and return a
   short status with no hostnames, versions or error text. `/metrics` sits
   beside them, reachable only from the scrape network.
-- The binary has a `healthcheck` subcommand that calls `/healthz`, when
-  the binary runs in a shell-less image.
+- The binary has a `healthcheck` subcommand that calls `/healthz`, and
+  `/readyz` with `--ready`, when it runs in a shell-less image. The deploy
+  unit's `HealthCmd` uses `--ready`, so systemd holds a restart until the
+  new release is ready (`deploy`).
 
 ## Shutdown
 
 On SIGTERM: `/readyz` turns 503, the server stops accepting and drains
 in-flight requests within a deadline shorter than the platform's grace
-period, background workers stop taking work and finish or release it, then
+period (the unit's `TimeoutStopSec` under `deploy`), background workers stop taking work and finish or release it, then
 dependencies close in the reverse of their start order. Every step honours
 the context deadline.
 
@@ -60,13 +63,36 @@ the context deadline.
 ## Alerts and runbooks
 
 - Alert on symptoms users feel (error ratio, latency, readiness, queue
-  age), not on causes. Each alert is actionable at any hour, or it is a
+  age), not on causes. A page is actionable at any hour; anything that can
+  wait for working hours is a ticket, and anything no one acts on is a
   dashboard panel instead.
+- Two severities, one rule with `golang-observability`'s alerting
+  reference: page is its `critical` label (`for:` 2 to 5 minutes), ticket
+  is its `warning` label (`for:` 10 to 30 minutes). The runbook states
+  which.
 - One runbook page per alert: `docs/runbooks/<alert-name>.md`, with
   Symptom, Check and Fix. The alert's annotation links to it. Template:
   `references/runbook-template.md`.
 - A runbook names commands and dashboards that exist; it is updated in the
-  commit that changes the alert, the metric or the fix.
+  commit that changes the alert, the metric or the fix. Its bad-deploy fix
+  is the digest rollback in `docs/runbooks/deploy.md` (`deploy`).
+
+## After an incident
+
+An incident is a page users felt, a rollback, a failed deploy or a failed
+restore drill.
+
+1. Declare it: one person owns it and says so, with the start time, where
+   the project's runbooks say to.
+2. Mitigate with the alert's runbook, rollback first when a deploy is in
+   the window; find the cause after users are whole.
+3. Within a week, write a blameless postmortem at
+   `docs/incidents/YYYY-MM-DD-<slug>.md` (template in `project-docs`):
+   timeline in UTC, impact, cause, what worked, action items. Systems and
+   decisions are causes; people are not.
+4. File each action item as a story; the page lists them by title only.
+5. Link the postmortem from the alert's runbook page under Incidents, and
+   fix the runbook in the same commit if it misled.
 
 ## Feature flags
 
@@ -104,6 +130,8 @@ the context deadline.
 - Every alert links to a runbook page with Symptom, Check and Fix.
 - Every flag has a removal story.
 - The last restore drill is recorded and within schedule.
+- Every incident has a postmortem within a week, linked from its runbook,
+  with its action items filed.
 
 ## References
 

@@ -4,7 +4,10 @@ Hardcoded secrets, credentials, and sensitive data in source code is a major sec
 
 **Rules:**
 
-1. Secrets MUST be loaded from environment variables or secret managers.
+1. Secrets come in through the typed configuration `repo-tooling` defines:
+   environment variables with one `APP_` prefix, parsed once at startup into
+   a typed struct, each secret a distinct type whose `String`, `GoString`
+   and slog `LogValue` print `***`. No `os.Getenv` elsewhere in the code.
 2. NEVER commit secrets to VCS.
 3. `.gitignore` MUST exclude secret files (`.env`, `*.key`, `*.pem`).
 
@@ -29,32 +32,23 @@ var config = Config{
 }
 ```
 
-**Good:**
+**Good:** a `Secret` field in the one config struct, filled from
+`APP_DB_PASSWORD` by the startup parser, and revealed only where it is used:
 
 ```go
-import "os"
+// Secret holds a credential from config. Every printing path shows ***, and
+// encoding/json sees no exported field.
+type Secret struct{ v string }
 
-type Config struct {
-    AWSAccessKey     string
-    AWSSecretKey     string
-    DatabasePassword string
-    JWTSecret        string
-}
-
-func LoadConfig() (*Config, error) {
-    cfg := &Config{
-        AWSAccessKey:     os.Getenv("AWS_ACCESS_KEY_ID"),
-        AWSSecretKey:     os.Getenv("AWS_SECRET_ACCESS_KEY"),
-        DatabasePassword: os.Getenv("DATABASE_PASSWORD"),
-        JWTSecret:        os.Getenv("JWT_SECRET"),
-    }
-
-    if cfg.JWTSecret == "" {
-        return nil, errors.New("JWT_SECRET is required")
-    }
-    return cfg, nil
-}
+func NewSecret(v string) Secret     { return Secret{v: v} }
+func (s Secret) Reveal() string     { return s.v }
+func (Secret) String() string       { return "***" }
+func (Secret) GoString() string     { return "***" }
+func (Secret) LogValue() slog.Value { return slog.StringValue("***") }
 ```
+
+Keep `Secret` fields exported in the config struct: `fmt` cannot call
+methods on an unexported field, so `%+v` of the struct prints its value.
 
 ---
 
@@ -70,86 +64,23 @@ dsn := "user:Password123!@tcp(localhost:3306)/dbname" // DON'T
 dsn := "user=postgres password=P@ssw0rd! dbname=mydb host=localhost" // DON'T
 ```
 
-**Good:**
-
-```go
-// MySQL
-func connectMySQL() (*sql.DB, error) {
-    user := os.Getenv("DB_USER")
-    password := os.Getenv("DB_PASSWORD")
-    if password == "" {
-        return nil, errors.New("DB_PASSWORD required")
-    }
-    dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s",
-        user, password,
-        getEnvWithDefault("DB_HOST", "localhost"),
-        getEnvWithDefault("DB_PORT", "3306"),
-        getEnvWithDefault("DB_NAME", "mydb"))
-    return sql.Open("mysql", dsn)
-}
-
-// PostgreSQL
-func connectPostgres() (*sql.DB, error) {
-    connStr := os.Getenv("DATABASE_URL")
-    if connStr == "" {
-        return nil, errors.New("DATABASE_URL required")
-    }
-    return sql.Open("postgres", connStr)
-}
-```
+**Good:** the DSN, or its password, is a `Secret` in the typed config;
+`internal/app` builds the pool config from it (`golang-database`), and a
+startup error names the key, never the value.
 
 ---
 
 ## Secrets Storage Best Practices
 
-### Environment Variables
+### Secret managers
 
-```go
-type EnvSecretLoader struct{}
-
-func (l *EnvSecretLoader) Load(required []string) (map[string]string, error) {
-    secrets := make(map[string]string)
-    missing := []string{}
-    for _, name := range required {
-        value := os.Getenv(name)
-        if value == "" {
-            missing = append(missing, name)
-            continue
-        }
-        secrets[name] = value
-    }
-    if len(missing) > 0 {
-        return nil, fmt.Errorf("missing: %v", missing)
-    }
-    return secrets, nil
-}
-```
-
-### Secret Managers
-
-```go
-type SecretManager interface {
-    GetSecret(name string) (string, error)
-}
-
-// AWS Secrets Manager
-type AWSSecretsManager struct {
-    client *secretsmanager.Client
-}
-
-func (m *AWSSecretsManager) GetSecret(name string) (string, error) {
-    result, err := m.client.GetSecretValue(context.TODO(), &secretsmanager.GetSecretValueInput{
-        SecretId: aws.String(name),
-    })
-    if err != nil {
-        return "", err
-    }
-    if result.SecretString != nil {
-        return *result.SecretString, nil
-    }
-    return string(result.SecretBinary), nil
-}
-```
+A vault, a cloud secrets manager, Podman secrets or systemd credentials
+deliver the secret to the process as an environment variable or a file the
+config parser reads at startup (`APP_DB_PASSWORD_FILE`); the code still sees
+only the typed config. Calling a manager's API at runtime (to rotate
+without a restart) is a decision record, and the fetched value is still a
+`Secret`. Secrets are per environment: staging never holds a production
+secret.
 
 ### .gitignore Patterns
 

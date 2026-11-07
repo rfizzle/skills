@@ -30,7 +30,7 @@ Behaviour per breakpoint or container width, or "None of its own".
 - `Default`: what it shows.
 - `AllVariants`: ...
 - `WithLongContent`: ...
-- `Interactive`: the flow its play test performs.
+- Flows (`<Name>/Flows`): one story per flow, named for it (`OpenWithKeyboard`), and what its play test performs.
 
 ## Open questions
 Draft only; deleted at approval.

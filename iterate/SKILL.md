@@ -1,6 +1,6 @@
 ---
 name: iterate
-description: Use this skill for any change to code that already exists and already has its contract in code, such as fixing a bug, refactoring, adding behaviour behind an existing API, changing an exported interface or error, adding a migration, editing an OpenAPI operation, changing a cross-module flow, or adjusting an existing component or view. Use it when the user says "fix", "tweak", "change how X works", "small change", or asks whether a change needs a spec, a review or a new story. It classifies the change, names the documentation that moves with it in the same commit, and says whether to stop for an owner gate. Not for a new feature, module, component or view (use plan-feature), and it never creates or re-grows a spec.
+description: Use this skill for any change to code that already exists and already has its contract in code, such as fixing a bug, refactoring, adding behaviour behind an existing API, changing an exported interface or error, adding a migration, editing the API contract (a proto RPC or an OpenAPI operation), changing a cross-module flow, or adjusting an existing component or screen. Use it when the user says "fix", "tweak", "change how X works", "small change", or asks whether a change needs a spec, a review or a new story. It classifies the change, names the documentation that moves with it in the same commit, and says whether to stop for an owner gate. Not for a new feature, module, component or screen (use plan-feature), and it never creates or re-grows a spec.
 license: MIT
 metadata:
   author: rfizzle
@@ -16,7 +16,7 @@ applies only when a contract moves.
 ## Procedure
 
 1. **Classify.** Find every row the change hits. If it needs a new spec (a
-   new module, feature, component or view), stop: it is a story for
+   new module, feature, component or screen), stop: it is a story for
    `plan-feature`.
 
    | Change | Same commit | Gate |
@@ -25,9 +25,9 @@ applies only when a contract moves.
    | new behaviour, same API | doc comments, and a test named for the behaviour | none |
    | exported API, interface or error contract | doc comments; the commit body says what moved | owner accepts a summary of what moved |
    | schema | a new numbered up/down migration (`golang-database`) | owner accepts a summary of the schema change |
-   | HTTP API | the OpenAPI edit and its generated code (`api-contract`) | owner accepts a summary of the API change |
+   | API contract | the contract edit (proto under `proto/` with Connect by default, or `api/openapi.yaml`) and its generated code (`connect-rpc`, `api-contract`) | owner accepts a summary of the API change |
    | cross-module behaviour | the flow contract edit (`contract-spec`) | none beyond the rows above |
-   | existing component or view | its stories; the contract card only if a pattern, keyboard or focus behaviour changes | Storybook review, light and dark |
+   | existing component or screen | its stories; the contract card only if a pattern, keyboard or focus behaviour changes | Storybook review, light and dark |
    | scope (what the unit is for) | the spec's purpose line and a decision record (`project-docs`) | owner accepts the decision summary |
 
 2. **Change it.** Code, tests and the documentation from every row hit, in

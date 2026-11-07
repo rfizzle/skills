@@ -9,7 +9,7 @@ metadata:
 
 # Accessibility review
 
-The WCAG 2.2 Level A and AA gate for every UI unit and view. It runs twice:
+The WCAG 2.2 Level A and AA gate for every UI unit and screen. It runs twice:
 against the **card** before building (cheap; catches design gaps) and
 against the **build** (catches implementation gaps). Both must pass. AAA
 criteria are advisory unless the product adopts them.

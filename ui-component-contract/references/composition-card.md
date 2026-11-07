@@ -4,7 +4,7 @@
 
 ## Purpose
 What it does, where it appears, and when to arrange the children inline in a
-view instead. Reuse: which existing compositions were checked and why none fits.
+screen instead. Reuse: which existing compositions were checked and why none fits.
 
 ## Children
 | Child | Path | Data in / events out |
@@ -14,7 +14,7 @@ view instead. Reuse: which existing compositions were checked and why none fits.
 ## Flows
 | Flow | Effect | State, and who owns it | Story |
 |---|---|---|---|
-| | | caller via URL / local | `Interactive...` |
+| | | caller via URL / local | `<FlowName>` in Flows |
 
 ## Accessibility delegation
 - Landmark and heading level, if it is a page region.
@@ -29,7 +29,7 @@ Behaviour per breakpoint or container width, or "None of its own".
 - `Default`: realistic data.
 - `Loading`, `Empty`, `LoadError`, `Partial`: ...
 - `WithLongContent`: ...
-- one play-test story per flow.
+- Flows (`<Name>/Flows`): one play-test story per flow.
 
 ## Open questions
 Draft only; deleted at approval.

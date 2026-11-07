@@ -33,6 +33,7 @@ per fact; everything else links.**
 | UX notes beside the view or in `docs/` | a person judging the UI | What does the user see and do? | until a story shows it |
 | `docs/decisions/` | a person about to re-litigate | What was decided, when, why? | one record per decision |
 | `docs/runbooks/` | whoever is paged | An alert fired; what now? | one page per alert |
+| `docs/incidents/` | a person asking "has this happened before?" | What went wrong, and what changed? | one postmortem per incident |
 | `docs/research/<date>-<topic>.md` | a person asking "what did we look at?" | A dated snapshot | never edited |
 | `docs/reference/` | a person who needs the exact value | Flags, config keys, wire formats | generated or golden-tested |
 | `.agents/skills/<name>/` | an agent doing one kind of task | How is this kind of change made here? | small; see `create-skill` |
@@ -135,5 +136,5 @@ assess first and report, change nothing until the reconcile phase.
   audit, adopting a repository.
 - `references/align.md`: assess-then-reconcile a repository.
 - `references/templates.md`: skeletons for `AGENTS.md`, `README.md`,
-  `docs/README.md`, a decision record, and the Makefile target.
+  `docs/README.md`, a decision record, a postmortem, and the Makefile target.
 - `references/sources.md`: what was read, with URLs.

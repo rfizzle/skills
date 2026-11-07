@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use this skill when cutting, preparing or reviewing a release of a service or library, when the user says "cut a release", "tag vX.Y.Z", "bump the version", "update the changelog", "write release notes", or asks whether a change is breaking, which SemVer number comes next, or how an API version, a removed field or a destructive migration affects the version. Covers SemVer tags, a Keep a Changelog CHANGELOG.md built from Conventional Commits, the release checklist, and the breaking-change policy tied to API versions and migrations. The agent prepares the release commit and the local tag and stops; pushing and deploying are left to the owner. Not for CI or image build setup (use repo-tooling) or post-deploy health checks and runbooks (use service-operations).
+description: Use this skill when cutting, preparing or reviewing a release of a service or library, when the user says "cut a release", "tag vX.Y.Z", "bump the version", "update the changelog", "write release notes", or asks whether a change is breaking, which SemVer number comes next, or how an API version, a removed field or a destructive migration affects the version. Covers SemVer tags, a Keep a Changelog CHANGELOG.md built from Conventional Commits, the release checklist, and the breaking-change policy tied to API versions and migrations. The agent prepares the release commit and the local tag and stops; pushing and deploying are left to the owner. Not for CI setup (use repo-tooling), building, signing and publishing the image (use container-image), or post-deploy health checks and runbooks (use service-operations).
 license: MIT
 metadata:
   author: rfizzle
@@ -29,12 +29,14 @@ MINOR and anything else bumps PATCH.
 
 ## Breaking-change policy
 
-- **HTTP API.** A breaking change (removed or renamed field, changed type
+- **API.** A breaking change (removed or renamed field, changed type
   or meaning, optional to required, changed error code or status) never
-  ships in an existing version. It goes to a new API version (`/api/v2`, or a new proto package) for the affected
-  resources; v1 stays, marked `deprecated: true` with a `Sunset` header.
-  The API breaking check (`oasdiff breaking` or `buf breaking`) against the last tag must report nothing for
-  existing versions (`api-contract`). Removing v1 after its sunset date is
+  ships in an existing version. It goes to a new API version (a `v2` proto
+  package with Connect by default, or `/api/v2` for OpenAPI) for the affected
+  resources; v1 stays, marked deprecated with a `Sunset` header.
+  The breaking check (`buf breaking` or `oasdiff breaking`) against the last
+  tag must report nothing for existing versions (`connect-rpc`,
+  `api-contract`). Removing v1 after its sunset date is
   the MAJOR release.
 - **Schema.** Renames, drops and type changes use expand and contract
   (`golang-database`): add, dual-write, backfill and switch reads in one
@@ -82,7 +84,8 @@ starts with **Breaking:** and says what to do. Template:
    remote (`git fetch`, then compare; never pull or push without being
    asked).
 2. `make ci` passes, the integration tier passes, and the API breaking check
-   (oasdiff or `buf breaking`) against the last tag is clean or every finding is in a new API version.
+   (`buf breaking` or `oasdiff breaking`) against the last tag is clean or
+   every finding is in a new API version.
 3. Walk the release's migrations up, down and up again against a scratch
    database.
 4. Pick the number from the bump table. If the release holds a destructive
@@ -97,7 +100,8 @@ starts with **Breaking:** and says what to do. Template:
 7. **Stop.** Summarise the release in a few plain-English lines (what
    changed for users and operators, the bump and why, anything breaking),
    then give the commit, the tag, and the commands for the owner to run: `git push origin <branch>`,
-   `git push origin vX.Y.Z`, and the deploy step. Do not run them.
+   `git push origin vX.Y.Z`, and the deploy step (`deploy`; the project's
+   `docs/runbooks/deploy.md`). Do not run them.
 8. After the owner deploys, the post-deploy checks are in
    `service-operations`.
 

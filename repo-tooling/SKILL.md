@@ -1,6 +1,6 @@
 ---
 name: repo-tooling
-description: Use this skill when setting up or auditing the build and tooling of a Go service or tool (PostgreSQL and a Tailwind frontend when it has them), or when touching its Makefile, go.mod toolchain or tool directives, Node or pnpm pins, Dockerfile, compose.yaml, environment configuration, CI pipeline, Renovate config, linter limits, pre-commit hook or coverage floor. Triggers include "add a make target", "pin this tool", "write the Dockerfile", "the image uses Alpine", "add a local Postgres", "add a config variable", "CI should check X", "Renovate MRs fail go mod tidy", and "what does make ci run". Not for release tagging and changelogs (use release), runtime health, metrics and runbooks (use service-operations), or the content of docs-check and skills-check (project-docs and the skills README own those).
+description: Use this skill when setting up or auditing the build and tooling of a Go service or tool (PostgreSQL and a frontend when it has them), or when touching its Makefile, go.mod toolchain or tool directives, Node or pnpm pins, compose.yaml, the local dev loop, seed data, environment configuration, CI workflows, action pinning and permissions, Renovate config, linter limits, pre-commit hook or coverage floor. Triggers include "add a make target", "pin this tool", "make dev should start everything", "add seed data", "add a local Postgres", "add a config variable", "CI should check X", "pin the actions", "add gitleaks", "skip the web jobs on docs changes", "Renovate opens too many PRs", "Renovate MRs fail go mod tidy", and "what does make ci run". Not for the Dockerfile, base images and image scanning or signing (use container-image), release tagging (use release), runtime health and runbooks (use service-operations), or the content of docs-check and skills-check (project-docs and the skills README own those).
 license: MIT
 metadata:
   author: rfizzle
@@ -23,26 +23,34 @@ database) are omitted, not stubbed.
 |---|---|
 | `tools` | installs every pinned tool at its exact version |
 | `env` | fails when an installed tool differs from its pin |
-| `generate` | runs every generator (OpenAPI transport, SQL, frontend client) |
+| `generate` | runs every generator (buf for the proto contract or the OpenAPI transport, SQL, frontend client) |
 | `test` | unit tests with the race detector and coverage, no external services |
 | `test-integration` | tests against disposable PostgreSQL (build tag `integration`) |
-| `lint` | `go vet`, golangci-lint, formatting checks |
+| `lint` | `go mod verify`, `go vet`, golangci-lint, formatting checks |
 | `architecture-check` | fails on an import that crosses a layer boundary |
 | `docs-check` | the documentation checker (`project-docs`) |
 | `skills-check` | vendored shared skills match their lock file |
 | `web-lint` | type checks and lint for the frontend |
 | `web-test` | frontend unit tests and stories as tests |
+| `web-budget` | builds the frontend and fails on a bundle over budget |
+| `storybook-build` | the static Storybook, uploaded by CI for review |
 | `e2e` | browser tests against the Compose stack |
-| `docker-build` | builds the production image |
+| `docker-build` | builds the production image for the host architecture |
+| `image-check` | verifies, scans and smoke-runs the image (`container-image`) |
+| `dev` | the Go server with reload and the Vite dev server, one command |
+| `seed` | loads idempotent local seed data |
+| `proto-lint` | buf lint and format check (`connect-rpc`) |
+| `proto-breaking` | buf breaking against the last release tag |
 | `ci` | everything CI's verify job runs, in one target |
 
 Rules:
 
 - Every target has a `## description` and appears in `make help`.
-- `ci` depends on the read-only targets: `env`, a generate check (generate,
-  then fail on any diff or untracked file), `lint`, `architecture-check`,
-  `docs-check`, `skills-check`, `test`, `web-lint`, `web-test`. It never
-  writes to the tree, pushes or deploys.
+- `ci` depends on the read-only targets, in this order: `env`, a generate
+  check (generate, then fail on any diff or untracked file), `web-budget`
+  (the embedded frontend must exist before Go compiles), `proto-lint`,
+  `lint`, `architecture-check`, `docs-check`, `skills-check`, `test`,
+  `web-lint`, `web-test`. It never writes to the tree, pushes or deploys.
 - A target that needs a tool checks for it and says `run: make tools`.
 - No target reads secrets from the repository; they come from the
   environment or an untracked `.env`.
@@ -64,29 +72,8 @@ Rules:
 
 ## Containers
 
-When the project ships an image:
-
-- One multi-stage `Dockerfile`: a frontend build stage, a Go build stage,
-  and a runtime stage. The Go binary embeds the built frontend; the image
-  holds one binary.
-- Images come from `rfizzle/images` (Wolfi, apko-built, signed, SBOM):
-  build stages use the `-dev` variants (`ghcr.io/rfizzle/go:<stream>-dev`,
-  `ghcr.io/rfizzle/node:<stream>-dev`), the runtime is
-  `ghcr.io/rfizzle/static:latest`, Compose uses `ghcr.io/rfizzle/postgres`
-  and `ghcr.io/rfizzle/valkey`. An image that repo lacks is added there,
-  not pulled from elsewhere; until it exists, `cgr.dev/chainguard/*` is the
-  fallback. **Never Alpine**, in any stage, in
-  Compose, or in CI jobs.
-- Every `FROM` and every Compose `image:` is pinned by digest:
-  `name:tag@sha256:<digest>`. Renovate updates the digest.
-- `CGO_ENABLED=0`, `-trimpath`, version stamped with `-ldflags -X`.
-- Runs as non-root (`USER nonroot:nonroot` or a numeric UID), no shell in
-  the runtime image, OCI labels for source, revision, version.
-- A `.dockerignore` excludes `.git`, `node_modules`, build outputs and
-  `.env`.
-- A systemd-packaged binary is released by GoReleaser with checksums, SBOM
-  and signature; the same `-trimpath`, `CGO_ENABLED=0` and version stamping
-  rules apply.
+When the project ships an image, `container-image` owns the Dockerfile, the
+base images, scanning, signing and publishing; follow it.
 
 ## Local stack
 
@@ -94,7 +81,8 @@ When it needs a local service:
 
 - `compose.yaml` runs PostgreSQL (`ghcr.io/rfizzle/postgres`, digest-pinned) with a
   healthcheck and a named volume, bound to `127.0.0.1`. The app service
-  builds from the same `Dockerfile` as production.
+  builds from the same `Dockerfile` as production and runs read-only with
+  capabilities dropped, as the deploy does.
 - A Compose profile (`e2e`) starts the app plus its dependencies for
   `make e2e`; tests wait on the health and the page markers, never on
   sleeps.
@@ -102,6 +90,15 @@ When it needs a local service:
   `dev-reset` (drop the volume, says so before it does).
 - The Compose file works with Docker Compose and Podman's compose provider;
   a target never hard-codes one engine where the other would do.
+
+## Local loop
+
+`make dev` starts the database, the Go server under a file watcher (`air`)
+and the Vite dev server, whose proxy sends API paths to the Go port; Ctrl-C
+stops all of them. `make seed` loads idempotent seed data from
+`testdata/seed` or a `go run` seeder in `internal/seed`, never production
+data. Pins reach the shell from the files CI reads: Go picks the `go.mod`
+toolchain itself, and `mise` (or `direnv`) activates Node from `.nvmrc`.
 
 ## Configuration and secrets
 
@@ -118,18 +115,46 @@ When it needs a local service:
 
 ## CI and dependencies
 
-- The verify job runs `make ci`. Separate jobs run `govulncheck ./...`, the
-  image build and scan when there is an image (Trivy or Grype; fail on
-  fixable high and critical), and the API breaking check for the project's
-  contract against the last release tag (`oasdiff breaking` for OpenAPI,
-  `buf breaking` for protobuf).
-- CI uses the same pins: Go from `go.mod`, Node from `.nvmrc`, tools from
-  `make tools`. CI images follow the container rules.
+- The verify job runs `make ci`. Separate jobs run gitleaks,
+  `govulncheck ./...`, `make image-check` when there is an image, and the
+  API breaking check against the last release tag (`buf breaking` for the proto
+  contract, the default; `oasdiff breaking` for OpenAPI).
+- CI uses the same pins: Go from `go.mod`, Node from `.nvmrc` through
+  `node-version-file`, tools from `make tools`. A job that runs in a
+  container uses an `rfizzle` image (`container-image`).
+- Frontend jobs cache Playwright browsers, upload the Storybook build for
+  review, check the bundle budget, and run behind path filters: a
+  docs-only change skips them, a Go-only change still runs e2e.
+- A binary shipped outside an image (systemd package, CLI archive) is
+  released by GoReleaser with checksums, SBOM and signature, built with
+  `CGO_ENABLED=0`, `-trimpath` and version stamping.
 - Renovate manages Go modules, `tool` directives, npm, Dockerfile and
-  Compose digests, and CI images. It runs `go mod tidy` and refreshes the
-  pnpm lockfile on every update. A tidy that fails in Renovate usually
-  means a module the bot cannot fetch; give it `hostRules` and `GOPRIVATE`,
-  or move the import out of the main module.
+  Compose digests, CI images and action SHAs. It runs `go mod tidy` and
+  refreshes the pnpm lockfile on every update. Digests and patches
+  auto-merge on green CI, minors come as one weekly group, and majors of
+  Go, Node, Tailwind, Svelte and image streams wait for a human. A tidy
+  that fails in Renovate usually means a module the bot cannot fetch; give
+  it `hostRules` and `GOPRIVATE`, or move the import out of the main module.
+
+## Supply chain
+
+The repository's own; the image's is `container-image`.
+
+- Actions are pinned by commit SHA with the version in a comment
+  (`actions/checkout@<sha> # v4.4.0`); a tag can move, a SHA cannot.
+  Renovate's `helpers:pinGitHubActionDigests` pins and bumps them.
+- `permissions: contents: read` at the top of every workflow; a job that
+  needs more asks for it itself. `packages: write`, `id-token: write` and
+  `attestations: write` belong to the publish job only.
+- `GITHUB_TOKEN` and other secrets go only to a step that needs them (a
+  registry login), never to a third-party action that does not, and never
+  into a workflow-level `env`.
+- gitleaks runs in the pre-commit hook on the staged change and as a CI job
+  over the full history.
+- Lockfiles are committed and installs frozen (Pins); `make lint` runs
+  `go mod verify`.
+- One update bot: Renovate, or Dependabot where a project chose it, never
+  both; two bots open duplicate pull requests and fight over lockfiles.
 
 ## Recommended quality gates
 
@@ -154,15 +179,21 @@ Adopt these where the repository can hold them; each is a target in
 - `make help` lists every standard target that applies; `make ci` passes on
   a clean clone after `make tools`.
 - `make env` passes, and no tool is installed at an unpinned version.
-- Every `FROM` and Compose image (where there is one) is digest-pinned and
-  none is Alpine; the runtime image runs as non-root and holds one binary.
+- `make dev` starts the whole local loop in one command; `make seed` is
+  idempotent and holds no production data.
+- Where there is an image, `container-image`'s definition of done holds.
 - Configuration is one prefix into one typed struct; no secret prints.
-- CI runs `make ci`, govulncheck, the image build and scan when there is an
-  image, and the API breaking check; Renovate runs tidy and lockfile updates.
+- CI runs the jobs above, frontend jobs behind path filters; every action
+  is SHA-pinned, every workflow starts at `contents: read`, and only the
+  publish job escalates.
+- Renovate runs tidy and lockfile updates with the auto-merge and hold
+  rules.
 
 ## References
 
-- `references/makefile.md`: Makefile skeleton, tool pins, hook and coverage
-  floor.
-- `references/dockerfile.md`: multi-stage Dockerfile and `compose.yaml`.
-- `references/ci-renovate.md`: CI job outline and `renovate.json`.
+- `references/makefile.md`: when changing the Makefile: skeleton, pins,
+  the local loop (`air`, Vite proxy, seed, `mise`), hook, coverage floor.
+- `references/compose.md`: when adding a local service or the e2e stack.
+- `references/ci-renovate.md`: when writing a workflow or `renovate.json`:
+  jobs, path filters, workflow conventions, package rules.
+- The Dockerfile and image CI are in `container-image`.

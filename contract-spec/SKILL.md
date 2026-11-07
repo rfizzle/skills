@@ -1,6 +1,6 @@
 ---
 name: contract-spec
-description: Use this skill before building, reimplementing or behaviourally refactoring a Go business module (a business package: internal/modules/<m> in the service layout, internal/<pkg> in a flat one), or a capability that spans two or more modules such as a pipeline, queue hand-off, multi-step workflow, reconciliation loop or delivery path. Triggers include "spec a module", "write a module proposal", "design the contract", "write the interface first", "spec the flow", "what happens if step N crashes", and stating an exactly-once, ordering or idempotency guarantee across modules; also when a module's exported API, interface or error contract changes, when modules change how they hand work to each other, and when reviewing a built module or flow against its contract. Not for the HTTP contract (api-contract), file placement (go-project-layout), doc comment form (project-docs), or planning a feature into stories (plan-feature).
+description: Use this skill before building, reimplementing or behaviourally refactoring a Go business module (a business package: internal/modules/<m> in the service layout, internal/<pkg> in a flat one), or a capability that spans two or more modules such as a pipeline, queue hand-off, multi-step workflow, reconciliation loop or delivery path. Triggers include "spec a module", "write a module proposal", "design the contract", "write the interface first", "spec the flow", "what happens if step N crashes", and stating an exactly-once, ordering or idempotency guarantee across modules; also when a module's exported API, interface or error contract changes, when modules change how they hand work to each other, and when reviewing a built module or flow against its contract. Not for the API contract (connect-rpc; api-contract for OpenAPI), file placement (go-project-layout), doc comment form (project-docs), or planning a feature into stories (plan-feature).
 license: MIT
 metadata:
   author: rfizzle
@@ -55,8 +55,9 @@ YYYY-MM-DD by <owner>`, and each open question becomes a dated line under
 **Decisions**; an approved spec has no open questions. If the owner changes
 the contract, revise and summarise again.
 
-New HTTP operations have their own gate and commit (`api-contract`: they
-answer 501 until the backend lands); link to it, do not repeat it.
+New API operations have their own gate and commit (`connect-rpc` or
+`api-contract`: they answer `unimplemented` or 501 until the backend lands);
+link to it, do not repeat it.
 
 ## 3. Build, and move the contract into code
 

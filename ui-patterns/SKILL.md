@@ -11,8 +11,8 @@ metadata:
 
 Rules that hold for every screen, plus one reference per recurring pattern.
 Load the references the work touches; each ends with a checklist that is its
-definition of done. They are framework-neutral: where mechanics differ, your
-framework skill decides.
+definition of done. They are framework-neutral: where mechanics differ, the
+framework skill (`svelte-frontend`) decides.
 
 | Reference | Load when the work involves |
 |---|---|
@@ -25,19 +25,24 @@ framework skill decides.
 | [responsive.md](references/responsive.md) | layouts across widths, touch, zoom |
 | [content.md](references/content.md) | labels, copy, truncation, dates, numbers, translation |
 
-## Tiers
+## Layers
 
-Build up through four tiers; each uses only the tiers below it.
+On the tokens (`design-tokens`), build up through five layers, which are
+also the `storybook-layout` sidebar roots after Docs and Foundations:
 
-1. **Tokens**: semantic roles (`design-tokens`).
-2. **Components**: single-purpose units with no product data shapes.
-3. **Compositions**: arrangements of components, possibly with local state.
-4. **Views**: routes. They fetch data, own URL state, and arrange
-   compositions.
+1. **Components**: single-purpose units with no domain types.
+2. **Compositions**: reusable arrangements of components, possibly with
+   local state, still with no domain types.
+3. **Features**: units that know the domain (a server, a permission) and
+   arrange compositions and components for it.
+4. **Layouts**: frames with slots and no domain logic.
+5. **Screens**: routes. They fetch data, own URL state, and put features
+   into a layout.
 
-A unit in a lower tier never imports one from a higher tier. Product-specific
-vocabulary (a domain type, a permission) appears in compositions and views,
-not in components.
+A unit never imports one from a layer above it, and a layout takes features
+through its slots rather than importing them. Domain vocabulary appears in
+features and screens only. A small project may skip features and layouts;
+its domain types then stay in screens.
 
 ## Reuse before create
 
@@ -52,12 +57,12 @@ through `ui-component-contract`.
 - Data enters a unit through its props; the unit reports user intent
   through callbacks or events (`onSelect`, `onDismiss`). Name callbacks for
   the intent, not the DOM event.
-- Components and compositions do not fetch. Views fetch and pass data down.
+- Only screens fetch; every other layer gets data through its props.
   The exception, a self-contained interaction such as inline edit-and-save,
   is written in the unit's card.
 - No global stores or context for data a prop can carry. Shared state is a
   named, justified exception in the feature brief.
-- Two-way binding is for form-like values only.
+- Two-way binding is for form-like values and an overlay's open state only.
 
 ## Plain language and progressive disclosure
 
@@ -80,7 +85,7 @@ done. Rules in `async-states.md`.
 
 Anything a user would bookmark, share, reload or go Back to lives in the
 URL: filters, search text, sort, page cursor, selected tab, the open record.
-Reading the URL is how the view initialises. Typing in a search box replaces
+Reading the URL is how the screen initialises. Typing in a search box replaces
 history; committing a new filter set pushes it. Transient UI (an open menu,
 a hovered row) stays local.
 
@@ -94,14 +99,14 @@ focus traps or roving tabindex. A `div` with a click handler is a defect.
 
 ## End-to-end hooks
 
-Every async view's root exposes a stable `data-page="<slug>"` and
+Every async screen's root exposes a stable `data-page="<slug>"` and
 `data-loaded="true|false"`. End-to-end tests wait for
 `[data-page="<slug>"][data-loaded="true"]`, never for a timeout, a spinner
 disappearing, or network idle.
 
 ## Definition of done (any screen)
 
-- Tier and reuse rules hold; no cloned unit.
+- Layer and reuse rules hold; no cloned unit.
 - All five async states exist and have stories.
 - URL-worthy state is in the URL and survives reload and Back.
 - The checklist of every reference the work touched passes.

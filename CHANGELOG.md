@@ -6,6 +6,29 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `svelte-frontend`: the framework skill the UI skills defer to: Svelte 5 runes, bits-ui as the primitive library, the `web/src` layout with an import-direction check, Svelte CSF stories, the vitest, Storybook and Playwright test stack, lint and format, and the embedded SvelteKit build.
+- `frontend-api-client`: one typed path from the contract to a screen, for Connect-ES (default) and OpenAPI clients: generated code, one transport, error normalisation with field errors, data layer rules, and fake transports in tests.
+- `browser-e2e`: the Playwright tier: what earns an end-to-end test, the run against the built image, role locators and page markers, seeding through the API, per-worker auth state, CI caching and the flaky-test quarantine.
+- `connect-rpc`: the default API contract: buf layout and generation, proto style, versioning by package with `buf breaking` against the last tag, the error code mapping with field violations, server wiring and tests. OpenAPI-first with ogen stays the alternative in `api-contract`.
+- `go-http-server`: the shape of `internal/platform/http`: stdlib mux, `http.Server` timeouts, the fixed middleware order, serving the embedded SPA without shadowing the API, streaming, the outbound client and per-client rate limiting.
+- `go-auth`: the default authentication and authorization shape: opaque server sessions in a `__Host-` cookie, CSRF through SameSite and the required header, argon2id and TOTP, hashed API keys, the principal in context, one authorization function per operation, the tenant filter in every query, and the browser side.
+- `go-background-jobs`: durable jobs on the project database with no broker: the jobs table, claim and lease, bounded workers, retry and dead state, schedules, the outbox for email and webhooks, outbound integrations, metrics and tests.
+- `go-library`: the library case: exported API minimalism, no globals, `Example` tests, module versioning and compatibility checks.
+- `container-image`: the image policy: one static binary on `ghcr.io/rfizzle/static`, no distro base or package install in any stage, digest pinning with the weekly base rebuild, base signature verification, keyless signing with provenance and SBOM, scanning with dated exceptions, and the hardened runtime shape.
+- `deploy`: from a release tag to a running service: the image under systemd through Podman Quadlet with Cloudflare Tunnel in front, environments, the migrate-then-restart sequence, rollback by digest, secrets, host baseline and the deploy runbook.
+
+### Changed
+
+- Connect RPC is the default contract; `api-contract`, `go-project-layout`, `release`, `iterate`, `plan-feature`, `contract-spec` and `repo-tooling` name it beside OpenAPI. `api-contract` names ogen once and defines the Problem Details field-error shape.
+- `ui-patterns`, `ui-component-contract`, `storybook-layout` and `plan-feature` share one five-layer model (components, compositions, features, layouts, screens), the contract's state story names, and the `<Unit>/Flows` file for play tests.
+- `repo-tooling` points at `container-image` for the image, and gains a local loop (`make dev`, `make seed`), a supply-chain section (SHA-pinned actions, least-privilege tokens, gitleaks, `go mod verify`), proto targets, Renovate auto-merge and hold rules, and the frontend CI rows. The library's own CI pins actions by SHA and reads Node from `.nvmrc`.
+- `service-operations` adds the after-incident procedure and postmortem page, states the two alert severities as one rule with `golang-observability`, and names the rollback command; `release` and the runbook template no longer carry deploy placeholders; `project-docs` lists `docs/incidents/`.
+- `golang-security` defers to `go-auth` for sessions and credentials, keys the rate limiter per client, points secrets loading at `repo-tooling`'s typed config, and checks the dialled address for SSRF.
+- `golang-testing` examples use the standard library only and the review checklist has a flaky-test policy; `golang-design-patterns` states the time, money and duration rules; `golang-database` matches the jobs table's claim query and requires `migrate up` to succeed on a schema already ahead of the binary.
+- `design-tokens` adds the utility-discipline rules (class sorting, no `@apply` in units, `@utility` for three or more uses).
+
 ## [0.3.0] - 2026-11-07
 
 ### Added
