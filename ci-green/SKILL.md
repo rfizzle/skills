@@ -91,6 +91,12 @@ gate.
 - Branch protection with required checks blocks direct pushes to the
   default branch; a solo repository that commits straight to it relies on
   the hook and the watch instead, and says so in its agent instructions.
+- A worktree kept inside the repository directory (`tmp/worktrees/<name>`)
+  is not clean for a release or reproducibility check: Go's VCS stamp walks
+  past the worktree's `.git` file to the parent repository and records the
+  main checkout's HEAD, so two builds minutes apart differ when the main
+  branch moved between them. Put the landing-gate worktree beside the
+  repository, not inside it, or use a `git archive` export.
 - Several commits pushed at once get one run on the tip; a red run names
   the tip, and bisecting means running the CI target on earlier commits
   locally, which is why the batch runs it before the push.
