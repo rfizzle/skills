@@ -56,7 +56,7 @@ something the next context would otherwise have to rediscover.
 
 ## Where things are
 - Run sheet: .agents/run-sheet.md.
-- Tracker: GitHub Issues, milestone "1.2", label `batch-3`; batch 3 of 4.
+- Tracker: the backlog artifact, link in AGENTS.md "Backlog"; batch 3 of 4.
 - Credentials: seeded admin login: `.env.local`, keys APP_SEED_USER and APP_SEED_PASSWORD. Deploy token: the vault, entry "ci deploy".
 - Durable how-tos: AGENTS.md "Local stack"; docs/runbooks/deploy.md.
 

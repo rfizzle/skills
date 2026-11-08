@@ -38,7 +38,9 @@ agent definition cannot know.
   worktree, how to read it, and who marks it done. For a gitignored file:
   read the main checkout's copy by absolute path, tick with a targeted edit
   there (or put the exact tick text in the report if refused), never stage
-  it.
+  it. For an artifact or a pasted list: the criteria are quoted here in
+  full, the agent reads nothing else, and the report ends with each
+  criterion and whether it is met, so the orchestrator can tick from it.
 - **VERIFICATION**: the gate command exactly, the commands that are
   forbidden (full CI, evaluations, integration tiers, live experiments),
   whether the gate is known to pass clean on this host, and any shared lock

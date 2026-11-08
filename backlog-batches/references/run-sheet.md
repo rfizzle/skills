@@ -33,18 +33,18 @@ Push:                only on request (ask in the first report)
 
 ```
 Project:             example-cli, ~/src/example-cli
-Source:              gitignored markdown at ~/src/example-cli/.backlog.md; visible in worktree: no
-Read an item:        block "### S-NNN:" to the next "### "; **Status:** line; - [ ] criteria
-Mark done:           orchestrator sets **Status:** done and ticks criteria from the report; committed: no
-File a follow-up:    new ### block before "## Later", fields Status/Depends on/Description/Tasks/Acceptance Criteria/Tests
+Source:              backlog artifact (link in the first report); visible in worktree: no, criteria pasted at launch
+Read an item:        orchestrator reads the artifact; block "### S-NNN:" to the next "### "; **Status:** line; - [ ] criteria
+Mark done:           orchestrator re-reads the artifact, sets **Status:** done and ticks criteria from the report, publishes; committed: no
+File a follow-up:    new ### block in the artifact before "## Later", fields Status/Depends on/Description/Tasks/Acceptance Criteria/Tests
 Finish line:         S-153, S-155, S-156, S-157, S-159 landed; S-154 and S-161 are the user's; S-158, S-146, S-160 wait on them
-Parked list:         one-line notes under "## Later" in .backlog.md
+Parked list:         one-line notes under "## Later" in the artifact
 Default branch:      master
 Gate:                make check (actionlint tidy fmt vet lint test selfcheck readme-check); golangci-lint installed 2026-09-29
 Landing gate:        make ci on the final head, in a clean worktree
 Forbidden:           commands that hit live services; long replays; anything that clones or downloads
 Commit rules:        Conventional Commits per AGENTS.md; scopes from the story tags; no story ids in messages; SPEC.md updated in the same change
-Attribution:         Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+Attribution:         none
 Roles:               implementer=backlog-implementer; reviewer=diff-reviewer; designer=architect
 Tiers:               routine=sonnet; capable=opus; frontier=fable
 Worktree launch:     Agent tool with subagent_type, isolation: "worktree", model by tier; `git worktree add ../<name>` when the harness places worktrees inside the repository (ci-green)

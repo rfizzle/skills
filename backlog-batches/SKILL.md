@@ -1,6 +1,6 @@
 ---
 name: backlog-batches
-description: Use this skill when the user asks to implement several backlog items, stories, tickets or issues in parallel, "in batches", "work the queue", "run the backlog", or "in their own worktrees", whatever the tracker is (a markdown backlog file such as .backlog.md, GitHub Issues, GitLab issues, Jira, Linear, or a list pasted in the prompt). It is the orchestrator recipe: resolve the work source, size each item, run at most three implementer sub-agents, one item each, in their own git worktrees at the model tier the item's size calls for, review by measured size, land by fast-forward, rebase survivors, and file follow-ups instead of widening items. Not for a single item (use the plan and implement workflows) and not for tracker administration on its own.
+description: Use this skill when the user asks to implement several backlog items, stories, tickets or issues in parallel, "in batches", "work the queue", "run the backlog", or "in their own worktrees", whatever the tracker is (a markdown file the project names, a backlog artifact in the harness, GitHub Issues, GitLab issues, Jira, Linear, or a list pasted in the prompt). It is the orchestrator recipe: resolve the work source, size each item, run at most three implementer sub-agents, one item each, in their own git worktrees at the model tier the item's size calls for, review by measured size, land by fast-forward, rebase survivors, and file follow-ups instead of widening items. Not for a single item (use the plan and implement workflows) and not for tracker administration on its own.
 metadata:
   author: rfizzle
   standard: agentskills.io
@@ -38,9 +38,11 @@ project-specific command, and every agent prompt quotes from that sheet.
 ## 1. Resolve the source and define done
 
 1. Ask, or read from the project's agent instructions, which source holds
-   the items. Pick the adapter in `references/sources.md`; note whether the
-   source is visible inside a git worktree (a gitignored file is not; an
-   issue tracker is).
+   the items. Pick the adapter in `references/sources.md`; note how an agent
+   reaches it from a worktree (a tracker directly; a gitignored file by
+   absolute path in the main checkout; an artifact only through the
+   orchestrator). A markdown file is only ever one the project already
+   names; the agent never picks a path for one.
 2. Agree the finish line for the run before anything launches: a release, a
    milestone, a named set of items. Filing every follow-up and filling
    every free slot never converges. Follow-ups are filed as items only when
@@ -210,9 +212,10 @@ repository, and the source.
 
 ## References
 
-- `references/sources.md`: adapters for markdown backlog files (tracked or
-  gitignored), GitHub Issues, GitLab issues, Jira or Linear, and a list in
-  the prompt; each says how to read, mark and file, and whether it is
-  visible in a worktree.
+- `references/sources.md`: adapters for a markdown file the project names
+  (tracked or gitignored), a backlog artifact in the harness, GitHub
+  Issues, GitLab issues, Jira or Linear, and a list in the prompt; each
+  says how to read, mark and file, and whether it is visible in a
+  worktree.
 - `references/agent-prompt.md`: the fixed prompt and addendum template.
 - `references/run-sheet.md`: the run sheet template with a filled example.

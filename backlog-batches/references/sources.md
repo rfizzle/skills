@@ -7,15 +7,19 @@ it has worked.
 | Question | Why it matters |
 | --- | --- |
 | Locate | how an agent opens item `<ID>` and reads its criteria, touches, overlaps, dependencies |
-| Visible in a worktree? | a gitignored file is absent from a sub-agent's worktree checkout; a tracker is reachable from anywhere |
+| Visible in a worktree? | a gitignored file is absent from a sub-agent's worktree checkout; a tracker is reachable from anywhere; an artifact only through the orchestrator |
 | Mark done | the exact edit or command, and who runs it (agent or orchestrator) |
 | Never committed? | a tracked backlog file is part of the commit; a gitignored one or a tracker is not |
 | File a follow-up | the block format or the create command |
 | Touches and overlaps | where they come from when the item does not carry them |
 
-## Markdown backlog file, gitignored (`.backlog.md`)
+## Markdown file, gitignored
 
-- **Locate**: the file in the main checkout; the item is a heading block
+The project's agent instructions or the owner name the file. Never choose
+or invent a path: a backlog file the project does not already have is a
+backlog artifact (below), not a new file.
+
+- **Locate**: the named file in the main checkout; the item is a heading block
   (`### S-153: ...` or `#### S-153: ...`) ending at the next heading of the
   same level. Criteria are `- [ ]` lines; status is a `**Status:**` line or a
   `[x]` on the heading, per the project. Read the file's preamble for its
@@ -36,12 +40,35 @@ it has worked.
   otherwise the orchestrator reads the description and lists the non-test
   files before building the queue.
 
-## Markdown backlog file, tracked
+## Markdown file, tracked
 
 As above, except the file is visible in every worktree, and the tick must be
 made in the agent's worktree and included in its commit, so two items that
 tick the same file conflict on landing. Resolve by rebase (keep both ticks).
 Prefer marking in the orchestrator after landing when the project allows.
+
+## Backlog artifact
+
+The backlog is a document the harness hosts for the owner (its artifact,
+canvas or page feature), so it travels between machines and sessions
+without a commit. The owner gives its link.
+
+- **Locate**: the orchestrator reads it with the harness's own artifact
+  tool, never a web fetch. Items are `### <ID>: <title>` blocks with
+  `- [ ]` criteria and a `**Status:**` line; dependencies, touches and
+  overlaps are lines in the block when the owner wrote them. Parked
+  follow-ups go under a `## Later` heading at the end.
+- **Visible in a worktree?** No. Sub-agents lack the artifact tool: the
+  orchestrator pastes the item's criteria into the prompt at launch.
+- **Mark done**: the orchestrator, after the fast-forward, re-reads the
+  artifact (the owner may have edited it), ticks the criteria and sets the
+  status from the agent's report, and publishes the edit. The agent never
+  touches it.
+- **Never committed?** Right. Nothing of it exists in the repository.
+- **File a follow-up**: a new block in the same shape, inserted before
+  `## Later` (or under it when parked), with the originating item named.
+- **Touches and overlaps**: the block's own lines, or the run sheet's queue
+  table.
 
 ## GitHub Issues
 
@@ -77,6 +104,11 @@ follow-up itself. Say so in THE SOURCE paragraph.
 
 ## A list in the prompt
 
-The user pasted the items. The orchestrator writes them to a scratch file in
-the session scratchpad in the gitignored-markdown shape, tells agents the
-absolute path, and marks done there. Report the final state back as text.
+The owner pasted the items. Ask once whether they already live in an
+artifact or a file; if so, that adapter applies. Otherwise the orchestrator
+publishes them as a new backlog artifact in the shape above, gives the
+owner its link in the first report, and runs the artifact adapter from
+there. Only when the harness has no artifact feature does the list go to a
+scratch file in the session scratchpad, edited by the orchestrator alone
+and copied beside the state note (`checkpoint`) before the session may
+end; the final state is reported back as text.
