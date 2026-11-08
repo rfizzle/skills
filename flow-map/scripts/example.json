@@ -1,0 +1,48 @@
+{
+  "title": "Order cancellation",
+  "subtitle": "Cancel before shipment, refund if paid",
+  "mode": "change",
+  "capability": "A customer cancels an order that has not shipped. The order is marked cancelled at once; if payment was captured, a refund is issued through the payment provider and the customer is told when it lands.",
+  "success": "every cancelled paid order produces exactly one refund, and the customer sees the cancellation immediately",
+  "lanes": [
+    { "id": "customer", "name": "Customer", "kind": "person" },
+    { "id": "web", "name": "Browser", "kind": "browser" },
+    { "id": "orders", "name": "orders", "kind": "module", "summary": "owns the order and its status" },
+    { "id": "payments", "name": "payments", "kind": "module", "summary": "owns refunds; talks to the provider", "change": "changed", "was": { "summary": "owns captures only" } },
+    { "id": "jobs", "name": "jobs", "kind": "store", "summary": "the durable job table" },
+    { "id": "psp", "name": "Payment provider", "kind": "external" }
+  ],
+  "steps": [
+    { "id": "clickCancel", "lane": "customer", "kind": "action", "text": "Opens the order and chooses Cancel, optionally giving a reason", "screen": "OrderPage", "change": "added", "next": [{ "to": "postCancel" }] },
+    { "id": "postCancel", "lane": "web", "kind": "system", "text": "Calls the cancel endpoint with the reason", "endpoint": "cancelOrder", "change": "added", "next": [{ "to": "checkShipped" }] },
+    { "id": "checkShipped", "lane": "orders", "kind": "decision", "text": "Has the order shipped?", "change": "added",
+      "next": [{ "to": "rejectShipped", "when": "yes" }, { "to": "markCancelled", "when": "no" }] },
+    { "id": "rejectShipped", "lane": "web", "kind": "end", "text": "Shows 'already shipped' with the carrier link; nothing changes", "change": "added" },
+    { "id": "markCancelled", "lane": "orders", "kind": "system", "text": "In one transaction: status CANCELLED, cancelledAt and reason set, and a refund job enqueued if payment was captured", "change": "added",
+      "next": [{ "to": "showCancelled" }, { "to": "claimRefund", "label": "refund job", "when": "payment captured" }],
+      "fails": [{ "what": "the transaction fails", "recovery": "nothing changes; the browser shows a retry; the customer can try again" }] },
+    { "id": "showCancelled", "lane": "web", "kind": "end", "text": "Shows the order as cancelled; a refund notice when one is due", "change": "added" },
+    { "id": "claimRefund", "lane": "payments", "kind": "async", "text": "Claims the refund job with a lease; refunds through the provider with the order id as idempotency key", "change": "added",
+      "next": [{ "to": "providerRefund" }],
+      "fails": [{ "what": "the lease expires mid-call", "recovery": "another worker claims it; the idempotency key makes the second call a no-op at the provider" }] },
+    { "id": "providerRefund", "lane": "psp", "kind": "external", "text": "Accepts the refund and returns a reference", "change": "added",
+      "next": [{ "to": "recordRefund" }],
+      "fails": [{ "what": "the provider is down or returns a retryable error", "recovery": "the job retries with backoff for 24 hours, then goes dead and alerts" }, { "what": "the provider refuses (already refunded, disputed)", "recovery": "the job is dead with the provider's reason; support is alerted; the order keeps CANCELLED" }] },
+    { "id": "recordRefund", "lane": "orders", "kind": "end", "text": "Records the refund reference on the order and emails the customer", "change": "added" }
+  ],
+  "states": [
+    { "entity": "order", "state": "PENDING", "next": ["PAID", "CANCELLED"], "owner": "orders", "stored": "orders table" },
+    { "entity": "order", "state": "PAID", "next": ["SHIPPED", "CANCELLED"], "owner": "orders", "stored": "orders table", "change": "changed", "was": { "next": ["SHIPPED"] } },
+    { "entity": "order", "state": "SHIPPED", "next": [], "owner": "orders", "stored": "orders table" },
+    { "entity": "order", "state": "CANCELLED", "next": [], "owner": "orders", "stored": "orders table", "change": "added" },
+    { "entity": "refund job", "state": "pending", "next": ["leased"], "owner": "payments", "stored": "jobs table", "change": "added" },
+    { "entity": "refund job", "state": "leased", "next": ["done", "pending", "dead"], "owner": "payments", "stored": "jobs table", "change": "added" },
+    { "entity": "refund job", "state": "done", "next": [], "owner": "payments", "stored": "jobs table", "change": "added" },
+    { "entity": "refund job", "state": "dead", "next": [], "owner": "payments", "stored": "jobs table", "change": "added" }
+  ],
+  "guarantees": [
+    { "id": "G1", "text": "A cancelled paid order produces at least one refund attempt: the job is written in the cancelling transaction.", "steps": ["markCancelled"], "change": "added" },
+    { "id": "G2", "text": "The provider refunds at most once per order: the idempotency key is the order id.", "steps": ["claimRefund", "providerRefund"], "change": "added" },
+    { "id": "G3", "text": "A shipped order is never cancelled here; the check and the status write share a row lock.", "steps": ["checkShipped", "markCancelled"], "change": "added" }
+  ]
+}
