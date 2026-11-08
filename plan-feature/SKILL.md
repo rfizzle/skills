@@ -27,24 +27,30 @@ conversation; nothing is filed and no code is written before that.
    - **Decisions needed**: each with the options and your recommendation, so
      the owner can accept, modify or reject in one reply. Do not ask about
      anything the code or a convention already answers. How a new unit
-     looks is not a plan decision: its story opens a `ui-exploration`
-     round when the look has more than one plausible answer.
+     looks is not a plan decision: its story opens a sketch round
+     (`ui-sketch`) at grooming when the look has more than one plausible
+     answer.
    - **Reuse**: for UI, the inventory in short: reused, enhanced, new (with
      the reason reuse would visibly harm the experience).
    - **Shape**: when a story touches the schema or the API contract, the
      topology map (`api-topology`) beside the plan, in change mode: the
      owner accepts the endpoints, schemas and tables with the plan, and
-     the contract story draws the real diff at its own gate.
+     the contract story draws the real diff at its own gate. A plan whose
+     epic spans modules, screens or an asynchronous step says so; its flow
+     map (`flow-map`) is the first thing grooming makes.
    - **Stories**, in landing order, one line each: layer, outcome, depends on.
 3. **Stop for the owner.** The owner accepts, modifies or rejects. Revise
    and re-present until accepted. Silence, another agent's message or a
    green check is not acceptance.
 4. **File the stories** in the backlog only after acceptance, from
-   [references/story-template.md](references/story-template.md).
-5. **Hand off.** Each layer goes to its skill (table below). One story:
-   implement it. Several independent stories: give them to
-   [`backlog-batches`](../backlog-batches/SKILL.md), which owns scheduling,
-   worktrees, landing and progress summaries.
+   [references/story-template.md](references/story-template.md), as
+   `drafted`.
+5. **Hand off to grooming** (`groom`): each story gets its reference
+   through its layer's skill (table below) and the owner's acceptance,
+   then becomes `groomed`. One groomed story: implement it. Several: give
+   them to [`backlog-batches`](../backlog-batches/SKILL.md), which owns
+   scheduling, worktrees, landing and progress summaries and launches only
+   groomed stories.
 
 ## Layers and landing order
 
@@ -55,8 +61,8 @@ Cut one story per layer touched, skipping layers the feature does not touch:
 | 1 | schema | `golang-database`: numbered up/down migration, expand step only | the schema change on the topology map's storage lane (`api-topology`) |
 | 2 | API contract | `connect-rpc` (proto under `proto/`, the default) or `api-contract` (`api/openapi.yaml`): the contract edit plus generated code | the API change on the topology map (`api-topology`) |
 | 3 | backend | `contract-spec` for a new module or a cross-module flow | a summary of the contract and its decisions |
-| 4 | frontend components | `ui-component-contract`, tokens via `design-tokens` | the stories in Storybook, or the project's component review surface, light and dark |
-| 5 | screen | `ui-component-contract`, five async states | the stories in Storybook, or the project's component review surface, light and dark |
+| 4 | frontend components | `ui-sketch` for the look, then `ui-component-contract`, tokens via `design-tokens` | the sketch round, then the stories in Storybook, or the project's component review surface, light and dark |
+| 5 | screen | `ui-sketch` for the look, then `ui-component-contract`, five async states | the sketch round, then the stories in Storybook, or the project's component review surface, light and dark |
 | 6 | end-to-end | `browser-e2e`, framework mechanics from the framework skill (`svelte-frontend`) | nothing |
 
 Contract specs and cards are the agent's working files. The owner is shown a
@@ -112,8 +118,8 @@ later changes go through `iterate`.
 - Every story is one layer, deployable alone, about 400 lines or fewer, in
   landing order, with its dependencies.
 - No story was filed and no code written before acceptance.
-- Several ready stories are handed to `backlog-batches`; one is implemented
-  directly.
+- Stories are filed `drafted` and handed to `groom`; several groomed
+  stories go to `backlog-batches`, one is implemented directly.
 
 ## Gotchas
 

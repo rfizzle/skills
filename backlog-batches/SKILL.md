@@ -65,7 +65,11 @@ project-specific command, and every agent prompt quotes from that sheet.
    suite). Never let agents run the full CI pipeline, evaluations that cost
    requests, or integration tiers that need a listener or a real sandbox.
    Check the gate's tools exist on this host before the first launch.
-3. Groom: an item with every criterion ticked but a non-done status is done
+3. Launch only groomed items: an item whose status is `drafted` (`groom`)
+   has no reference an implementer can build from; it is skipped and
+   named in the first report, never groomed inside the run. A source
+   without statuses treats an item with a `Reference` section as groomed.
+   An item with every criterion ticked but a non-done status is done
    or was ticked early. Re-read every queued criterion against any rule the
    user added since it was filed; rewrite the criterion in the source with
    a dated reconciliation note and tell the agent which text is binding.

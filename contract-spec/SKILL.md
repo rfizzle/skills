@@ -41,8 +41,11 @@ the module. A flow names modules, not symbols, which drift silently
 
 ## 2. Owner gate: the summary, not the file
 
-The owner does not read the spec file. Present one plain-English summary (a
-flow with its module proposals) in the conversation and **stop**:
+The owner does not read the spec file. A flow's summary is its flow map
+(`flow-map`): the sequence, branches, failure paths, states and
+guarantees as a page and a text sequence; the flow document is written
+from the accepted map. Present one plain-English summary (the flow map
+with its module proposals) in the conversation and **stop**:
 
 - what the module or flow is for, and what it will not do;
 - each decision that shapes the contract (an error being retryable, a lease

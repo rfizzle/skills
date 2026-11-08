@@ -26,7 +26,7 @@ applies only when a contract moves.
    | exported API, interface or error contract | doc comments; the commit body says what moved | owner accepts a summary of what moved |
    | schema | a new numbered up/down migration (`golang-database`) | owner accepts the schema change on the topology map (`api-topology`); one column with one plausible shape is a sentence |
    | API contract | the contract edit (proto under `proto/` with Connect by default, or `api/openapi.yaml`) and its generated code (`connect-rpc`, `api-contract`) | owner accepts the API change on the topology map (`api-topology`); one field with one plausible shape is a sentence |
-   | cross-module behaviour | the flow contract edit (`contract-spec`) | none beyond the rows above |
+   | cross-module behaviour | the flow contract edit (`contract-spec`) | owner accepts the changed steps on the flow map (`flow-map`) when a hand-off, transition, guarantee or recovery path moves |
    | existing component or screen | its stories; the contract card only if a pattern, keyboard or focus behaviour changes | Storybook review, light and dark |
    | scope (what the unit is for) | the spec's purpose line and a decision record (`project-docs`) | owner accepts the decision summary |
 

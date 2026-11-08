@@ -92,6 +92,8 @@ removed or renamed field, a new table, or anything marked breaking.
   check warning; make it an error for yourself.
 - **Breaking is a red pill**, never a note: the hand-over says it ships in
   the next version as `connect-rpc` or `api-contract` require.
+- **Endpoint ids are shared** with the epic's flow map (`flow-map`), whose
+  steps name them; use the same id in both.
 
 ## Gotchas
 

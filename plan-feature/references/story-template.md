@@ -6,6 +6,7 @@ tracker's own format.
 ```markdown
 ### S-124: ListExports returns the caller's exports (E-12)
 
+- Status: drafted
 - Layer: API contract
 - Depends on: S-123
 - Touches: proto/acme/exports/v1/exports.proto, internal/api/gen/, web/src/lib/api/gen/
@@ -19,3 +20,7 @@ Acceptance criteria:
 
 In an OpenAPI project the story touches `api/openapi.yaml` and names the
 operation (`GET /api/v1/exports`, answering 501 until the backend lands).
+
+A story is filed `drafted`. Grooming (`groom`) adds a `Reference` section
+holding the text form of its reference and the owner's acceptance, and
+sets `Status: groomed <date>`; only a groomed story is launched.

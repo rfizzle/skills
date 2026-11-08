@@ -21,11 +21,13 @@ or interaction model teach the owner what they want.
 
 ## When a round runs
 
-- A new unit whose look is not settled, between the draft card and the
-  owner gate (`ui-component-contract`). The card's purpose line is the
-  brief.
 - A redesign of an existing unit (`iterate`). Direction 1 is then the unit
-  as it is, untouched.
+  as it is, untouched; the directions render on the real components, so
+  the round runs here and not as a sketch.
+- A new unit whose look was not settled at grooming (`ui-sketch` is the
+  usual place, outside the codebase); here only when the unit must be
+  seen on the real components, between the draft card and the owner gate
+  (`ui-component-contract`). The card's purpose line is the brief.
 - Skip it when the owner has already said what the unit looks like, or
   when the change has one right answer.
 - A round runs in the checkout where the owner's Storybook runs, never in

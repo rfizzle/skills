@@ -38,7 +38,8 @@ Templates: [references/component-card.md](references/component-card.md) and
    children, each flow and who owns its state, and what accessibility each
    child keeps versus what the composition owns. List every required story (see below).
 3. **Explore the look** when the unit's layout, information order or
-   interaction is not yet decided (`ui-exploration`): three or four
+   interaction is not yet decided and no sketch was kept at grooming
+   (`ui-sketch` is the brief when one was; otherwise `ui-exploration`): three or four
    directions in Storybook, the owner names the closest and what is off,
    the round narrows until one is kept. Each choice becomes a dated
    Decision line. Skip only when the owner has already said what the
