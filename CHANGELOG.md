@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-08
+
 ### Added
 
 - `checkpoint`: the one report shape for "what's the status", "now what" and "what do you need from me" (needs you first, then landed, running, blocked, next three), the state note the next context needs before a summary or the end of a session, and the rule that "did you do X" is answered with evidence gathered now.
