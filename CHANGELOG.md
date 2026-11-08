@@ -6,6 +6,14 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `api-topology`: the one picture every API and schema gate shows the owner: a JSON model of roots, endpoints, schemas and tables with each change marked, rendered by dependency-free scripts into an interactive page (lanes ordered under what points at them, dotted connectors, an inspector with fields, generated JSON and usage, change highlighting with "was", an "only changes" filter, light and dark) and into the ASCII tree pasted in the conversation; `check.mjs` refuses dangling references and unmarked changes; the map lives under `.agents/topology/`, excluded locally, and is never committed.
+
+### Changed
+
+- `plan-feature` puts the map beside a plan with a schema or API story and names it as what the owner sees for those layers; `iterate` gates schema and API contract rows on it; `connect-rpc` and `api-contract` draw their step-5 gate from the real diff on it; `golang-database` makes the storage lane the schema gate; `contract-spec` links the API gate's map.
+
 ## [0.7.0] - 2026-11-08
 
 ### Added

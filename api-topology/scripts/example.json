@@ -1,0 +1,65 @@
+{
+  "title": "Orders API",
+  "subtitle": "Order cancellation",
+  "mode": "change",
+  "style": "rest",
+  "roots": [
+    { "id": "api", "name": "Orders API v1", "base": "/api/v1", "summary": "Public REST surface of the orders service" }
+  ],
+  "endpoints": [
+    { "id": "listOrders", "root": "api", "method": "GET", "path": "/orders", "summary": "List the caller's orders", "response": "OrderList", "paginated": true, "auth": "session" },
+    { "id": "createOrder", "root": "api", "method": "POST", "path": "/orders", "summary": "Place an order", "request": "CreateOrder", "response": "Order", "idempotent": true, "auth": "session",
+      "errors": [{ "code": "422 validation", "when": "a line has no sku or a quantity under 1" }] },
+    { "id": "getOrder", "root": "api", "method": "GET", "path": "/orders/{id}", "summary": "Fetch one order", "response": "Order", "auth": "session",
+      "errors": [{ "code": "404 order-not-found", "when": "the id is unknown or belongs to another tenant" }] },
+    { "id": "cancelOrder", "root": "api", "method": "POST", "path": "/orders/{id}/cancel", "summary": "Cancel an order that has not shipped", "request": "CancelOrder", "response": "Order", "idempotent": true, "auth": "session", "change": "added",
+      "errors": [
+        { "code": "404 order-not-found", "when": "the id is unknown or belongs to another tenant" },
+        { "code": "409 order-already-shipped", "when": "the order left the warehouse" }
+      ],
+      "note": "An action, not a DELETE: the order stays readable with its cancellation." }
+  ],
+  "schemas": [
+    { "id": "Order", "kind": "resource", "summary": "An order as every read returns it", "change": "changed",
+      "fields": [
+        { "name": "id", "type": "string", "required": true, "summary": "opaque" },
+        { "name": "status", "type": "OrderStatus", "required": true },
+        { "name": "lines", "type": "OrderLine[]", "required": true },
+        { "name": "total", "type": "Money", "required": true },
+        { "name": "createdAt", "type": "timestamp", "required": true },
+        { "name": "cancelledAt", "type": "timestamp", "required": false, "change": "added", "summary": "set once the order is cancelled" },
+        { "name": "cancelReason", "type": "string", "required": false, "change": "added" }
+      ] },
+    { "id": "OrderStatus", "kind": "enum", "change": "changed", "values": ["PENDING", "PAID", "SHIPPED", { "name": "CANCELLED", "change": "added" }] },
+    { "id": "OrderLine", "kind": "value", "fields": [
+      { "name": "sku", "type": "string", "required": true },
+      { "name": "quantity", "type": "integer", "required": true },
+      { "name": "unitPrice", "type": "Money", "required": true }
+    ] },
+    { "id": "Money", "kind": "value", "summary": "minor units and an ISO 4217 code", "fields": [
+      { "name": "amount", "type": "integer", "required": true, "example": 1999 },
+      { "name": "currency", "type": "string", "required": true, "example": "EUR" }
+    ] },
+    { "id": "OrderList", "kind": "response", "fields": [
+      { "name": "items", "type": "Order[]", "required": true },
+      { "name": "nextCursor", "type": "string", "required": false, "summary": "absent on the last page" }
+    ] },
+    { "id": "CreateOrder", "kind": "request", "fields": [
+      { "name": "lines", "type": "OrderLine[]", "required": true },
+      { "name": "note", "type": "string", "required": false }
+    ] },
+    { "id": "CancelOrder", "kind": "request", "change": "added", "fields": [
+      { "name": "reason", "type": "string", "required": false, "example": "ordered the wrong size" }
+    ] }
+  ],
+  "tables": [
+    { "id": "orders", "backs": ["Order"], "migration": "0007_orders_cancellation", "change": "changed", "columns": [
+      { "name": "id", "type": "uuid", "key": "pk" },
+      { "name": "tenant_id", "type": "uuid", "key": "fk tenants.id" },
+      { "name": "status", "type": "text" },
+      { "name": "created_at", "type": "timestamptz" },
+      { "name": "cancelled_at", "type": "timestamptz", "nullable": true, "change": "added" },
+      { "name": "cancel_reason", "type": "text", "nullable": true, "change": "added" }
+    ] }
+  ]
+}

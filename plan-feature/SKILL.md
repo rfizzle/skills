@@ -31,6 +31,10 @@ conversation; nothing is filed and no code is written before that.
      round when the look has more than one plausible answer.
    - **Reuse**: for UI, the inventory in short: reused, enhanced, new (with
      the reason reuse would visibly harm the experience).
+   - **Shape**: when a story touches the schema or the API contract, the
+     topology map (`api-topology`) beside the plan, in change mode: the
+     owner accepts the endpoints, schemas and tables with the plan, and
+     the contract story draws the real diff at its own gate.
    - **Stories**, in landing order, one line each: layer, outcome, depends on.
 3. **Stop for the owner.** The owner accepts, modifies or rejects. Revise
    and re-present until accepted. Silence, another agent's message or a
@@ -48,8 +52,8 @@ Cut one story per layer touched, skipping layers the feature does not touch:
 
 | # | Layer | Hand off to | Owner sees |
 |---|---|---|---|
-| 1 | schema | `golang-database`: numbered up/down migration, expand step only | a plain-English summary of the schema change |
-| 2 | API contract | `connect-rpc` (proto under `proto/`, the default) or `api-contract` (`api/openapi.yaml`): the contract edit plus generated code | a plain-English summary of the API change |
+| 1 | schema | `golang-database`: numbered up/down migration, expand step only | the schema change on the topology map's storage lane (`api-topology`) |
+| 2 | API contract | `connect-rpc` (proto under `proto/`, the default) or `api-contract` (`api/openapi.yaml`): the contract edit plus generated code | the API change on the topology map (`api-topology`) |
 | 3 | backend | `contract-spec` for a new module or a cross-module flow | a summary of the contract and its decisions |
 | 4 | frontend components | `ui-component-contract`, tokens via `design-tokens` | the stories in Storybook, or the project's component review surface, light and dark |
 | 5 | screen | `ui-component-contract`, five async states | the stories in Storybook, or the project's component review surface, light and dark |
@@ -91,8 +95,9 @@ summary of what they decide, never asked to open them.
   decided, the options, your recommendation. The owner does not read specs,
   cards or briefs.
 - **The owner's real reviews** are the UI in Storybook served from the
-  branch, the API and schema shape as a short plain-English diff summary,
-  and occasional hands-on trials in a local seeded instance. Say when a
+  branch, the API and schema shape on the topology map (`api-topology`)
+  with its ASCII tree in the conversation, and occasional hands-on trials
+  in a local seeded instance. Say when a
   story is ready for one.
 
 ## After the build
@@ -112,8 +117,9 @@ later changes go through `iterate`.
 
 ## Gotchas
 
-- A plan that lists props, class names or field-by-field schemas has gone
-  too far: that detail belongs in the contract work of each story.
+- A plan that lists props, class names or field-by-field schemas in prose
+  has gone too far: fields live on the topology map (`api-topology`), the
+  rest in the contract work of each story.
 - If more than about five UI units are new, split the epic or ask the owner
   which slice ships first.
 - A "new composition" that is a screen-local arrangement of existing units

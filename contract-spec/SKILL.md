@@ -56,8 +56,8 @@ YYYY-MM-DD by <owner>`, and each open question becomes a dated line under
 the contract, revise and summarise again.
 
 New API operations have their own gate and commit (`connect-rpc` or
-`api-contract`: they answer `unimplemented` or 501 until the backend lands);
-link to it, do not repeat it.
+`api-contract`: they answer `unimplemented` or 501 until the backend lands),
+shown on the topology map (`api-topology`); link to it, do not repeat it.
 
 ## 3. Build, and move the contract into code
 

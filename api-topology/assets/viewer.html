@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>API topology</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root {
+    --bg: #f4f5f8; --panel: #ffffff; --card: #ffffff; --line: #d6dae2; --line-strong: #aeb5c2;
+    --text: #15181e; --muted: #5f6775; --accent: #2f5bd8; --accent-soft: #e8eefc; --accent-ink: #1d3f9e;
+    --dots: #8a93a3; --label-bg: #eef0f4;
+    --added: #1f8a4c; --added-soft: #e3f4e9; --changed: #b4761c; --changed-soft: #fbf0da; --removed: #c43c3c; --removed-soft: #fbe3e3;
+    --get: #1f8a4c; --post: #2f5bd8; --put: #b4761c; --delete: #c43c3c; --rpc: #6b4fd8;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --radius: 12px; --shadow: 0 1px 2px rgba(0,0,0,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #121315; --panel: #1b1c20; --card: #1f2024; --line: #363a43; --line-strong: #4b505c;
+      --text: #e7e9ee; --muted: #9ba2ae; --accent: #8ab4f8; --accent-soft: #1b2b55; --accent-ink: #c6d8ff;
+      --dots: #6a7180; --label-bg: #272a31;
+      --added: #4cc38a; --added-soft: #16301f; --changed: #e2b046; --changed-soft: #33290f; --removed: #f26b6b; --removed-soft: #3a1818;
+      --get: #4cc38a; --post: #8ab4f8; --put: #e2b046; --delete: #f26b6b; --rpc: #b39dff;
+      --shadow: none; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #121315; --panel: #1b1c20; --card: #1f2024; --line: #363a43; --line-strong: #4b505c;
+    --text: #e7e9ee; --muted: #9ba2ae; --accent: #8ab4f8; --accent-soft: #1b2b55; --accent-ink: #c6d8ff;
+    --dots: #6a7180; --label-bg: #272a31;
+    --added: #4cc38a; --added-soft: #16301f; --changed: #e2b046; --changed-soft: #33290f; --removed: #f26b6b; --removed-soft: #3a1818;
+    --get: #4cc38a; --post: #8ab4f8; --put: #e2b046; --delete: #f26b6b; --rpc: #b39dff;
+    --shadow: none; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 var(--sans); padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  .wrap { max-width: 1120px; margin: 0 auto; }
+  header.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+  header.top h1 { font-size: 26px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.01em; }
+  header.top p { margin: 0; color: var(--muted); }
+  .pill { display: inline-block; font: 12px/1 var(--mono); padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 999px; color: var(--text); white-space: nowrap; }
+  .pill.accent { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .pill.added { border-color: var(--added); color: var(--added); background: var(--added-soft); }
+  .pill.changed { border-color: var(--changed); color: var(--changed); background: var(--changed-soft); }
+  .pill.removed { border-color: var(--removed); color: var(--removed); background: var(--removed-soft); }
+  .pill.breaking { border-color: var(--removed); color: var(--removed); font-weight: 700; }
+  .toolbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 8px 0 14px; }
+  .toolbar input[type="search"] { flex: 1 1 220px; min-width: 0; padding: 8px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); font: 14px var(--sans); }
+  .toolbar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; user-select: none; }
+  button { font: 14px var(--sans); color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  button:hover { border-color: var(--line-strong); }
+  button:focus-visible, .card:focus-visible, .tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; box-shadow: var(--shadow); }
+  .map { padding: 0 0 12px; margin-bottom: 16px; overflow: hidden; }
+  .scroller { position: relative; overflow-x: auto; overflow-y: hidden; padding: 24px 20px 0; }
+  .scroller svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+  .edge { fill: none; stroke: var(--dots); stroke-width: 1.5; stroke-dasharray: 2 4; transition: opacity .15s, stroke .15s; }
+  .edge.active { stroke: var(--accent); stroke-dasharray: none; }
+  .edge.faded, .edge.dim { opacity: .18; }
+  .edge-label rect { fill: var(--label-bg); stroke: var(--line); }
+  .edge-label text { font: italic 11.5px var(--mono); fill: var(--muted); }
+  .edge-label.active rect { stroke: var(--accent); }
+  .edge-label.active text { fill: var(--accent-ink); }
+  .edge-label.faded, .edge-label.dim { opacity: .18; }
+  .lane { position: relative; z-index: 1; display: flex; gap: 12px; align-items: flex-start; margin-bottom: 64px; }
+  .lane:last-of-type { margin-bottom: 20px; }
+  .lane-label { flex: 0 0 72px; font: 11px/1.2 var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .06em; padding-top: 12px; }
+  .cards { flex: 1; display: flex; flex-wrap: nowrap; gap: 14px 18px; justify-content: flex-start; }
+  .cards > :first-child { margin-left: auto; } .cards > :last-child { margin-right: auto; }
+  .card { position: relative; flex: 0 0 auto; text-align: left; min-width: 160px; max-width: 260px; padding: 12px 14px; border: 1px solid var(--line-strong); border-radius: var(--radius); background: var(--card); color: var(--text); cursor: pointer; transition: border-color .15s, opacity .15s, transform .15s; }
+  .card:hover { border-color: var(--accent); }
+  .card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft); }
+  .card.related { border-color: var(--accent); border-style: dashed; }
+  .card.dim { opacity: .3; }
+  .card.root { background: var(--accent-soft); border-color: var(--accent); border-width: 2px; text-align: center; min-width: 220px; }
+  .card.root .name { color: var(--accent-ink); }
+  .card.added { border-color: var(--added); }
+  .card.changed { border-color: var(--changed); }
+  .card.removed { border-color: var(--removed); }
+  .card.removed .name, .card.removed .path { text-decoration: line-through; }
+  .card .name { font-weight: 600; font-size: 15px; }
+  .card .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+  .card .path { font: 14px var(--mono); }
+  .card .mono { font-family: var(--mono); }
+  .card .badge { position: absolute; top: -9px; right: 10px; font: 10.5px/1 var(--mono); padding: 4px 7px; border-radius: 999px; background: var(--card); border: 1px solid; }
+  .card.added .badge { color: var(--added); border-color: var(--added); background: var(--added-soft); }
+  .card.changed .badge { color: var(--changed); border-color: var(--changed); background: var(--changed-soft); }
+  .card.removed .badge { color: var(--removed); border-color: var(--removed); background: var(--removed-soft); }
+  .method { display: inline-block; font: 600 11.5px/1 var(--mono); padding: 4px 7px; border-radius: 5px; margin-right: 8px; color: #fff; vertical-align: 2px; }
+  .method.GET { background: var(--get); } .method.POST { background: var(--post); } .method.PUT, .method.PATCH { background: var(--put); } .method.DELETE { background: var(--delete); } .method.RPC { background: var(--rpc); }
+  .flags { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+  .flag { font: 10.5px/1 var(--mono); color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 3px 6px; }
+  .flag.breaking { color: var(--removed); border-color: var(--removed); font-weight: 700; }
+  .legend { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; border-top: 1px solid var(--line); padding: 14px 20px 0; margin: 4px 0 0; font: 13px var(--mono); color: var(--muted); }
+  .legend span::before { content: ""; display: inline-block; width: 12px; height: 12px; border: 1.5px solid var(--line-strong); border-radius: 3px; vertical-align: -2px; margin-right: 7px; }
+  .legend .l-root::before { border-color: var(--accent); background: var(--accent-soft); }
+  .legend .l-added::before { border-color: var(--added); background: var(--added-soft); }
+  .legend .l-changed::before { border-color: var(--changed); background: var(--changed-soft); }
+  .legend .l-removed::before { border-color: var(--removed); background: var(--removed-soft); }
+  .inspector { padding: 20px 22px 22px; }
+  .inspector .head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+  .inspector h2 { margin: 0 0 2px; font-size: 21px; font-weight: 600; }
+  .inspector .head p { margin: 0; color: var(--muted); }
+  .inspector .note { margin: 10px 0 0; padding: 10px 12px; border-left: 3px solid var(--changed); background: var(--changed-soft); border-radius: 0 8px 8px 0; font-size: 14px; }
+  .inspector .empty { color: var(--muted); padding: 24px 0 8px; text-align: center; }
+  .tabs { display: flex; gap: 6px; margin: 16px 0 12px; border-bottom: 1px solid var(--line); padding-bottom: 10px; flex-wrap: wrap; }
+  .tab { border: 1px solid transparent; background: transparent; color: var(--muted); border-radius: 999px; padding: 7px 14px; }
+  .tab[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); }
+  table.rows { width: 100%; border-collapse: separate; border-spacing: 0 6px; }
+  table.rows td { padding: 10px 12px; background: var(--bg); vertical-align: top; font-size: 14px; }
+  table.rows td:first-child { border-radius: 8px 0 0 8px; font-family: var(--mono); white-space: nowrap; }
+  table.rows td:last-child { border-radius: 0 8px 8px 0; color: var(--muted); }
+  table.rows tr.added td { background: var(--added-soft); } table.rows tr.added td:first-child::before { content: "+ "; color: var(--added); font-weight: 700; }
+  table.rows tr.changed td { background: var(--changed-soft); } table.rows tr.changed td:first-child::before { content: "~ "; color: var(--changed); font-weight: 700; }
+  table.rows tr.removed td { background: var(--removed-soft); text-decoration: line-through; } table.rows tr.removed td:first-child::before { content: "- "; color: var(--removed); font-weight: 700; text-decoration: none; display: inline-block; }
+  .type { font-family: var(--mono); font-size: 13px; }
+  .type a, .ref { color: var(--accent-ink); text-decoration: underline dotted; cursor: pointer; background: none; border: 0; padding: 0; font: inherit; font-family: var(--mono); }
+  .flagcell { font: italic 13px var(--mono); color: var(--muted); }
+  .was { display: block; font: 12px var(--mono); color: var(--changed); margin-top: 3px; }
+  pre { margin: 0; padding: 14px 16px; background: var(--bg); border-radius: 10px; font: 13px/1.5 var(--mono); overflow: auto; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; }
+  .two h3 { margin: 0 0 6px; font: 600 13px var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
+  dl.meta { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; margin: 0 0 14px; font-size: 14px; }
+  dl.meta dt { color: var(--muted); } dl.meta dd { margin: 0; }
+  details.ascii { margin-top: 16px; }
+  details.ascii summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 640px) {
+    .scroller { overflow-x: hidden; }
+    .lane { flex-direction: column; gap: 6px; margin-bottom: 44px; }
+    .lane-label { flex: none; padding-top: 0; }
+    .cards { flex-direction: column; justify-content: stretch; }
+    .card { min-width: 0; width: 100%; max-width: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1 id="title">API topology</h1>
+      <p id="subtitle">Interactive endpoint and schema map. Select a node to inspect it.</p>
+    </div>
+    <div id="headPills"></div>
+  </header>
+  <section class="toolbar">
+    <input id="search" type="search" placeholder="Filter by path, schema, field or table" aria-label="Filter nodes">
+    <label id="onlyChangedLabel"><input id="onlyChanged" type="checkbox"> Only changes</label>
+    <button id="copyAscii" type="button">Copy ASCII tree</button>
+    <button id="theme" type="button" aria-label="Switch theme">Theme: auto</button>
+  </section>
+  <section class="panel map" id="map" aria-label="Topology map">
+    <div class="scroller" id="scroller">
+    <svg id="edges" aria-hidden="true">
+      <defs>
+        <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--dots)"></path>
+        </marker>
+        <marker id="arrowActive" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--accent)"></path>
+        </marker>
+      </defs>
+      <g id="edgePaths"></g>
+      <g id="edgeLabels"></g>
+    </svg>
+    <div id="lanes"></div>
+    </div>
+    <footer class="legend" id="legend"></footer>
+  </section>
+  <section class="panel inspector" id="inspector" aria-live="polite">
+    <p class="empty">Select a node on the map to inspect it.</p>
+  </section>
+  <details class="ascii">
+    <summary>ASCII tree (the text form of this map)</summary>
+    <pre id="asciiOut"></pre>
+  </details>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<script id="topology" type="application/json">{}</script>
+<script>
+/*__ASCII__*/
+(function () {
+  'use strict';
+  const model = JSON.parse(document.getElementById('topology').textContent || '{}');
+  const isChange = model.mode === 'change';
+  const roots = model.roots || [], endpoints = model.endpoints || [], schemas = model.schemas || [], tables = model.tables || [];
+  const nodes = new Map();
+  roots.forEach((n) => nodes.set(n.id, { kind: 'root', node: n }));
+  endpoints.forEach((n) => nodes.set(n.id, { kind: 'endpoint', node: n }));
+  schemas.forEach((n) => nodes.set(n.id, { kind: 'schema', node: n }));
+  tables.forEach((n) => nodes.set(n.id, { kind: 'table', node: n }));
+  const schemaIds = new Set(schemas.map((s) => s.id));
+  const changeOf = (n) => (isChange ? (n.change || 'unchanged') : 'unchanged');
+  const refId = (ref) => {
+    if (ref === null || ref === undefined || ref === '') return null;
+    const text = String(ref).trim(), m = text.match(/^(?:Array<(.+)>|(.+)\[\])$/);
+    return (m ? (m[1] || m[2]) : text).trim();
+  };
+  const isList = (ref) => /^(?:Array<.+>|.+\[\])$/.test(String(ref || '').trim());
+  const typeRefs = (type) => Array.from(String(type || '').matchAll(/\b([A-Z][A-Za-z0-9]*)\b/g), (m) => m[1]).filter((id) => schemaIds.has(id));
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const kindLabel = { resource: 'Resource', request: 'Request Payload', response: 'Response Model', enum: 'Enum', value: 'Value Object' };
+
+  // ---- edges (drawn between lanes) and references (highlighted) ----
+  const edges = [];
+  endpoints.forEach((e) => {
+    edges.push({ from: e.root, to: e.id, label: '' });
+    const req = refId(e.request), res = refId(e.response);
+    if (req && schemaIds.has(req)) edges.push({ from: e.id, to: req, label: 'Payload' });
+    if (res && schemaIds.has(res)) edges.push({ from: e.id, to: res, label: isList(e.response) ? 'Array<' + res + '>' : 'Returns' });
+  });
+  tables.forEach((t) => (t.backs || []).forEach((s) => { if (schemaIds.has(s)) edges.push({ from: s, to: t.id, label: 'stored in' }); }));
+  const refsOf = (id) => {
+    const s = nodes.get(id);
+    if (!s || s.kind !== 'schema') return [];
+    const out = new Set();
+    (s.node.fields || []).forEach((f) => typeRefs(f.type).forEach((r) => out.add(r)));
+    return Array.from(out);
+  };
+  const usedBy = (id) => {
+    const eps = endpoints.filter((e) => refId(e.request) === id || refId(e.response) === id);
+    const schs = schemas.filter((s) => (s.fields || []).some((f) => typeRefs(f.type).includes(id)));
+    const tbs = tables.filter((t) => (t.backs || []).includes(id));
+    return { eps, schs, tbs };
+  };
+
+  // ---- header, legend ----
+  document.getElementById('title').textContent = model.title || 'API topology';
+  document.getElementById('subtitle').textContent = model.subtitle || 'Interactive endpoint and schema map. Select a node to inspect it.';
+  document.getElementById('headPills').innerHTML =
+    '<span class="pill ' + (isChange ? 'changed' : 'accent') + '">' + (isChange ? 'CHANGE' : 'SNAPSHOT') + '</span> ' +
+    '<span class="pill">' + (model.style === 'connect' ? 'CONNECT RPC' : 'REST') + '</span>';
+  let legend = '<span class="l-root">API root</span><span>Endpoints</span><span>Schemas</span>' + (tables.length ? '<span>Storage</span>' : '');
+  if (isChange) legend += '<span class="l-added">added</span><span class="l-changed">changed</span><span class="l-removed">removed</span>';
+  document.getElementById('legend').innerHTML = legend;
+  if (!isChange) document.getElementById('onlyChangedLabel').hidden = true;
+  document.getElementById('asciiOut').textContent = typeof ascii === 'function' ? ascii(model) : '(render the page with render.mjs to fill this)';
+
+  // ---- cards, each lane ordered under the nodes that point at it ----
+  const lanesEl = document.getElementById('lanes');
+  const rootIndex = new Map(roots.map((r, i) => [r.id, i]));
+  const orderedEndpoints = endpoints.slice().sort((a, b) => (rootIndex.get(a.root) || 0) - (rootIndex.get(b.root) || 0));
+  const position = (list) => new Map(list.map((n, i) => [n.id, i]));
+  const barycenter = (items, parentsOf, parentPos) => {
+    const weight = items.map((n, i) => {
+      const ps = parentsOf(n).map((p) => parentPos.get(p)).filter((x) => x !== undefined);
+      return { n, key: ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : Number.POSITIVE_INFINITY, i };
+    });
+    return weight.sort((a, b) => a.key - b.key || a.i - b.i).map((w) => w.n);
+  };
+  const endpointPos = position(orderedEndpoints);
+  let orderedSchemas = barycenter(schemas, (s) => endpoints.filter((e) => refId(e.request) === s.id || refId(e.response) === s.id).map((e) => e.id), endpointPos);
+  // schemas no endpoint names sit beside the schemas that reference them
+  const firstPass = position(orderedSchemas);
+  orderedSchemas = barycenter(orderedSchemas, (s) => (firstPass.get(s.id) !== undefined && endpoints.some((e) => refId(e.request) === s.id || refId(e.response) === s.id)) ? [s.id] : schemas.filter((o) => (o.fields || []).some((f) => typeRefs(f.type).includes(s.id))).map((o) => o.id), firstPass);
+  const orderedTables = barycenter(tables, (t) => t.backs || [], position(orderedSchemas));
+  const lanes = [
+    { key: 'roots', label: 'API root', items: roots, card: rootCard },
+    { key: 'endpoints', label: 'Endpoints', items: orderedEndpoints, card: endpointCard },
+    { key: 'schemas', label: 'Schemas', items: orderedSchemas, card: schemaCard },
+  ];
+  if (tables.length) lanes.push({ key: 'tables', label: 'Storage', items: orderedTables, card: tableCard });
+  const badge = (n) => { const c = changeOf(n); return c === 'unchanged' ? '' : '<span class="badge">' + c + '</span>'; };
+  function rootCard(n) {
+    return '<div class="name">' + esc(n.name) + '</div><div class="sub mono">Base path: ' + esc(n.base) + '</div>' + badge(n);
+  }
+  function endpointCard(e) {
+    const method = model.style === 'connect' && e.rpc ? 'RPC' : e.method;
+    const label = model.style === 'connect' && e.rpc ? e.rpc : e.path;
+    const flags = [];
+    if (e.breaking) flags.push('<span class="flag breaking">BREAKING</span>');
+    if (e.auth) flags.push('<span class="flag">auth: ' + esc(e.auth) + '</span>');
+    if (e.idempotent) flags.push('<span class="flag">idempotent</span>');
+    if (e.paginated) flags.push('<span class="flag">paginated</span>');
+    if (e.stream) flags.push('<span class="flag">stream</span>');
+    return '<div><span class="method ' + esc(method) + '">' + esc(method) + '</span><span class="path">' + esc(label) + '</span></div>' +
+      '<div class="sub">' + esc(e.summary || '') + '</div>' + (flags.length ? '<div class="flags">' + flags.join('') + '</div>' : '') + badge(e);
+  }
+  function schemaCard(s) {
+    const count = s.kind === 'enum' ? (s.values || []).length + ' values' : (s.fields || []).filter((f) => changeOf(f) !== 'removed').length + ' fields';
+    return '<div class="name">' + esc(s.id) + '</div><div class="sub mono">' + count + ' • ' + esc(kindLabel[s.kind] || 'Schema') + '</div>' + badge(s);
+  }
+  function tableCard(t) {
+    const count = (t.columns || []).filter((c) => changeOf(c) !== 'removed').length + ' columns';
+    return '<div class="name mono">' + esc(t.name || t.id) + '</div><div class="sub mono">' + count + (t.migration ? ' • ' + esc(t.migration) : ' • table') + '</div>' + badge(t);
+  }
+  lanesEl.innerHTML = lanes.map((lane) =>
+    '<div class="lane" data-lane="' + lane.key + '"><div class="lane-label">' + lane.label + '</div><div class="cards">' +
+    lane.items.map((n) => '<button type="button" class="card ' + (lane.key === 'roots' ? 'root ' : '') + changeOf(n) + '" data-id="' + esc(n.id) + '" aria-pressed="false">' + lane.card(n) + '</button>').join('') +
+    '</div></div>').join('');
+  const cardEl = (id) => lanesEl.querySelector('.card[data-id="' + CSS.escape(id) + '"]');
+
+  // ---- edges ----
+  const mapEl = document.getElementById('map'), scroller = document.getElementById('scroller'), svgEl = document.getElementById('edges');
+  const pathsEl = document.getElementById('edgePaths'), labelsEl = document.getElementById('edgeLabels');
+  const NS = 'http://www.w3.org/2000/svg';
+  let selected = null;
+  function drawEdges() {
+    pathsEl.textContent = ''; labelsEl.textContent = '';
+    svgEl.style.width = scroller.scrollWidth + 'px';
+    svgEl.style.height = scroller.scrollHeight + 'px';
+    const box = scroller.getBoundingClientRect(), ox = box.left - scroller.scrollLeft, oy = box.top - scroller.scrollTop;
+    const perSource = new Map();
+    edges.forEach((edge, i) => {
+      const a = cardEl(edge.from), b = cardEl(edge.to);
+      if (!a || !b) return;
+      const ra = a.getBoundingClientRect(), rb = b.getBoundingClientRect();
+      const sx = ra.left + ra.width / 2 - ox, sy = ra.bottom - oy;
+      const tx = rb.left + rb.width / 2 - ox, ty = rb.top - oy;
+      if (ty <= sy) return; // same lane or stacked above: shown through highlighting instead
+      const slot = (perSource.get(edge.from) || 0); perSource.set(edge.from, slot + 1);
+      const midY = sy + (ty - sy) / 2 + (slot - 0.5) * 14;
+      const d = Math.abs(sx - tx) < 1 ? 'M' + sx + ' ' + sy + ' V' + ty : 'M' + sx + ' ' + sy + ' V' + midY + ' H' + tx + ' V' + ty;
+      const path = document.createElementNS(NS, 'path');
+      path.setAttribute('d', d); path.setAttribute('class', 'edge'); path.setAttribute('marker-end', 'url(#arrow)');
+      path.dataset.from = edge.from; path.dataset.to = edge.to; path.dataset.index = i;
+      pathsEl.appendChild(path);
+      if (edge.label) {
+        const g = document.createElementNS(NS, 'g'); g.setAttribute('class', 'edge-label'); g.dataset.from = edge.from; g.dataset.to = edge.to;
+        const text = document.createElementNS(NS, 'text'); text.textContent = edge.label;
+        const lx = Math.abs(sx - tx) < 40 ? tx : (sx + tx) / 2, ly = midY;
+        text.setAttribute('x', lx); text.setAttribute('y', ly + 4); text.setAttribute('text-anchor', 'middle');
+        const rect = document.createElementNS(NS, 'rect');
+        g.appendChild(rect); g.appendChild(text); labelsEl.appendChild(g);
+        const w = text.getBBox().width + 16;
+        rect.setAttribute('x', lx - w / 2); rect.setAttribute('y', ly - 10); rect.setAttribute('width', w); rect.setAttribute('height', 20); rect.setAttribute('rx', 10);
+      }
+    });
+    applyEdgeState();
+  }
+  function applyEdgeState() {
+    const dimmed = new Set(Array.from(lanesEl.querySelectorAll('.card.dim'), (c) => c.dataset.id));
+    mapEl.querySelectorAll('.edge, .edge-label').forEach((el) => {
+      const touches = selected && (el.dataset.from === selected || el.dataset.to === selected);
+      el.classList.toggle('active', !!touches);
+      el.classList.toggle('faded', !!selected && !touches);
+      el.classList.toggle('dim', dimmed.has(el.dataset.from) || dimmed.has(el.dataset.to));
+      if (el.tagName === 'path') el.setAttribute('marker-end', touches ? 'url(#arrowActive)' : 'url(#arrow)');
+    });
+  }
+  let raf = 0;
+  const schedule = () => { cancelAnimationFrame(raf); raf = requestAnimationFrame(drawEdges); };
+  window.addEventListener('resize', schedule);
+  scroller.addEventListener('scroll', schedule, { passive: true });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(schedule);
+
+  // ---- filter ----
+  const searchEl = document.getElementById('search'), onlyChangedEl = document.getElementById('onlyChanged');
+  const haystack = (entry) => {
+    const n = entry.node, parts = [n.id, n.name, n.path, n.rpc, n.base, n.summary, n.note, n.migration];
+    (n.fields || []).forEach((f) => parts.push(f.name, f.type));
+    (n.columns || []).forEach((c) => parts.push(c.name, c.type));
+    (n.values || []).forEach((v) => parts.push(typeof v === 'string' ? v : v.name));
+    return parts.filter(Boolean).join(' ').toLowerCase();
+  };
+  const hasChange = (n) => changeOf(n) !== 'unchanged' ||
+    (n.fields || []).some((f) => changeOf(f) !== 'unchanged') || (n.columns || []).some((c) => changeOf(c) !== 'unchanged') ||
+    (n.values || []).some((v) => typeof v !== 'string' && changeOf(v) !== 'unchanged');
+  function applyFilter() {
+    const q = searchEl.value.trim().toLowerCase(), onlyChanged = isChange && onlyChangedEl.checked;
+    nodes.forEach((entry, id) => {
+      const el = cardEl(id); if (!el) return;
+      const matches = (!q || haystack(entry).includes(q)) && (!onlyChanged || hasChange(entry.node) || entry.kind === 'root');
+      el.classList.toggle('dim', !matches);
+    });
+    applyEdgeState();
+  }
+  searchEl.addEventListener('input', applyFilter);
+  onlyChangedEl.addEventListener('change', applyFilter);
+
+  // ---- selection and inspector ----
+  const inspector = document.getElementById('inspector');
+  function select(id, focus) {
+    selected = nodes.has(id) ? id : null;
+    const related = new Set();
+    if (selected) {
+      edges.forEach((e) => { if (e.from === selected) related.add(e.to); if (e.to === selected) related.add(e.from); });
+      refsOf(selected).forEach((r) => related.add(r));
+      const u = usedBy(selected); u.schs.forEach((s) => related.add(s.id));
+    }
+    lanesEl.querySelectorAll('.card').forEach((c) => {
+      const on = c.dataset.id === selected;
+      c.classList.toggle('selected', on); c.setAttribute('aria-pressed', on ? 'true' : 'false');
+      c.classList.toggle('related', !on && related.has(c.dataset.id));
+    });
+    applyEdgeState();
+    renderInspector();
+    if (focus && selected) { const el = cardEl(selected); if (el) { el.focus({ preventScroll: true }); el.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' }); } }
+    try { history.replaceState(null, '', selected ? '#' + encodeURIComponent(selected) : location.pathname + location.search); } catch (e) { /* file: URLs may refuse */ }
+  }
+  lanesEl.addEventListener('click', (ev) => { const card = ev.target.closest('.card'); if (card) select(card.dataset.id === selected ? null : card.dataset.id, false); });
+  inspector.addEventListener('click', (ev) => {
+    const ref = ev.target.closest('[data-goto]'); if (ref) { select(ref.dataset.goto, true); return; }
+    const tab = ev.target.closest('.tab'); if (tab) { activeTab = tab.dataset.tab; renderInspector(); }
+  });
+  document.addEventListener('keydown', (ev) => {
+    if (ev.key === 'Escape' && selected) { select(null, false); return; }
+    const card = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.card') : null;
+    if (!card || !['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(ev.key)) return;
+    ev.preventDefault();
+    const lane = card.closest('.lane'), cards = Array.from(lane.querySelectorAll('.card')), i = cards.indexOf(card);
+    let target = null;
+    if (ev.key === 'ArrowLeft') target = cards[Math.max(0, i - 1)];
+    else if (ev.key === 'ArrowRight') target = cards[Math.min(cards.length - 1, i + 1)];
+    else {
+      const all = Array.from(lanesEl.querySelectorAll('.lane')), li = all.indexOf(lane), next = all[li + (ev.key === 'ArrowDown' ? 1 : -1)];
+      if (next) {
+        const cx = card.getBoundingClientRect().left + card.offsetWidth / 2;
+        target = Array.from(next.querySelectorAll('.card')).sort((a, b) => Math.abs(a.getBoundingClientRect().left + a.offsetWidth / 2 - cx) - Math.abs(b.getBoundingClientRect().left + b.offsetWidth / 2 - cx))[0];
+      }
+    }
+    if (target) { target.focus(); select(target.dataset.id, false); }
+  });
+
+  let activeTab = null;
+  const typeHtml = (type) => '<span class="type">' + esc(type).replace(/\b([A-Z][A-Za-z0-9]*)\b/g, (m) => schemaIds.has(m) ? '<a data-goto="' + m + '">' + m + '</a>' : m) + '</span>';
+  const wasHtml = (n) => n.was && typeof n.was === 'object' ? '<span class="was">was: ' + esc(Object.keys(n.was).map((k) => k + ' ' + JSON.stringify(n.was[k])).join(', ')) + '</span>' : '';
+  const refLink = (id, label) => '<button type="button" class="ref" data-goto="' + esc(id) + '">' + esc(label || id) + '</button>';
+  const changePill = (n) => { const c = changeOf(n); return c === 'unchanged' ? '' : ' <span class="pill ' + c + '">' + c + '</span>'; };
+  const breakingPill = (n) => n.breaking ? ' <span class="pill breaking" title="' + esc(n.breaking) + '">BREAKING</span>' : '';
+  const rows = (items, cells) => '<table class="rows">' + items.map((it) => '<tr class="' + changeOf(it) + '">' + cells(it).map((c) => '<td>' + c + '</td>').join('') + '</tr>').join('') + '</table>';
+
+  function exampleOf(type, depth) {
+    depth = depth || 0;
+    if (isList(type)) return depth > 3 ? [] : [exampleOf(refId(type), depth + 1)];
+    const t = String(type || '').trim();
+    if (schemaIds.has(t)) {
+      const s = nodes.get(t).node;
+      if (s.kind === 'enum') { const v = (s.values || [])[0]; return v ? (typeof v === 'string' ? v : v.name) : ''; }
+      if (depth > 3) return {};
+      const out = {};
+      (s.fields || []).forEach((f) => { if (changeOf(f) !== 'removed') out[f.name] = f.example !== undefined ? f.example : exampleOf(f.type, depth + 1); });
+      return out;
+    }
+    const l = t.toLowerCase();
+    if (/^map</.test(l)) return {};
+    if (/uuid|^id$/.test(l)) return '7c9e6679-7425-40de-944b-e07fc1f90ae7';
+    if (/timestamp|datetime|time$/.test(l)) return '2026-01-02T15:04:05Z';
+    if (/^date$/.test(l)) return '2026-01-02';
+    if (/duration/.test(l)) return '30s';
+    if (/int|long|count/.test(l)) return 1;
+    if (/float|double|decimal|number/.test(l)) return 1.5;
+    if (/bool/.test(l)) return true;
+    if (/bytes|binary/.test(l)) return 'base64…';
+    if (/url|uri/.test(l)) return 'https://example.com/…';
+    if (/email/.test(l)) return 'person@example.com';
+    return 'text';
+  }
+  const json = (v) => '<pre>' + esc(JSON.stringify(v, null, 2)) + '</pre>';
+
+  function renderInspector() {
+    if (!selected) { inspector.innerHTML = '<p class="empty">Select a node on the map to inspect it.</p>'; return; }
+    const entry = nodes.get(selected), n = entry.node;
+    let head = '', tabs = [], note = n.note ? '<p class="note">' + esc(n.note) + '</p>' : '';
+    if (entry.kind === 'root') {
+      head = ['<h2>' + esc(n.name) + changePill(n) + '</h2><p>' + esc(n.summary || 'Root endpoint gateway') + ' · <span class="type">' + esc(n.base) + '</span></p>', 'API ROOT'];
+      const mine = endpoints.filter((e) => e.root === n.id);
+      tabs = [['endpoints', 'Endpoints', () => rows(mine, (e) => [refLink(e.id, e.method + ' ' + (model.style === 'connect' && e.rpc ? e.rpc : e.path)), '<span class="flagcell">' + (e.request ? 'Req ' + esc(e.request) + ' · ' : '') + (e.response ? 'Res ' + esc(e.response) : 'no body') + '</span>', esc(e.summary || '') + breakingPill(e)])]];
+    } else if (entry.kind === 'endpoint') {
+      const label = model.style === 'connect' && n.rpc ? n.rpc : n.path;
+      head = ['<h2><span class="method ' + esc(model.style === 'connect' && n.rpc ? 'RPC' : n.method) + '">' + esc(n.method) + '</span><span class="type">' + esc(label) + '</span>' + changePill(n) + breakingPill(n) + '</h2><p>' + esc(n.summary || '') + '</p>', 'ENDPOINT'];
+      const req = refId(n.request), res = refId(n.response);
+      tabs = [
+        ['contract', 'Contract', () => {
+          let meta = '<dl class="meta">';
+          meta += '<dt>Request</dt><dd>' + (req ? refLink(req, n.request) : '<span class="flagcell">no body</span>') + '</dd>';
+          meta += '<dt>Response</dt><dd>' + (res ? refLink(res, n.response) : '<span class="flagcell">empty</span>') + '</dd>';
+          if (n.auth) meta += '<dt>Auth</dt><dd>' + esc(n.auth) + '</dd>';
+          meta += '<dt>Idempotent</dt><dd>' + (n.idempotent ? 'yes' : 'no') + '</dd>';
+          if (n.paginated) meta += '<dt>Pagination</dt><dd>cursor</dd>';
+          if (n.stream) meta += '<dt>Streaming</dt><dd>server stream</dd>';
+          if (n.breaking) meta += '<dt>Breaking</dt><dd>' + esc(n.breaking) + '</dd>';
+          meta += wasHtml(n) ? '<dt>Was</dt><dd>' + wasHtml(n) + '</dd>' : '';
+          meta += '</dl>';
+          const errs = n.errors || [];
+          return meta + (errs.length ? '<h3 class="sr">Errors</h3>' + rows(errs, (e) => [esc(e.code), '<span class="flagcell">error</span>', esc(e.when || '')]) : '<p class="empty">No declared errors beyond the generic ones.</p>');
+        }],
+        ['json', 'JSON', () => '<div class="two">' + (req ? '<div><h3>Request ' + esc(n.request) + '</h3>' + json(exampleOf(n.request)) + '</div>' : '') + (res ? '<div><h3>Response ' + esc(n.response) + '</h3>' + json(exampleOf(n.response)) + '</div>' : '') + (!req && !res ? '<p class="empty">No body on either side.</p>' : '') + '</div>'],
+      ];
+    } else if (entry.kind === 'schema') {
+      head = ['<h2>' + esc(n.id) + changePill(n) + breakingPill(n) + '</h2><p>' + esc(kindLabel[n.kind] || 'Schema') + (n.summary ? ' · ' + esc(n.summary) : '') + '</p>', 'SCHEMA'];
+      const u = usedBy(n.id);
+      tabs = [
+        [n.kind === 'enum' ? 'values' : 'fields', n.kind === 'enum' ? 'Values' : 'Schema Fields', () => n.kind === 'enum'
+          ? rows((n.values || []).map((v) => typeof v === 'string' ? { name: v } : v), (v) => [esc(v.name), '<span class="flagcell">value</span>', esc(v.summary || '')])
+          : rows(n.fields || [], (f) => [esc(f.name) + wasHtml(f), typeHtml(f.type), '<span class="flagcell">' + (f.required ? 'Required' : f.default !== undefined ? 'Default: ' + esc(JSON.stringify(f.default)) : 'Optional') + '</span>' + breakingPill(f), esc(f.summary || '')])],
+        ['json', 'JSON Data Structure', () => json(exampleOf(n.id))],
+        ['used', 'Used By', () => {
+          const parts = [];
+          if (u.eps.length) parts.push('<h3>Endpoints</h3>' + rows(u.eps, (e) => [refLink(e.id, e.method + ' ' + (model.style === 'connect' && e.rpc ? e.rpc : e.path)), '<span class="flagcell">' + (refId(e.request) === n.id ? 'payload' : 'returns') + '</span>', esc(e.summary || '')]));
+          if (u.schs.length) parts.push('<h3>Schemas</h3>' + rows(u.schs, (s) => [refLink(s.id), '<span class="flagcell">' + esc(kindLabel[s.kind] || 'schema') + '</span>', esc(s.summary || '')]));
+          if (u.tbs.length) parts.push('<h3>Storage</h3>' + rows(u.tbs, (t) => [refLink(t.id, t.name || t.id), '<span class="flagcell">table</span>', esc(t.migration || '')]));
+          const refs = refsOf(n.id);
+          if (refs.length) parts.push('<h3>References</h3>' + rows(refs.map((r) => nodes.get(r).node), (s) => [refLink(s.id), '<span class="flagcell">' + esc(kindLabel[s.kind] || 'schema') + '</span>', esc(s.summary || '')]));
+          return parts.length ? '<div class="two">' + parts.map((p) => '<div>' + p + '</div>').join('') + '</div>' : '<p class="empty">Nothing references this schema.</p>';
+        }],
+      ];
+    } else {
+      head = ['<h2><span class="type">' + esc(n.name || n.id) + '</span>' + changePill(n) + '</h2><p>Table' + (n.migration ? ' · migration ' + esc(n.migration) : '') + (n.summary ? ' · ' + esc(n.summary) : '') + '</p>', 'STORAGE'];
+      tabs = [
+        ['columns', 'Columns', () => rows(n.columns || [], (c) => [esc(c.name) + wasHtml(c), typeHtml(c.type), '<span class="flagcell">' + esc([c.key, c.nullable ? 'nullable' : 'not null', c.default !== undefined ? 'default ' + c.default : ''].filter(Boolean).join(', ')) + '</span>', esc(c.summary || '')])],
+        ['backs', 'Backs', () => (n.backs || []).length ? rows(n.backs.map((b) => nodes.get(b).node), (s) => [refLink(s.id), '<span class="flagcell">' + esc(kindLabel[s.kind] || 'schema') + '</span>', esc(s.summary || '')]) : '<p class="empty">No schema is declared as backed by this table.</p>'],
+      ];
+    }
+    if (!tabs.some((t) => t[0] === activeTab)) activeTab = tabs[0][0];
+    const body = tabs.find((t) => t[0] === activeTab)[2]();
+    inspector.innerHTML = '<div class="head"><div>' + head[0] + '</div><span class="pill">' + head[1] + '</span></div>' + note +
+      '<div class="tabs" role="tablist">' + tabs.map((t) => '<button type="button" role="tab" class="tab" data-tab="' + t[0] + '" aria-selected="' + (t[0] === activeTab) + '">' + t[1] + '</button>').join('') + '</div>' +
+      '<div role="tabpanel">' + body + '</div>';
+  }
+
+  // ---- toolbar: ASCII copy and theme ----
+  const toast = (msg) => { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); };
+  document.getElementById('copyAscii').addEventListener('click', () => {
+    const text = document.getElementById('asciiOut').textContent;
+    const done = () => toast('ASCII tree copied');
+    const fallback = () => { document.querySelector('details.ascii').open = true; toast('Clipboard unavailable: the tree is open below'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, fallback); else fallback();
+  });
+  const themeBtn = document.getElementById('theme');
+  const themes = ['auto', 'light', 'dark'];
+  let theme = 'auto';
+  const hostTheme = document.documentElement.dataset.theme; // a host may have set the theme already
+  try { theme = themes.includes(localStorage.getItem('api-topology-theme')) ? localStorage.getItem('api-topology-theme') : 'auto'; } catch (e) { /* storage may be blocked */ }
+  const applyTheme = () => {
+    if (theme !== 'auto') document.documentElement.dataset.theme = theme;
+    else if (hostTheme) document.documentElement.dataset.theme = hostTheme;
+    else delete document.documentElement.dataset.theme;
+    themeBtn.textContent = 'Theme: ' + theme;
+  };
+  themeBtn.addEventListener('click', () => {
+    theme = themes[(themes.indexOf(theme) + 1) % themes.length];
+    try { localStorage.setItem('api-topology-theme', theme); } catch (e) { /* ignore */ }
+    applyTheme();
+  });
+  applyTheme();
+
+  // ---- first paint ----
+  drawEdges();
+  const initial = decodeURIComponent(location.hash.slice(1));
+  if (initial && nodes.has(initial)) select(initial, false);
+  else if (roots[0]) select(roots[0].id, false);
+})();
+</script>
+</body>
+</html>

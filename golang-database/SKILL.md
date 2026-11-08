@@ -94,8 +94,10 @@ The schema is deployed once a migration is applied anywhere shared. Rules:
 6. No secrets or environment-specific data in a migration.
 7. `migrate up` on a schema already ahead of the binary exits 0, so the
    restart after a rollback (`deploy`) succeeds.
-8. The schema change is its own story and its own commit, landing first; the
-   owner reviews the up and down SQL (schema gate).
+8. The schema change is its own story and its own commit, landing first;
+   the owner accepts it on the topology map's storage lane
+   (`api-topology`): tables, columns and the schemas they back (schema
+   gate). The up and down SQL is the agent's to review.
 
 See [migrations](references/migrations.md) for the expand/contract recipes.
 

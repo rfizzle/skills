@@ -34,8 +34,9 @@ REST API or an existing OpenAPI service; new services default to Connect
    generated delta (`git diff`). If more changed than the YAML explains,
    stop: a generator version moved.
 4. `oasdiff breaking` against the last release tag (CI runs the same).
-5. **Owner gate.** Present the OpenAPI diff and the oasdiff output and stop.
-   The owner approves before the controller is written.
+5. **Owner gate.** Draw the change on the topology map (`api-topology`)
+   from the OpenAPI diff against the last tag, present it with the oasdiff
+   output, and stop. The owner approves before the controller is written.
 6. Commit the YAML and everything generated from it alone, as the contract
    story: `feat(api): add order cancellation`. It must build
    on its own: the controller embeds the generator's unimplemented handler
@@ -120,5 +121,6 @@ operations. See `golang-testing` for HTTP test patterns.
 - `oasdiff breaking` is clean against the last tag, or the break is in a new
   version with v1 deprecated and sunset.
 - Every new error is a declared Problem type; every list is cursor-paginated.
-- Owner approval of the diff is recorded before the controller change.
+- Owner approval of the change, shown on the topology map, is recorded
+  before the controller change.
 - `make ci` passes.

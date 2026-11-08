@@ -40,9 +40,10 @@ service on connect-go v1 keeps these rules and moves with
 3. `make proto-lint`, `make generate`, and read the generated delta. If more
    changed than the proto explains, stop: a plugin version moved.
 4. `make proto-breaking` against the last release tag; CI runs the same.
-5. **Owner gate.** Present in plain English the proto diff, the `buf
+5. **Owner gate.** Draw the change on the topology map (`api-topology`)
+   from the proto diff against the last tag, and present it with the `buf
    breaking` output, any change to the error mapping and the golden JSON
-   diff. Stop until the owner accepts.
+   diff in plain English. Stop until the owner accepts.
 6. Commit the proto and everything generated from it alone, as the contract
    story (`feat(api): add order cancellation`). It builds alone: the
    controller embeds `Unimplemented<Service>Handler`, so a new RPC answers
@@ -170,7 +171,8 @@ One function in `internal/controller/` maps domain errors
 - `buf breaking` is clean against the last tag, or the break is in a new
   package with v1 deprecated and dated.
 - Each new domain error has a mapping row and a handler test.
-- The owner accepted the proto diff before the controller change.
+- The owner accepted the change on the topology map before the controller
+  change.
 
 ## References
 
