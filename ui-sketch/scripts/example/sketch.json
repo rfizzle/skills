@@ -1,0 +1,14 @@
+{
+  "title": "Order page",
+  "unit": "OrderPage",
+  "layer": "screen",
+  "round": 1,
+  "question": "how a cancelled order reads at a glance, and where the refund stands",
+  "tokens": "tokens.css",
+  "directions": [
+    { "id": "Banner", "axis": "information order", "changes": "a full-width status banner above the order with the refund line inside it", "wins": "the person came to check one thing: is it cancelled, where is my money", "costs": "the banner pushes the items below the fold on a phone", "file": "Banner.html" },
+    { "id": "Timeline", "axis": "interaction model", "changes": "the status is a vertical timeline beside the items: placed, paid, cancelled, refund pending", "wins": "support and repeat customers who want the history", "costs": "more to read for a one-off buyer; a fourth column on desktop", "file": "Timeline.html" },
+    { "id": "Quiet", "axis": "density", "changes": "a status pill in the header and one refund sentence under the total; the page otherwise unchanged", "wins": "the order page stays the order page; cancellation is rare", "costs": "easy to miss that the refund is still pending", "file": "Quiet.html" }
+  ],
+  "recommendation": { "direction": "Banner", "reason": "a person opens a cancelled order to find out about the refund; nothing else on the page matters at that moment" }
+}

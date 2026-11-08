@@ -1,0 +1,48 @@
+<style>
+  .page { max-width: 880px; margin: 0 auto; padding: var(--space-6) var(--space-4); font-family: var(--font-sans); color: var(--color-text); }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); flex-wrap: wrap; }
+  .head h1 { margin: 0; font-size: 22px; }
+  .head .meta { color: var(--color-muted); font-size: 14px; }
+  .pill { display: inline-block; font: 12px/1 var(--font-mono); padding: 5px 9px; border-radius: 999px; border: 1px solid var(--color-border); }
+  .pill.cancelled { background: var(--color-danger-soft); color: var(--color-danger); border-color: var(--color-danger); }
+  .items { margin-top: var(--space-6); border: 1px solid var(--color-border); border-radius: var(--radius); overflow: hidden; }
+  .item { display: grid; grid-template-columns: 1fr auto auto; gap: var(--space-4); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--color-border); font-size: 14px; }
+  .item:first-child { border-top: 0; }
+  .item .q, .item .p { color: var(--color-muted); font-variant-numeric: tabular-nums; }
+  .total { display: flex; justify-content: space-between; padding: var(--space-3) var(--space-4); background: var(--color-surface); font-weight: 600; }
+  .skeleton { height: 14px; border-radius: 6px; background: var(--color-surface); }
+  .notice { margin-top: var(--space-4); padding: var(--space-3) var(--space-4); border-radius: var(--radius); background: var(--color-danger-soft); color: var(--color-danger); font-size: 14px; }
+  @media (max-width: 600px) { .item { grid-template-columns: 1fr auto; } .item .q { display: none; } }
+</style>
+<style>
+  .cols { display: grid; grid-template-columns: 1fr 260px; gap: var(--space-6); margin-top: var(--space-4); }
+  .timeline { list-style: none; margin: 0; padding: 0; border-left: 2px solid var(--color-border); }
+  .timeline li { position: relative; padding: 0 0 var(--space-4) var(--space-4); font-size: 14px; }
+  .timeline li::before { content: ""; position: absolute; left: -7px; top: 4px; width: 12px; height: 12px; border-radius: 50%; background: var(--color-bg); border: 2px solid var(--color-border); }
+  .timeline li.done::before { background: var(--color-ok); border-color: var(--color-ok); }
+  .timeline li.cancelled::before { background: var(--color-danger); border-color: var(--color-danger); }
+  .timeline li.pending::before { border-color: var(--color-warn); border-style: dashed; }
+  .timeline .when { display: block; color: var(--color-muted); font-size: 12px; }
+  @media (max-width: 700px) { .cols { grid-template-columns: 1fr; } }
+</style>
+<div class="page">
+  <div class="head"><h1>Order #A-10422</h1><span class="pill cancelled">Cancelled</span></div>
+  <div class="cols">
+    <div>
+      <div data-state="filled partial"><div class="items">
+  <div class="item"><span>Trail running shoe, size 43</span><span class="q">1</span><span class="p">€129.00</span></div>
+  <div class="item"><span>Merino socks, 3 pack</span><span class="q">2</span><span class="p">€38.00</span></div>
+  <div class="total"><span>Total</span><span>€167.00</span></div>
+</div></div>
+      <div data-state="loading"><div class="skeleton" style="height:120px"></div></div>
+      <div data-state="error" class="notice">We could not load this order. <a href="#" style="color:inherit">Try again</a>.</div>
+      <div data-state="empty" class="notice" style="background:var(--color-surface);color:var(--color-muted)">There is no order with this number.</div>
+    </div>
+    <ol class="timeline">
+      <li class="done">Placed <span class="when">2 Nov, 14:02</span></li>
+      <li class="done">Paid €167.00, card ending 4421 <span class="when">2 Nov, 14:02</span></li>
+      <li class="cancelled">Cancelled: ordered the wrong size <span class="when">5 Nov, 09:40</span></li>
+      <li class="pending" data-state="filled partial loading">Refund €167.00 <span class="when" data-state="filled">Sent to your bank 5 Nov; allow 3 to 5 working days</span><span class="when" data-state="partial">Being processed; we will email you</span></li>
+    </ol>
+  </div>
+</div>

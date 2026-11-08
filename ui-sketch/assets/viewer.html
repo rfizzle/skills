@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UI sketch</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  :root {
+    --bg: #f4f5f8; --panel: #ffffff; --line: #d6dae2; --line-strong: #aeb5c2; --text: #15181e; --muted: #5f6775;
+    --accent: #2f5bd8; --accent-soft: #e8eefc; --accent-ink: #1d3f9e; --kept: #1f8a4c; --kept-soft: #e3f4e9; --stage: #e9ebf0;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; --sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #121315; --panel: #1b1c20; --line: #363a43; --line-strong: #4b505c; --text: #e7e9ee; --muted: #9ba2ae; --accent: #8ab4f8; --accent-soft: #1b2b55; --accent-ink: #c6d8ff; --kept: #4cc38a; --kept-soft: #16301f; --stage: #0d0e10; color-scheme: dark; } }
+  :root[data-theme="dark"] { --bg: #121315; --panel: #1b1c20; --line: #363a43; --line-strong: #4b505c; --text: #e7e9ee; --muted: #9ba2ae; --accent: #8ab4f8; --accent-soft: #1b2b55; --accent-ink: #c6d8ff; --kept: #4cc38a; --kept-soft: #16301f; --stage: #0d0e10; color-scheme: dark; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font: 15px/1.45 var(--sans); padding-block: 20px 48px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+  .wrap { max-width: 1320px; margin: 0 auto; }
+  header.top { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; margin-bottom: 10px; }
+  header.top h1 { font-size: 24px; font-weight: 600; margin: 0 0 4px; letter-spacing: -.01em; }
+  header.top p { margin: 0; color: var(--muted); max-width: 70ch; }
+  .pill { display: inline-block; font: 12px/1 var(--mono); padding: 6px 10px; border: 1px solid var(--line-strong); border-radius: 999px; white-space: nowrap; }
+  .pill.accent { border-color: var(--accent); color: var(--accent-ink); background: var(--accent-soft); }
+  .pill.kept { border-color: var(--kept); color: var(--kept); background: var(--kept-soft); }
+  button, select { font: 14px var(--sans); color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; }
+  button:hover { border-color: var(--line-strong); }
+  button:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .toolbar { display: flex; gap: 10px 14px; align-items: center; flex-wrap: wrap; margin: 10px 0 12px; }
+  .group { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .group button { border: 0; border-radius: 0; border-right: 1px solid var(--line); }
+  .group button:last-child { border-right: 0; }
+  .group button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); font-weight: 600; }
+  .toolbar label { display: inline-flex; gap: 6px; align-items: center; color: var(--muted); font-size: 14px; }
+  .dirs { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .dir { border-radius: 999px; padding: 8px 16px; }
+  .dir[aria-selected="true"] { background: var(--accent-soft); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  .dir.kept { border-color: var(--kept); }
+  .dir .tag { font: 11px var(--mono); color: var(--muted); margin-left: 6px; }
+  .stage { background: var(--stage); border: 1px solid var(--line); border-radius: 16px; padding: 24px 16px; overflow-x: auto; }
+  .frame { margin: 0 auto; background: #fff; border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,.18); overflow: hidden; transform-origin: top left; }
+  .frame iframe { display: block; border: 0; width: 100%; height: 400px; background: transparent; }
+  .stage-note { text-align: center; color: var(--muted); font: 12px var(--mono); margin-top: 10px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px 22px; margin-top: 16px; }
+  .panel h2 { margin: 0 0 10px; font-size: 17px; font-weight: 600; }
+  table.round { width: 100%; border-collapse: separate; border-spacing: 0 6px; font-size: 14px; }
+  table.round th { text-align: left; color: var(--muted); font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05em; padding: 0 12px 4px; }
+  table.round td { padding: 10px 12px; background: var(--bg); vertical-align: top; }
+  table.round td:first-child { border-radius: 8px 0 0 8px; font-weight: 600; white-space: nowrap; cursor: pointer; }
+  table.round td:last-child { border-radius: 0 8px 8px 0; }
+  table.round tr.current td { background: var(--accent-soft); }
+  table.round tr.kept td:first-child::after { content: " kept"; color: var(--kept); font: 11px var(--mono); }
+  table.round tr.passed td { opacity: .55; text-decoration: line-through; }
+  .reco { margin: 12px 0 0; padding: 12px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; font-size: 14px; }
+  .question { margin: 14px 0 0; font-weight: 600; }
+  .decisions { margin: 10px 0 0; padding-left: 18px; font-size: 14px; color: var(--muted); }
+  details.text { margin-top: 16px; } details.text summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+  pre { margin: 0; padding: 14px 16px; background: var(--bg); border-radius: 10px; font: 13px/1.5 var(--mono); overflow: auto; }
+  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 8px 14px; border-radius: 8px; font-size: 13px; opacity: 0; transition: opacity .2s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  @media (max-width: 640px) { table.round { display: block; overflow-x: auto; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div><h1 id="title">UI sketch</h1><p id="question"></p></div>
+    <div id="headPills"></div>
+  </header>
+  <div class="dirs" id="dirs" role="tablist" aria-label="Directions"></div>
+  <section class="toolbar">
+    <div class="group" id="viewports" role="group" aria-label="Viewport"></div>
+    <label>State <select id="state" aria-label="Async state"></select></label>
+    <label><input type="checkbox" id="fit" checked> Fit to width</label>
+    <label id="showPassedLabel" hidden><input type="checkbox" id="showPassed"> Show passed over</label>
+    <button id="copyText" type="button">Copy hand-over</button>
+    <button id="theme" type="button" aria-label="Switch theme">Theme: auto</button>
+  </section>
+  <section class="stage" id="stage"><div class="frame" id="frame"><iframe id="view" title="Direction preview"></iframe></div><div class="stage-note" id="stageNote"></div></section>
+  <section class="panel">
+    <h2>The round</h2>
+    <table class="round" id="round"></table>
+    <p class="reco" id="reco" hidden></p>
+    <ol class="decisions" id="decisions" hidden></ol>
+    <p class="question">Which is closest, and what is still off?</p>
+  </section>
+  <details class="text"><summary>Hand-over text (pasted in the conversation)</summary><pre id="textOut"></pre></details>
+</div>
+<div class="toast" id="toast" role="status"></div>
+<div id="fragments" hidden>
+<!--__FRAGMENTS__-->
+</div>
+<script id="tokens" type="text/css">/*__TOKENS__*/</script>
+<script id="sketch" type="application/json">{}</script>
+<script>
+(function () {
+  'use strict';
+  const model = JSON.parse(document.getElementById('sketch').textContent || '{}');
+  const tokens = document.getElementById('tokens').textContent;
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const directions = model.directions || [];
+  const viewports = model.viewports || [{ name: 'desktop', width: 1280 }, { name: 'phone', width: 390 }];
+  const states = model.states || ['filled'];
+  const fragmentOf = (id) => { const t = document.querySelector('template[data-direction="' + CSS.escape(id) + '"]'); return t ? t.innerHTML : '<p>(missing fragment)</p>'; };
+  const live = () => directions.filter((d) => showPassed.checked || (d.status || 'candidate') !== 'passed');
+
+  document.getElementById('title').textContent = (model.unit || model.title || 'UI sketch') + (model.title && model.title !== model.unit ? ' · ' + model.title : '');
+  document.getElementById('question').textContent = model.question || '';
+  document.getElementById('headPills').innerHTML = '<span class="pill accent">ROUND ' + (model.round || 1) + '</span> ' + (model.layer ? '<span class="pill">' + esc(model.layer).toUpperCase() + '</span> ' : '') + (directions.some((d) => d.status === 'kept') ? '<span class="pill kept">KEPT</span>' : '');
+
+  let current = null, viewport = viewports[0], state = states[0];
+  let theme = 'auto'; const hostTheme = document.documentElement.dataset.theme;
+  const themeBtn = document.getElementById('theme'), themes = ['auto', 'light', 'dark'];
+  try { theme = themes.includes(localStorage.getItem('ui-sketch-theme')) ? localStorage.getItem('ui-sketch-theme') : 'auto'; } catch (e) { /* blocked */ }
+  const effectiveDark = () => theme === 'dark' || (theme === 'auto' && (hostTheme === 'dark' || (!hostTheme && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)));
+
+  const dirsEl = document.getElementById('dirs'), showPassed = document.getElementById('showPassed');
+  document.getElementById('showPassedLabel').hidden = !directions.some((d) => d.status === 'passed');
+  function renderDirs() {
+    dirsEl.innerHTML = live().map((d) => '<button type="button" role="tab" class="dir ' + (d.status || 'candidate') + '" data-id="' + esc(d.id) + '" aria-selected="' + (d.id === current) + '">' + esc(d.id) + (d.status === 'kept' ? '<span class="tag">kept</span>' : d.status === 'passed' ? '<span class="tag">passed</span>' : '') + (d.from ? '<span class="tag">from ' + esc(d.from) + '</span>' : '') + '</button>').join('');
+  }
+  const vpEl = document.getElementById('viewports');
+  vpEl.innerHTML = viewports.map((v) => '<button type="button" data-w="' + v.width + '" aria-pressed="' + (v === viewport) + '">' + esc(v.name) + ' ' + v.width + '</button>').join('');
+  const stateEl = document.getElementById('state');
+  stateEl.innerHTML = states.map((s) => '<option value="' + esc(s) + '">' + esc(s) + '</option>').join('');
+
+  // ---- the frame ----
+  const frame = document.getElementById('frame'), view = document.getElementById('view'), stage = document.getElementById('stage'), fit = document.getElementById('fit'), note = document.getElementById('stageNote');
+  function srcdoc(id) {
+    const dark = effectiveDark();
+    return '<!doctype html><html lang="en"' + (dark ? ' data-theme="dark" class="dark"' : '') + '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
+      '<style>' + tokens + '</style>' +
+      '<style>html{color-scheme:' + (dark ? 'dark' : 'light') + '}body{margin:0;background:var(--color-bg,var(--bg,#fff));color:var(--color-text,var(--text,#111));font-family:var(--font-sans,system-ui,sans-serif)}' +
+      'html[data-view-state] [data-state]{display:none !important}' + states.map((s) => 'html[data-view-state="' + s + '"] [data-state~="' + s + '"]{display:revert !important}').join('') + '</style>' +
+      '</head><body>' + fragmentOf(id) + '</body></html>';
+  }
+  function layout() {
+    const w = viewport.width;
+    const avail = stage.clientWidth - 32;
+    const scale = fit.checked ? Math.min(1, avail / w) : 1;
+    frame.style.width = w + 'px';
+    frame.style.transform = 'scale(' + scale + ')';
+    let h = 400;
+    try { h = Math.max(240, view.contentDocument.documentElement.scrollHeight); } catch (e) { /* not ready */ }
+    view.style.height = h + 'px';
+    frame.style.marginBottom = (h * scale - h) + 'px';
+    frame.style.marginLeft = scale < 1 ? '0' : 'auto';
+    note.textContent = viewport.name + ' · ' + w + 'px wide' + (scale < 1 ? ' · shown at ' + Math.round(scale * 100) + '%' : ' · true size') + ' · state: ' + state;
+  }
+  function show(id) {
+    if (!directions.some((d) => d.id === id)) return;
+    current = id;
+    renderDirs();
+    view.srcdoc = srcdoc(id);
+    document.querySelectorAll('#round tr').forEach((tr) => tr.classList.toggle('current', tr.dataset.id === id));
+    try { history.replaceState(null, '', '#' + encodeURIComponent(id)); } catch (e) { /* file: may refuse */ }
+  }
+  view.addEventListener('load', () => {
+    try { view.contentDocument.documentElement.dataset.viewState = state; } catch (e) { /* ignore */ }
+    layout();
+    setTimeout(layout, 50);
+  });
+  dirsEl.addEventListener('click', (ev) => { const b = ev.target.closest('.dir'); if (b) show(b.dataset.id); });
+  vpEl.addEventListener('click', (ev) => {
+    const b = ev.target.closest('button'); if (!b) return;
+    viewport = viewports.find((v) => String(v.width) === b.dataset.w) || viewport;
+    vpEl.querySelectorAll('button').forEach((x) => x.setAttribute('aria-pressed', x === b)); layout();
+  });
+  stateEl.addEventListener('change', () => { state = stateEl.value; try { view.contentDocument.documentElement.dataset.viewState = state; } catch (e) { /* ignore */ } setTimeout(layout, 0); });
+  fit.addEventListener('change', layout);
+  showPassed.addEventListener('change', renderDirs);
+  window.addEventListener('resize', layout);
+  document.addEventListener('keydown', (ev) => {
+    if (!(ev.altKey || ev.target === document.body || ev.target.classList.contains('dir')) || !['ArrowLeft', 'ArrowRight'].includes(ev.key)) return;
+    const list = live(), i = list.findIndex((d) => d.id === current), next = list[i + (ev.key === 'ArrowRight' ? 1 : -1)];
+    if (next) { ev.preventDefault(); show(next.id); }
+  });
+
+  // ---- the round table ----
+  const roundEl = document.getElementById('round');
+  roundEl.innerHTML = '<thead><tr><th>Direction</th><th>Axis</th><th>What it changes</th><th>When it wins</th><th>What it costs</th></tr></thead><tbody>' +
+    directions.map((d) => '<tr class="' + (d.status || 'candidate') + '" data-id="' + esc(d.id) + '"><td>' + esc(d.id) + (d.from ? '<br><span style="font:11px var(--mono);color:var(--muted)">from ' + esc(d.from) + '</span>' : '') + '</td><td>' + esc(d.axis) + '</td><td>' + esc(d.changes) + '</td><td>' + esc(d.wins) + '</td><td>' + esc(d.costs) + '</td></tr>').join('') + '</tbody>';
+  roundEl.addEventListener('click', (ev) => { const tr = ev.target.closest('tr[data-id]'); if (tr) show(tr.dataset.id); });
+  const reco = document.getElementById('reco');
+  if (model.recommendation) { reco.hidden = false; reco.innerHTML = '<strong>Recommendation: ' + esc(model.recommendation.direction) + '.</strong> ' + esc(model.recommendation.reason); }
+  const dec = document.getElementById('decisions');
+  if ((model.decisions || []).length) { dec.hidden = false; dec.innerHTML = model.decisions.map((d) => '<li>' + esc(d.date) + ': kept ' + esc(d.kept) + (d.over ? ' over ' + esc(d.over) : '') + '; ' + esc(d.why) + '</li>').join(''); }
+
+  // ---- hand-over text ----
+  const text = () => {
+    const rows = directions.filter((d) => (d.status || 'candidate') !== 'passed');
+    const lines = ['Round ' + (model.round || 1) + ' on ' + model.unit + ' asks: ' + model.question, '', '| Direction | Axis | What it changes | When it wins | What it costs |', '| --- | --- | --- | --- | --- |'];
+    rows.forEach((d) => lines.push('| ' + d.id + (d.status === 'kept' ? ' (kept)' : '') + (d.from ? ' (from ' + d.from + ')' : '') + ' | ' + d.axis + ' | ' + d.changes + ' | ' + d.wins + ' | ' + d.costs + ' |'));
+    if (model.recommendation) lines.push('', 'Recommendation: ' + model.recommendation.direction + '; ' + model.recommendation.reason);
+    lines.push('', 'Which is closest, and what is still off?');
+    return lines.join('\n');
+  };
+  document.getElementById('textOut').textContent = text();
+  const toast = (msg) => { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 1600); };
+  document.getElementById('copyText').addEventListener('click', () => {
+    const fallback = () => { document.querySelector('details.text').open = true; toast('Clipboard unavailable: the text is open below'); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text()).then(() => toast('Hand-over copied'), fallback); else fallback();
+  });
+  const applyTheme = () => {
+    if (theme !== 'auto') document.documentElement.dataset.theme = theme; else if (hostTheme) document.documentElement.dataset.theme = hostTheme; else delete document.documentElement.dataset.theme;
+    themeBtn.textContent = 'Theme: ' + theme;
+    if (current) view.srcdoc = srcdoc(current);
+  };
+  themeBtn.addEventListener('click', () => { theme = themes[(themes.indexOf(theme) + 1) % themes.length]; try { localStorage.setItem('ui-sketch-theme', theme); } catch (e) { /* ignore */ } applyTheme(); });
+  applyTheme();
+
+  const initial = decodeURIComponent(location.hash.slice(1));
+  const kept = directions.find((d) => d.status === 'kept');
+  show(directions.some((d) => d.id === initial) ? initial : kept ? kept.id : (live()[0] || directions[0] || {}).id);
+})();
+</script>
+</body>
+</html>
