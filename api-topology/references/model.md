@@ -22,6 +22,17 @@ than starting from an empty object. `check.mjs` enforces what is marked
 Every node has an `id`, unique across all four lists, and may carry
 `change`, `was`, `breaking` and `note`.
 
+## What goes on a change map
+
+Only what the story touches. A node is listed when it is `added`,
+`changed` or `removed`, or when a listed node needs it to resolve: the
+root of a changed endpoint, a schema a changed endpoint returns or a
+changed field's type names, the table a changed schema is stored in. Such
+a node is `unchanged` and carries no `fields` or `columns`: the viewer
+shows it as context and the tree prints its name alone. A fieldless
+unchanged schema is not a warning in change mode. An endpoint the story
+does not touch is never listed, even on the same path.
+
 ## Change markers
 
 | Key | Values | Rule |
@@ -87,6 +98,8 @@ A move between files or packages is `changed` with `was`.
 | `values` | enum only: strings, or `{ "name": "CANCELLED", "change": "added" }` |
 
 A schema no endpoint or schema uses is a warning unless it is a `resource`.
+A schema with no fields is a warning, except an unchanged one on a change
+map, which is context by definition.
 
 ## Tables
 

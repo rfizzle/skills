@@ -41,9 +41,11 @@ removed or renamed field, a new table, or anything marked breaking.
    contract at the last release tag (`git show <tag>:<path>`), so "before"
    is what shipped, not what is on the branch.
 2. **Write the model** to `.agents/topology/<slug>.json`, from
-   [references/model.md](references/model.md): the nodes the change
-   touches plus their one-hop neighbours marked `unchanged`, no more. Every
-   endpoint names its request and response schema; every list is
+   [references/model.md](references/model.md): only the nodes the story
+   touches. An unchanged node appears only when a changed node needs it to
+   resolve (the root, a response schema that already exists, the table a
+   changed schema is stored in), and then as a name with no fields:
+   context, not content. Every endpoint names its request and response schema; every list is
    paginated; every schema a response returns is a `resource` or a
    `response`; a table names the schemas it backs. Mark `added`, `changed`
    (with `was` for what moved) and `removed`; mark `breaking` with the
@@ -93,8 +95,10 @@ removed or renamed field, a new table, or anything marked breaking.
 
 ## Gotchas
 
-- A whole-service snapshot at a change gate buries the change. One hop of
-  context, no more; the owner can ask for the rest.
+- A whole-service snapshot at a change gate buries the change. Endpoints
+  and schemas the story does not touch are not on the map; a referenced
+  unchanged schema is a name, never a card full of fields. The owner can
+  ask for the rest, and a `snapshot` map answers that.
 - Writing the proto or YAML first and the map from it inverts the gate: the
   map is accepted, then the contract is written to match. At the contract
   gate itself, the map is drawn from the real diff.

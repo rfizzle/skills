@@ -101,8 +101,10 @@ export function check(model) {
     const change = changeOf(schema, where);
     const fields = Array.isArray(schema.fields) ? schema.fields : [];
     const values = Array.isArray(schema.values) ? schema.values : [];
-    if (schema.kind === 'enum' && values.length === 0) error(`${where}: an enum needs values`);
-    if (schema.kind !== 'enum' && fields.length === 0 && values.length === 0) warn(`${where}: no fields`);
+    if (schema.kind === 'enum' && values.length === 0 && !(model.mode === 'change' && change === 'unchanged')) error(`${where}: an enum needs values`);
+    const context = model.mode === 'change' && change === 'unchanged';
+    if (schema.kind !== 'enum' && fields.length === 0 && values.length === 0 && !context) warn(`${where}: no fields`);
+    if (context && (fields.length || values.length)) warn(`${where}: unchanged on a change map; drop its fields, it is context`);
     const names = new Set();
     fields.forEach((field, j) => {
       const fw = `${where}.fields[${j}]`;

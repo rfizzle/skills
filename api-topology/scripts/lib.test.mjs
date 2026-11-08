@@ -28,10 +28,11 @@ test('an unknown schema reference, a stray "was" and a silent change are errors'
   const model = example();
   model.endpoints[0].response = 'Missing';
   model.schemas[2].was = { kind: 'request' };
-  model.schemas[3].fields[0].change = 'added';
+  model.schemas[3].fields = [{ name: 'sku', type: 'string', required: true, change: 'added' }];
   const { errors } = check(model);
   assert.ok(errors.some((e) => /response Missing is not a schema/.test(e)), errors.join('\n'));
   assert.ok(errors.some((e) => /"was" belongs only to a changed node/.test(e)), errors.join('\n'));
+  assert.ok(check(example()).warnings.every((w) => !/no fields/.test(w)), 'context schemas carry no fields and no warning');
   assert.ok(errors.some((e) => /a field marked added makes the schema changed/.test(e)), errors.join('\n'));
 });
 
@@ -50,10 +51,10 @@ test('change mode with nothing marked is an error; snapshot mode warns about mar
 test('duplicate ids and operations are errors', () => {
   const model = example();
   model.schemas[1].id = 'Order';
-  model.endpoints[2].path = '/orders';
+  model.endpoints.push({ ...model.endpoints[0], id: 'cancelAgain' });
   const { errors } = check(model);
   assert.ok(errors.some((e) => /id Order is already used/.test(e)));
-  assert.ok(errors.some((e) => /duplicate operation api GET \/orders/.test(e)));
+  assert.ok(errors.some((e) => /duplicate operation api POST \/orders\/\{id\}\/cancel/.test(e)));
 });
 
 test('the ascii tree has the three sections and the change markers', () => {

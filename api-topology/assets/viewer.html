@@ -82,6 +82,8 @@
   .card.changed { border-color: var(--changed); }
   .card.removed { border-color: var(--removed); }
   .card.removed .name, .card.removed .path { text-decoration: line-through; }
+  .card.context { border-style: dotted; background: transparent; }
+  .card.context .name { font-weight: 500; color: var(--muted); }
   .card .name { font-weight: 600; font-size: 15px; }
   .card .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
   .card .path { font: 14px var(--mono); }
@@ -282,8 +284,9 @@
     return '<div><span class="method ' + esc(method) + '">' + esc(method) + '</span><span class="path">' + esc(label) + '</span></div>' +
       '<div class="sub">' + esc(e.summary || '') + '</div>' + (flags.length ? '<div class="flags">' + flags.join('') + '</div>' : '') + badge(e);
   }
+  const isContext = (n) => isChange && changeOf(n) === 'unchanged' && !(n.fields || []).length && !(n.values || []).length && !(n.columns || []).length;
   function schemaCard(s) {
-    const count = s.kind === 'enum' ? (s.values || []).length + ' values' : (s.fields || []).filter((f) => changeOf(f) !== 'removed').length + ' fields';
+    const count = isContext(s) ? 'context' : s.kind === 'enum' ? (s.values || []).length + ' values' : (s.fields || []).filter((f) => changeOf(f) !== 'removed').length + ' fields';
     return '<div class="name">' + esc(s.id) + '</div><div class="sub mono">' + count + ' • ' + esc(kindLabel[s.kind] || 'Schema') + '</div>' + badge(s);
   }
   function tableCard(t) {
@@ -292,7 +295,7 @@
   }
   lanesEl.innerHTML = lanes.map((lane) =>
     '<div class="lane" data-lane="' + lane.key + '"><div class="lane-label">' + lane.label + '</div><div class="cards">' +
-    lane.items.map((n) => '<button type="button" class="card ' + (lane.key === 'roots' ? 'root ' : '') + changeOf(n) + '" data-id="' + esc(n.id) + '" aria-pressed="false">' + lane.card(n) + '</button>').join('') +
+    lane.items.map((n) => '<button type="button" class="card ' + (lane.key === 'roots' ? 'root ' : '') + (isContext(n) && lane.key !== 'roots' ? 'context ' : '') + changeOf(n) + '" data-id="' + esc(n.id) + '" aria-pressed="false">' + lane.card(n) + '</button>').join('') +
     '</div></div>').join('');
   const cardEl = (id) => lanesEl.querySelector('.card[data-id="' + CSS.escape(id) + '"]');
 
@@ -487,10 +490,12 @@
       head = ['<h2>' + esc(n.id) + changePill(n) + breakingPill(n) + '</h2><p>' + esc(kindLabel[n.kind] || 'Schema') + (n.summary ? ' · ' + esc(n.summary) : '') + '</p>', 'SCHEMA'];
       const u = usedBy(n.id);
       tabs = [
-        [n.kind === 'enum' ? 'values' : 'fields', n.kind === 'enum' ? 'Values' : 'Schema Fields', () => n.kind === 'enum'
+        [n.kind === 'enum' ? 'values' : 'fields', n.kind === 'enum' ? 'Values' : 'Schema Fields', () => isContext(n)
+          ? '<p class="empty">Not part of this change. Listed because a changed node references it; its fields are in the contract as shipped.</p>'
+          : n.kind === 'enum'
           ? rows((n.values || []).map((v) => typeof v === 'string' ? { name: v } : v), (v) => [esc(v.name), '<span class="flagcell">value</span>', esc(v.summary || '')])
           : rows(n.fields || [], (f) => [esc(f.name) + wasHtml(f), typeHtml(f.type), '<span class="flagcell">' + (f.required ? 'Required' : f.default !== undefined ? 'Default: ' + esc(JSON.stringify(f.default)) : 'Optional') + '</span>' + breakingPill(f), esc(f.summary || '')])],
-        ['json', 'JSON Data Structure', () => json(exampleOf(n.id))],
+        ['json', 'JSON Data Structure', () => isContext(n) ? '<p class="empty">No example for a context node.</p>' : json(exampleOf(n.id))],
         ['used', 'Used By', () => {
           const parts = [];
           if (u.eps.length) parts.push('<h3>Endpoints</h3>' + rows(u.eps, (e) => [refLink(e.id, e.method + ' ' + (model.style === 'connect' && e.rpc ? e.rpc : e.path)), '<span class="flagcell">' + (refId(e.request) === n.id ? 'payload' : 'returns') + '</span>', esc(e.summary || '')]));

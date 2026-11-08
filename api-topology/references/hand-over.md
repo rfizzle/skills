@@ -16,11 +16,6 @@ clients keep working.
 
 [API ROUTING TREE]
 Orders API v1  /api/v1
-├── /orders
-│   ├── GET   (Res: OrderList)  List the caller's orders
-│   └── POST  (Req: CreateOrder, Res: Order)  Place an order
-├── /orders/{id}
-│   └── GET   (Res: Order)  Fetch one order
 └── /orders/{id}/cancel
     └── + POST  (Req: CancelOrder, Res: Order)  Cancel an order that has not shipped
 
@@ -58,8 +53,9 @@ Accept, or what is off?
 ```
 
 The paragraph says what changes in use, not which files. The tree is
-`render.mjs --ascii`, cut to the changed nodes and their parents when the
-full tree runs past a screen (the page has the whole thing). Every
+`render.mjs --ascii` as printed: the map holds only what the story touches,
+so the tree is already the change. The schemas the new fields reference
+(`OrderLine`, `Money`) print as names alone; they are context. Every
 decision has options, what each changes in use, and one recommendation
 with a reason from how the product is used. The closing question is always
 the same.
