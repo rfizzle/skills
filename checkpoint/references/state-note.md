@@ -1,7 +1,8 @@
 # The state note
 
 Written before the context is summarised or the session may end, at the
-gitignored hand-off path (`.plan/STATE.md` by default). Rewritten whole each
+hand-off path (`.agents/state.md` by default, listed in
+`.git/info/exclude`). Rewritten whole each
 time, not appended to: it describes now, not the history. Every line is
 something the next context would otherwise have to rediscover.
 
@@ -50,12 +51,12 @@ something the next context would otherwise have to rediscover.
 - Worktrees: ui-refinement (branch ui-refinement, not landed; waits on the review below).
 
 ## Running
-- Storybook for ui-refinement: port 6006; started with `pnpm --dir web run storybook` in the ui-refinement worktree; logs at .plan/storybook.log; stop with `kill $(lsof -t -i :6006)`. Dies with the session: yes.
-- Seeded local instance: port 8080; started with `make dev` after `make seed`; logs at .plan/run.log; stop with `make dev-down`. Dies with the session: yes.
+- Storybook for ui-refinement: port 6006; started with `pnpm --dir web run storybook` in the ui-refinement worktree; logs at .agents/storybook.log; stop with `kill $(lsof -t -i :6006)`. Dies with the session: yes.
+- Seeded local instance: port 8080; started with `make dev` after `make seed`; logs at .agents/run.log; stop with `make dev-down`. Dies with the session: yes.
 
 ## Where things are
-- Run sheet: .plan/run-sheet.md.
-- Tracker: .plan/BACKLOG.md (gitignored), batch 3 of 4.
+- Run sheet: .agents/run-sheet.md.
+- Tracker: GitHub Issues, milestone "1.2", label `batch-3`; batch 3 of 4.
 - Credentials: seeded admin login: `.env.local`, keys APP_SEED_USER and APP_SEED_PASSWORD. Deploy token: the vault, entry "ci deploy".
 - Durable how-tos: AGENTS.md "Local stack"; docs/runbooks/deploy.md.
 

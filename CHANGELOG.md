@@ -17,6 +17,7 @@ All notable changes to this repository. The format follows
 
 - `repo-tooling`: a `skills-sync` target (`SKILLS_REF=<tag>`) and a weekly skills-bump workflow that re-vendors the newest release and opens the pull request, since Renovate cannot regenerate the lock file's hashes.
 - `backlog-batches` reports in the `checkpoint` shape and copies its run sheet beside the state note before a session may end; `project-docs` names the device record's home under runbooks.
+- `.plan/` is no longer named anywhere: `backlog-batches` gives `.backlog.md` as its markdown example, and `checkpoint` keeps the state note at `.agents/state.md`, excluded through `.git/info/exclude` rather than a project's `.gitignore`.
 
 ## [0.6.0] - 2026-11-08
 

@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Use this skill when the owner asks where things stand or what comes next, in any words - "what's the status", "ok, now what", "what is left", "what do you need from me", "what do I need to look at right now", "good time to compact?", "did you apply X?" - when the owner returns after a long autonomous stretch, when the context is about to be summarised or the session may end, and at the end of a turn that leaves work running. Holds the checkpoint report in one fixed shape (needs you, landed with hashes, running and how to see it, blocked, next three steps), the state note written to a gitignored file so the next context does not rediscover processes, ports, credential locations and open approvals, and three rules (decisions carry options and a recommendation, "go ahead" covers the next three steps only, "did you do X" is answered with evidence). Not for the batch table and landing cadence of a parallel run (backlog-batches), planning a feature (plan-feature), or durable project documentation (project-docs).
+description: Use this skill when the owner asks where things stand or what comes next, in any words - "what's the status", "ok, now what", "what is left", "what do you need from me", "what do I need to look at right now", "good time to compact?", "did you apply X?" - when the owner returns after a long autonomous stretch, when the context is about to be summarised or the session may end, and at the end of a turn that leaves work running. Holds the checkpoint report in one fixed shape (needs you, landed with hashes, running and how to see it, blocked, next three steps), the state note written to a locally excluded file so the next context keeps processes, ports, credential locations and open approvals, and three rules (decisions carry options and a recommendation, "go ahead" covers the next three steps only, "did you do X" is answered with evidence). Not for the batch table and landing cadence of a parallel run (backlog-batches), planning a feature (plan-feature), or durable project documentation (project-docs).
 license: MIT
 metadata:
   author: rfizzle
@@ -116,11 +116,14 @@ next context needs to continue without rediscovery to a file, never only
 into the conversation. A summary keeps conclusions and drops exactly the
 operational detail this note holds.
 
-- **Where:** `.plan/STATE.md` in the main checkout, gitignored, by
-  default; a project's `AGENTS.md` may name another hand-off file. Check
-  with `git check-ignore -q <path>` before writing; add the path to
-  `.gitignore` if needed. Never the session scratchpad or a temporary
-  directory: those are per session and vanish with it.
+- **Where:** `.agents/state.md` in the main checkout by default, the
+  directory this skill is vendored under, so it exists wherever the skill
+  does; a project's `AGENTS.md` may name another hand-off file. Keep it
+  out of git through the local exclude file, never `.gitignore`: the note
+  is this checkout's, and a project is not edited to hold it. Check with
+  `git check-ignore -q <path>` before writing; if it is not ignored,
+  append the path to `.git/info/exclude`. Never the session scratchpad or
+  a temporary directory: those are per session and vanish with it.
 - **Durable facts go to the project's docs instead** (`project-docs`):
   how to start the dev stack, which port the app uses by default, where
   test credentials are kept. The note links to them; it does not copy
@@ -145,8 +148,9 @@ than none.
 
 - A file in the session scratchpad dies with the session. One hand-off was
   left there with "copy it before a reboot"; it belongs in the repository.
-- A gitignored note is absent from worktrees. Sub-agents never see it; the
-  orchestrator quotes the lines they need.
+- An ignored note is absent from worktrees. Sub-agents never see it; the
+  orchestrator quotes the lines they need. The exclude file is shared by
+  every worktree of the repository, so one entry covers them all.
 - Background processes the agent started often stop when the session ends.
   The note gives each one's start command, not just its port.
 - "Ahead of origin" is the line the owner asks about most after a batch.
@@ -158,7 +162,7 @@ than none.
   rows, every decision with options and a recommendation, every running
   item with how to see and stop it, hashes on everything landed.
 - Before a summarisation or a likely session end, the state note is on
-  disk at a gitignored path, current, free of secret values, and the
+  disk at an ignored path, current, free of secret values, and the
   report names its path.
 - No step outside the Next list was taken on a "go ahead".
 

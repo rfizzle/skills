@@ -13,7 +13,7 @@ it has worked.
 | File a follow-up | the block format or the create command |
 | Touches and overlaps | where they come from when the item does not carry them |
 
-## Markdown backlog file, gitignored (`.plan/BACKLOG.md`, `.backlog.md`)
+## Markdown backlog file, gitignored (`.backlog.md`)
 
 - **Locate**: the file in the main checkout; the item is a heading block
   (`### S-153: ...` or `#### S-153: ...`) ending at the next heading of the
