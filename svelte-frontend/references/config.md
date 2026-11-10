@@ -60,9 +60,10 @@ const browser = {
   instances: [{ browser: 'chromium' as const }],
 };
 
-// Every story runs once per theme; initialGlobals sets the theme global the
+// Every story runs once per scheme under test: the default and one of the
+// opposite brightness (design-tokens). initialGlobals sets the global the
 // preview decorator reads. The plugin loads preview.ts itself: no setup file.
-const storyProject = (theme: 'light' | 'dark') => ({
+const storyProject = (theme: string) => ({
   extends: true,
   plugins: [storybookTest({ configDir: '.storybook', initialGlobals: { theme } })],
   test: { name: `stories-${theme}`, browser },
@@ -208,17 +209,18 @@ const preview: Preview = {
     a11y: { test: 'error' }, // an axe violation fails the story test
     options: {
       storySort: {
-        order: ['Docs', 'Foundations', 'Components', 'Compositions', 'Features', 'Layouts', 'Screens'],
+        order: ['Docs', 'Foundations', 'Components', 'Compositions', 'Widgets', 'Features', 'Layouts', 'Templates', 'Dashboards', 'Screens', 'Explorations'],
       },
     },
   },
   globalTypes: {
-    theme: { description: 'Theme', toolbar: { icon: 'mirror', items: ['light', 'dark'] } },
+    // The scheme ids: the design's `themes` in an app on a design, else the project's own.
+    theme: { description: 'Scheme', toolbar: { icon: 'mirror', items: ['light', 'dark'] } },
   },
   initialGlobals: { theme: 'light' },
   decorators: [
     (Story, context) => {
-      document.documentElement.classList.toggle('dark', context.globals.theme === 'dark');
+      document.documentElement.dataset.theme = context.globals.theme; // [data-theme] schemes (design-tokens)
       return Story();
     },
   ],
@@ -232,6 +234,9 @@ own; a `vitest.setup.ts` calling `setProjectAnnotations` is the older
 shape and the plugin reports it as redundant.
 
 ## Fonts and images
+
+An app on a design loads the design's `fonts.css` in the root layout
+instead (`design-system`); the rules below still hold.
 
 ```css
 /* src/app.css, before @theme */

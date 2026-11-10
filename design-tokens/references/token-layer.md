@@ -2,13 +2,14 @@
 
 ## The CSS file
 
-One file holds the whole layer, in this order: `@theme` (light, the default),
-the dark override, then `@layer base` element styles.
+One file holds the whole layer, in this order: `@theme` (the default
+scheme), one `[data-theme]` block per other scheme, then `@layer base`
+element styles. In the design-system repo each scheme may be its own file
+imported by the token file; an app on a design has only its domain roles
+here, after the design's stylesheet.
 
 ```css
 @import "tailwindcss";
-
-@custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
   --color-surface: oklch(99% 0.003 260);        /* page background */
@@ -24,12 +25,15 @@ the dark override, then `@layer base` element styles.
   --color-danger-muted: oklch(95% 0.03 25);
   --color-danger-fg: var(--color-fg-on-solid);  /* alias: same role */
 
-  --radius-md: 0.375rem;
+  --font-body: 'Inter Variable', system-ui, sans-serif;  /* added; font-sans stays Tailwind's */
+  --font-code: 'JetBrains Mono Variable', monospace;     /* added; font-mono stays Tailwind's */
+  --text-2xs: 0.6875rem;                                 /* added below text-xs */
   --transition-duration-fast: 120ms;
-  --ease-out: cubic-bezier(0.2, 0, 0, 1);
+  --ease-snappy: cubic-bezier(0.2, 0, 0, 1);             /* added; ease-out stays Tailwind's */
 }
 
-.dark {
+[data-theme="dark"] {
+  color-scheme: dark;
   --color-surface: oklch(18% 0.01 260);
   --color-surface-raised: oklch(22% 0.012 260);
   --color-surface-sunken: oklch(15% 0.01 260);
@@ -40,9 +44,14 @@ the dark override, then `@layer base` element styles.
   --color-focus: oklch(72% 0.15 250);
   --color-danger: oklch(68% 0.17 25);
   --color-danger-muted: oklch(28% 0.06 25);
-  /* --color-fg-on-solid: theme-invariant */
+  /* --color-fg-on-solid: scheme-invariant */
 }
 ```
+
+`setTheme` (or any switcher) sets `data-theme` on the root element; the
+`@theme` values apply when it is absent or names the default scheme. A
+design whose default is dark writes its light schemes the same way, with
+`color-scheme: light`.
 
 Values above are illustrative; the validator, not this file, decides whether
 they pass.
@@ -73,22 +82,25 @@ A `note` field may say where the pair is used, so a reviewer can find it.
 
 A zero-dependency script (Node or Go) wired to a `make` target and CI:
 
+0. In an app on a design, first read the design's token file and the
+   scheme files it `@import`s (from `node_modules`) as the base, then the
+   app's file on top; `requiredThemes` lists the design's scheme ids.
 1. Read the CSS file; strip comments; collect declarations from `@theme`
-   and `:root` as the base scope, and from `.dark` and `[data-theme=...]`
-   blocks as theme overlays.
-2. For each theme (base plus each overlay on top of base), resolve each
+   and `:root` as the base scope, and from `[data-theme=...]` blocks as
+   scheme overlays.
+2. For each scheme (base plus each overlay on top of base), resolve each
    pair's colours through `var()` chains, with fallbacks; fail on a cycle or
    an unresolved name.
 3. Convert `oklch()`, hex, `rgb()` and `hsl()` to sRGB, clamp, and compute
    WCAG relative luminance and the contrast ratio.
 4. Compare against the level (`text` 4.5, `large` 3, `ui` 3). A failure with
    a non-empty `exempt` reason prints as EXEMPT and does not fail.
-5. Fail if a theme in `requiredThemes` is missing from the CSS.
-6. Print one table row per theme and pair (theme, pair, level, required,
+5. Fail if a scheme in `requiredThemes` is missing from the CSS.
+6. Print one table row per scheme and pair (scheme, pair, level, required,
    ratio, status); exit non-zero on any failure.
 
 Test the validator itself: a passing file, a failing pair, an exempt pair,
-a `var()` cycle, and a missing required theme.
+a `var()` cycle, and a missing required scheme.
 
 ## Class lint requirements
 
@@ -98,4 +110,7 @@ Over unit and screen sources (not the token file):
 - arbitrary values: a utility followed by `-[...]` containing a colour or a
   length, unless the line carries a reviewed allow comment;
 - raw colour literals (`#rgb`, `oklch(`, `rgb(`, `hsl(`) and inline `style`
-  with visual properties.
+  with visual properties;
+- in the token file, a declaration of a name Tailwind defines
+  (`--font-sans`, `--font-mono`, `--ease-out`, `--text-sm` and the rest of
+  its default theme).

@@ -4,13 +4,16 @@
 
 - `cn`
 - A component
-- A bits-ui wrapper
+- A Zag.js wrapper
 - `Icon`
 - An attachment
 - Shared state in a `.svelte.ts` module
-- A story file and its Flows file
+- A story file with play tests
 
 Names and classes are illustrative; token roles come from `design-tokens`.
+In an app on a design, `cn`, `Icon` and every generic unit come from the
+design's packages (`design-system`): these shapes are for the units the
+project builds itself, and for the design-system repo.
 
 ## `cn`
 
@@ -70,15 +73,17 @@ export function cn(...inputs: ClassValue[]): string {
   by accident.
 - The variant map is a typed lookup kept in the unit (`design-tokens`).
 
-## A bits-ui wrapper
+## A Zag.js wrapper
 
-The only layer that imports `bits-ui`. The wrapper fixes the tokens, focus
-ring and structure; callers never see the primitive's parts.
+The only layer that imports `@zag-js/*`. The machine owns the keyboard,
+focus and ARIA; the wrapper fixes the tokens and structure, and callers
+never see the machine's parts.
 
 ```svelte
 <!-- src/lib/components/Dialog/Dialog.svelte -->
 <script lang="ts">
-  import { Dialog } from 'bits-ui';
+  import * as dialog from '@zag-js/dialog';
+  import { normalizeProps, portal, useMachine } from '@zag-js/svelte';
   import type { Snippet } from 'svelte';
   import { cn } from '$lib/utils/cn';
 
@@ -96,30 +101,43 @@ ring and structure; callers never see the primitive's parts.
   }
 
   let { open = $bindable(false), title, children, actions, class: className }: Props = $props();
+
+  const id = $props.id();
+  // A getter, so prop changes reach the machine; the change callback writes `open` back.
+  const service = useMachine(dialog.machine, () => ({
+    id,
+    open,
+    onOpenChange(details: dialog.OpenChangeDetails) {
+      open = details.open;
+    },
+  }));
+  const api = $derived(dialog.connect(service, normalizeProps));
+  // Unmounting while open must release the machine's focus trap and dismiss layer.
+  $effect(() => () => service.send({ type: 'CLOSE', restoreFocus: false }));
 </script>
 
-<Dialog.Root bind:open>
-  <Dialog.Portal>
-    <Dialog.Overlay class="fixed inset-0 bg-surface-overlay" />
-    <Dialog.Content
-      class={cn(
-        'fixed top-1/2 left-1/2 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-md bg-surface-raised p-6 text-fg shadow-lg',
-        className,
-      )}
+{#if api.open}
+  <div use:portal {...api.getBackdropProps()} class="fixed inset-0 bg-surface-overlay"></div>
+  <div use:portal {...api.getPositionerProps()} class="fixed inset-0 grid place-items-center p-4">
+    <div
+      {...api.getContentProps()}
+      class={cn('w-full max-w-md rounded-md bg-surface-raised p-6 text-fg shadow-lg', className)}
     >
-      <Dialog.Title class="text-lg font-semibold">{title}</Dialog.Title>
+      <h2 {...api.getTitleProps()} class="text-lg font-semibold">{title}</h2>
       {@render children()}
       {#if actions}
         <div class="mt-6 flex justify-end gap-2">{@render actions()}</div>
       {/if}
-    </Dialog.Content>
-  </Dialog.Portal>
-</Dialog.Root>
+    </div>
+  </div>
+{/if}
 ```
 
 `open` is one of the two places `$bindable` is allowed (form-like values
 and an overlay's open state). A composition that opens the dialog binds it
-once; it does not re-export it as its own bindable.
+once; it does not re-export it as its own bindable. State styling reads
+the machine's `data-state`, `data-disabled` and `data-focus-visible`
+attributes (`data-[state=open]:`), never a copy of the state in the wrapper.
 
 ## `Icon`
 
@@ -215,17 +233,18 @@ export const toasts = new Toasts();
 A test that pushes toasts resets them in `beforeEach`; module state
 outlives a single test.
 
-## A story file and its Flows file
+## A story file with play tests
 
-States in the order `ui-component-contract` and `storybook-layout` set,
-`Default` first. `asChild` renders the children as the story instead of
-passing them to the component.
+One file per unit. The visual stories come first, in the order
+`ui-component-contract` and `storybook-layout` set, `Default` first; the
+play-test stories follow them. `asChild` renders the children as the story
+instead of passing them to the component.
 
 ```svelte
 <!-- src/lib/compositions/FilterBar/FilterBar.stories.svelte -->
 <script module lang="ts">
   import { defineMeta } from '@storybook/addon-svelte-csf';
-  import { fn } from 'storybook/test';
+  import { expect, fn } from 'storybook/test';
   import FilterBar from './FilterBar.svelte';
 
   const { Story } = defineMeta({
@@ -233,6 +252,11 @@ passing them to the component.
     component: FilterBar,
     args: { onChange: fn() },
   });
+
+  const two = [
+    { key: 'state', label: 'State: running' },
+    { key: 'region', label: 'Region: eu-west' },
+  ];
 </script>
 
 <Story name="Default" args={{ filters: [{ key: 'state', label: 'State: running' }] }} />
@@ -241,30 +265,10 @@ passing them to the component.
   name="WithLongContent"
   args={{ filters: [{ key: 'owner', label: 'Owner: Maria-Fernanda Albuquerque de Souza' }] }}
 />
-```
-
-```svelte
-<!-- src/lib/compositions/FilterBar/FilterBar.flows.stories.svelte -->
-<script module lang="ts">
-  import { defineMeta } from '@storybook/addon-svelte-csf';
-  import { expect, fn } from 'storybook/test';
-  import FilterBar from './FilterBar.svelte';
-
-  const { Story } = defineMeta({
-    title: 'Compositions/FilterBar/Flows',
-    component: FilterBar,
-    args: {
-      filters: [
-        { key: 'state', label: 'State: running' },
-        { key: 'region', label: 'Region: eu-west' },
-      ],
-      onChange: fn(),
-    },
-  });
-</script>
 
 <Story
   name="ClearAllByKeyboard"
+  args={{ filters: two }}
   play={async ({ args, canvas, userEvent }) => {
     canvas.getByRole('button', { name: 'Clear all' }).focus();
     await userEvent.keyboard('{Enter}');

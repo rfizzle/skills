@@ -6,6 +6,19 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `design-system`: how an app uses a shared design: the one place that names the design-system repository and its package scope; one design per app, recorded in `AGENTS.md`; the install; Components, Compositions, Widgets and Layouts imported, Templates and Dashboards copied from the installed release into a screen and adapted; schemes and code fonts through `restoreTheme`, `setTheme` and `setCodeFont`; a missing unit, prop, variant or state goes upstream (inventory first) and never into a local fork; upgrades; what an app may add; React follows the same split once a design ships a `-react` package.
+
+### Changed
+
+- `svelte-frontend`, `design-tokens`, `ui-component-contract`, `storybook-layout`, `ui-exploration` and `ui-sketch` each distinguish the design-system repo from an app on a design. Apps import units from the design's package and never wrap, copy or restyle them; a widget a project builds itself uses Zag.js instead of bits-ui; `cn` and `Icon` come from the design; the import check allows `@zag-js/*` in `lib/components` and the design's packages everywhere.
+- `design-tokens`: colour schemes are `[data-theme]` overrides of the roles rather than a `.dark` block; a Tailwind default (`font-sans`, `font-mono`, `ease-out`, the type scale) is never redefined, only added to (`font-body`, `font-code`, `ease-snappy`, `text-2xs`), and the class lint fails on one; an app adds domain roles under new names, registered in every scheme its design ships.
+- `ui-component-contract`: "reuse first" checks the design's inventory; a generic unit is built in the design-system repo, and apps write cards only for features, app frames and screens.
+- `storybook-layout`: the design-system repo's roots (adding `Widgets`, `Templates`, `Dashboards`) beside an app's; library units are never re-storied in an app; one story file per unit with play tests after the visual stories, replacing the `<Unit>/Flows` child, which made some units folders and others leaves.
+- `ui-exploration` and `ui-sketch` work on the app's design; a new design or a change to a design's look is explored in the design-system repo.
+- `ui-patterns`, `plan-feature` and its UI inventory send a generic unit an app on a design lacks upstream (an `Upstream` classification, a design-system story released first); `svelte-frontend`'s Storybook preview switches `[data-theme]` schemes and its story tests run the default scheme and one of the opposite brightness.
+
 ## [0.8.0] - 2026-11-08
 
 ### Added

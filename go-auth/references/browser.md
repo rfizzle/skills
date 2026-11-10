@@ -123,4 +123,4 @@ The sign-in screen is `Screens/Sign in` (`storybook-layout`), rendered from
 `WrongCredentials`, `Locked` (the retry time from `Retry-After`),
 `TotpStep`, `RecoveryCode` and `Submitting`, and a play test that `return`
 survives the TOTP step. `Features/ReauthDialog` has its own stories and a
-Flows file proving a draft in the page beneath survives sign-in.
+play test proving a draft in the page beneath survives sign-in.

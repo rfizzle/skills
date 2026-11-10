@@ -1,6 +1,6 @@
 ---
 name: ui-component-contract
-description: Use this skill when a new UI component or composition is about to be built, when an existing one gains a variant, slot or interaction, when someone asks for a "component spec", "component card", "composition spec" or "contract" for a piece of UI, when building or reviewing a component and its stories, or when a frontend change needs owner review in Storybook before it is committed. Covers the one-page interaction and accessibility card, the owner gate, the build order (stories, implementation, tests), the review with blocker/major/minor findings, and the check script that keeps cards and stories in step. Framework-neutral. Not for planning a whole feature (plan-feature), choosing between visual directions before the build (ui-exploration), the token layer itself (design-tokens), or framework syntax (svelte-frontend).
+description: Use this skill when a new UI component or composition is about to be built, when an existing one gains a variant, slot or interaction, when someone asks for a "component spec", "component card", "composition spec" or "contract" for a piece of UI, when building or reviewing a component and its stories, or when a frontend change needs owner review in Storybook before it is committed. Covers the one-page interaction and accessibility card, the owner gate, the build order (stories, implementation, tests), the review with blocker/major/minor findings, and the check script that keeps cards and stories in step. Framework-neutral. Not for planning a whole feature (plan-feature), how an app takes units from its design (design-system), choosing between visual directions before the build (ui-exploration), the token layer itself (design-tokens), or framework syntax (svelte-frontend).
 license: MIT
 metadata:
   author: rfizzle
@@ -18,17 +18,26 @@ the interaction and accessibility model, content and responsive rules, the
 stories that prove it, and dated decisions. Props, variants, sizes and tokens are never listed in a
 card; they live in typed code and are shown by stories.
 
+**Where cards are written.** A generic unit that a second app could use is
+built in the design-system repo with its card, contract and stories, and
+an app on a design takes the release that ships it (`design-system`). An
+app writes cards for its domain features, its app frames, its screens and
+the rare unit only it will ever use. An app with no design yet writes
+cards for every unit it builds.
+
 Templates: [references/component-card.md](references/component-card.md) and
 [references/composition-card.md](references/composition-card.md). The card is
 `<Name>.card.md` (or the project's existing suffix) beside the unit's code.
 
 ## Procedure
 
-1. **Reuse first.** Search existing components and compositions. If one
-   covers the need as-is, use it. If a prop, variant or slot would cover it,
-   that is an enhancement: follow the iteration rule below, no new card. A
-   new unit needs a reason in its Purpose: why reuse would visibly harm the
-   experience.
+1. **Reuse first.** In an app on a design, the design's inventory first
+   (`design-system`), then the app's own units. If one covers the need
+   as-is, use it. If a prop, variant or slot would
+   cover it, that is an enhancement: in the design, a change upstream; in
+   the app's own unit, the iteration rule below; no new card either way.
+   A missing generic unit is an upstream change, never a local one. A new unit needs a reason in its Purpose: why reuse
+   would visibly harm the experience.
 2. **Write the card** from the template with `Status: draft`. For a
    component, name the native element or the WAI-ARIA APG pattern, link it,
    and write the whole keyboard model, marking optional keys optional. Name
@@ -55,9 +64,11 @@ Templates: [references/component-card.md](references/component-card.md) and
    message or a green check is not acceptance.
 6. **Build in this order.**
    1. Stories: one export per listed story, realistic data, and an
-      interaction (play) test for every keyboard or pointer flow in the
-      unit's `<Unit>/Flows` file (`storybook-layout`). They fail until the
-      unit exists.
+      interaction (play) test for every keyboard or pointer flow, after the
+      visual stories in the unit's one story file (`storybook-layout`). They
+      fail until the unit exists. In the design-system repo the keyboard
+      model is also written as an executable contract every framework
+      package of the design runs; that repo's own skill has the mechanics.
    2. Implementation: native element first; the headless primitive for a
       complex widget, never a hand-rolled focus trap or roving tabindex;
       tokens and styling rules from `design-tokens`; patterns from
@@ -76,8 +87,10 @@ Templates: [references/component-card.md](references/component-card.md) and
 
 | Unit | Required |
 |---|---|
-| Component | `Default`; a gallery (`AllVariants` or `States`); `WithLongContent` where it renders text; in its Flows file, one play-test story per flow |
-| Composition, feature or screen | `Default`; `Loading`, `Empty`, `LoadError`, and `Partial` where data can be partial; `WithLongContent`; one play-test story per flow, in the Flows file (a screen keeps them in its one file) |
+| Component | `Default`; a gallery (`AllVariants` or `States`); `WithLongContent` where it renders text; then one play-test story per flow |
+| Composition, feature or screen | `Default`; `Loading`, `Empty`, `LoadError`, and `Partial` where data can be partial; `WithLongContent`; then one play-test story per flow |
+
+Every story, play tests included, is in the unit's one story file.
 
 - Realistic, fictional data shaped like production: long names, real-looking
   timestamps, multi-word labels. No lorem ipsum, `test@test.com` or ID `1`.
@@ -123,8 +136,8 @@ A project has one check, run in CI and by the frontend build, that fails when:
 - a built unit has no card beside it, or its card is not `Status: approved`;
 - a card lacks a required section, keeps Open questions once approved, or
   contains a raw colour literal;
-- a story listed under Stories is not exported by the unit's story file or
-  its Flows file (a draft card with no story file yet is not cross-checked);
+- a story listed under Stories is not exported by the unit's story file
+  (a draft card with no story file yet is not cross-checked);
 - a public prop has no doc comment. How props are read is framework-specific:
   the framework skill (`svelte-frontend`) decides.
 
@@ -137,4 +150,7 @@ The check reports; it never approves on anyone's behalf.
 - A composition never fetches its own data unless the card says it owns a
   self-contained interaction; data comes down as props, events go up.
 - If a child cannot do what the composition needs, that is an enhancement
-  to the child, not a workaround in the parent.
+  to the child, not a workaround in the parent. When the child is a design
+  unit, the enhancement is upstream, never a wrapper or copy in the app.
+- A card in an app for a generic unit (a date picker, a stat card) is the
+  sign it is being built in the wrong repository.

@@ -41,15 +41,15 @@ A unit directory, at any layer:
 lib/compositions/FilterBar/
 ├── FilterBar.svelte
 ├── FilterBar.card.md
-├── FilterBar.stories.svelte          Compositions/FilterBar
-├── FilterBar.flows.stories.svelte    Compositions/FilterBar/Flows
+├── FilterBar.stories.svelte          Compositions/FilterBar, play tests after the visual stories
 ├── FilterBar.examples.stories.svelte Compositions/FilterBar/Examples (when needed)
-├── FilterChip.svelte                 a part: Compositions/FilterBar/FilterChip
 └── FilterBar.test.ts                 only for logic stories cannot express
 ```
 
 A small project without features or layouts omits those directories; the
-check needs no change.
+check needs no change. In an app on a design, `components/` and
+`compositions/` are usually empty: the units come from the design's package
+(`design-system`).
 
 ## Screens
 
@@ -118,9 +118,11 @@ const allowed = {
   routes: [...layers, 'routes'],
   explorations: [...layers, 'explorations'],
 };
-// Packages only some layers may import.
+// Packages only some layers may import. Any other package, the design's
+// included, is open to every layer.
 const packages = [
-  { prefix: 'bits-ui', only: ['components'], why: 'wrap the primitive in lib/components' },
+  { prefix: '@zag-js/', only: ['components'], why: 'wrap the machine in lib/components' },
+  { prefix: 'bits-ui', only: ['components'], why: 'wrap the primitive in lib/components' }, // projects not yet on Zag.js
   { prefix: '$app/', only: ['routes'], why: 'URL and navigation belong to the screen' },
   { prefix: '@connectrpc/', only: ['api'], why: 'the client lives in lib/api; screens use getApi()' },
   { prefix: 'openapi-fetch', only: ['api'], why: 'the client lives in lib/api; screens use getApi()' },

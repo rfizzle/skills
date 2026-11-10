@@ -131,7 +131,7 @@
     const dark = effectiveDark();
     return '<!doctype html><html lang="en"' + (dark ? ' data-theme="dark" class="dark"' : '') + '><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">' +
       '<style>' + tokens + '</style>' +
-      '<style>html{color-scheme:' + (dark ? 'dark' : 'light') + '}body{margin:0;background:var(--color-bg,var(--bg,#fff));color:var(--color-text,var(--text,#111));font-family:var(--font-sans,system-ui,sans-serif)}' +
+      '<style>html{color-scheme:' + (dark ? 'dark' : 'light') + '}body{margin:0;background:var(--color-bg,var(--bg,#fff));color:var(--color-text,var(--text,#111));font-family:var(--font-body,var(--font-sans,system-ui,sans-serif))}' +
       'html[data-view-state] [data-state]{display:none !important}' + states.map((s) => 'html[data-view-state="' + s + '"] [data-state~="' + s + '"]{display:revert !important}').join('') + '</style>' +
       '</head><body>' + fragmentOf(id) + '</body></html>';
   }

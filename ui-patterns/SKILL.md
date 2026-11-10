@@ -27,8 +27,8 @@ framework skill (`svelte-frontend`) decides.
 
 ## Layers
 
-On the tokens (`design-tokens`), build up through five layers, which are
-also the `storybook-layout` sidebar roots after Docs and Foundations:
+On the tokens (`design-tokens`), build up through five layers
+(`storybook-layout` has the sidebar roots for each kind of project):
 
 1. **Components**: single-purpose units with no domain types.
 2. **Compositions**: reusable arrangements of components, possibly with
@@ -42,12 +42,16 @@ also the `storybook-layout` sidebar roots after Docs and Foundations:
 A unit never imports one from a layer above it, and a layout takes features
 through its slots rather than importing them. Domain vocabulary appears in
 features and screens only. A small project may skip features and layouts;
-its domain types then stay in screens.
+its domain types then stay in screens. In an app on a design, components,
+compositions and generic layouts come from the design (`design-system`);
+the app builds features, its own frames and screens.
 
 ## Reuse before create
 
 Use as-is, then extend (a prop, variant or slot), then compose existing
-units, and only then create. Compose, never clone: copying a unit to tweak
+units, and only then create. In an app on a design, search the design's
+inventory first; extending or creating a generic unit happens upstream
+(`design-system`). Compose, never clone: copying a unit to tweak
 it forks its behaviour and accessibility. A unit that cannot do what is
 needed gets an enhancement, not a workaround in its parent. A new unit goes
 through `ui-component-contract`.

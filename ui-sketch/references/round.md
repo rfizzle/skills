@@ -37,15 +37,18 @@ by default, `kept`, `passed`), `from` (the direction it narrows).
 ## tokens.css
 
 The project declares tokens in Tailwind 4's `@theme`, which a browser does
-not read. Copy the declarations as plain CSS:
+not read. In an app on a design, the source is the design's `theme.css`
+and its scheme files, plus any domain roles the app adds. Copy the
+declarations as plain CSS: a light scheme (the default or another) under
+`:root`, a dark one under `[data-theme="dark"]`:
 
 ```css
 :root { --color-bg: oklch(99% 0 0); --color-text: oklch(20% 0.01 260); /* every token */ }
-:root[data-theme="dark"], .dark { --color-bg: oklch(16% 0.01 260); /* the .dark override */ }
+:root[data-theme="dark"] { --color-bg: oklch(16% 0.01 260); /* a dark scheme */ }
 ```
 
-The viewer sets both `data-theme="dark"` and `class="dark"` on the
-fragment's root in dark mode, so either selector works. A project with a
+The viewer sets `data-theme="dark"` (and, for older token files,
+`class="dark"`) on the fragment's root in dark mode. A project with a
 `make tokens-css` or similar export uses it; otherwise copy by hand and say
 so in the hand-over, since a drifted copy mis-sells a direction.
 
@@ -53,7 +56,7 @@ so in the hand-over, since a drifted copy mis-sells a direction.
 
 ```html
 <style>
-  .page { padding: var(--space-6) var(--space-4); font-family: var(--font-sans); color: var(--color-text); }
+  .page { padding: var(--space-6) var(--space-4); font-family: var(--font-body); color: var(--color-text); }
   .banner { background: var(--color-danger-soft); border: 1px solid var(--color-danger); border-radius: var(--radius); }
 </style>
 <div class="page">

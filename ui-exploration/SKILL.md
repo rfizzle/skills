@@ -1,6 +1,6 @@
 ---
 name: ui-exploration
-description: Use this skill when a new component, composition, feature or screen is about to be built and its look, structure or interaction is not yet decided, when an existing unit is being redesigned, or when the owner wants to see a few directions before committing to one: "show me some options", "I'm not sure what this should look like", "try a different layout", "closer to the second one", "that one but calmer", "mix the first one's layout with the third one's header", "keep that one". Holds the round: one question, three or four directions that disagree on a named axis, each a working unit shown at true size in the project's Storybook, a hand-over with a recommendation, then narrowing on the owner's "closest, and what is still off" until one direction is kept and promoted. Not for the unit's card and required stories (ui-component-contract), sidebar titles (storybook-layout), the tokens (design-tokens), a change with one right answer (iterate), or whether the unit should exist (plan-feature).
+description: Use this skill when a new component, composition, feature or screen is about to be built and its look, structure or interaction is not yet decided, when an existing unit is being redesigned, or when the owner wants to see a few directions before committing to one: "show me some options", "I'm not sure what this should look like", "try a different layout", "closer to the second one", "that one but calmer", "mix the first one's layout with the third one's header", "keep that one". Holds the round: one question, three or four directions that disagree on a named axis, each a working unit at true size in the project's Storybook, a hand-over with a recommendation, then narrowing on the owner's "closest, and what is still off" until one direction is kept and promoted. Not for the unit's card and required stories (ui-component-contract), sidebar titles (storybook-layout), the tokens (design-tokens), a change with one right answer (iterate), or whether the unit should exist (plan-feature).
 license: MIT
 metadata:
   author: rfizzle
@@ -30,6 +30,10 @@ or interaction model teach the owner what they want.
   (`ui-component-contract`). The card's purpose line is the brief.
 - Skip it when the owner has already said what the unit looks like, or
   when the change has one right answer.
+- In an app on a design, directions compose the design's units and tokens;
+  a direction that needs a unit or a look the design lacks says so as an
+  upstream request (`design-system`). A new design, or a change to a
+  design's look, is explored in the design-system repo, never in an app.
 - A round runs in the checkout where the owner's Storybook runs, never in
   a batch implementer's worktree (`backlog-batches`), since the exploration
   is ignored by git and invisible elsewhere; a story whose look is
@@ -42,8 +46,9 @@ or interaction model teach the owner what they want.
    is read at a glance")? Every direction is an answer to it. A brief
    spanning several units is narrowed to the one with most leverage; the
    rest are later rounds.
-2. **Read the ground.** The tokens (`design-tokens`), the components and
-   compositions the directions will compose (`ui-patterns`: reuse first;
+2. **Read the ground.** The tokens (`design-tokens`; the design's, in an
+   app on a design), the components and compositions the directions will
+   compose (`ui-patterns`: reuse first;
    a direction that needs a new primitive says so), the neighbours it
    renders beside, the product's tone, and the longest real content it
    must hold.
@@ -109,7 +114,8 @@ words, products or screenshots before drawing again.
    `ui-component-contract`: it is the start of the build step, not its
    end. The exploration stories do not count: the required stories under
    `<Root>/<UnitName>` are written first, against the promoted file, then
-   the Flows play tests, the a11y review and the owner gate on behaviour.
+   the play tests after them in the same file, the a11y review and the
+   owner gate on behaviour.
 2. The card's Decisions section gains a dated line naming the kept
    direction, the ones rejected and why, so no later agent redraws a dead
    direction.

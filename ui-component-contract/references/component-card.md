@@ -4,7 +4,7 @@
 
 ## Purpose
 What it is, when to use it, when not to (and what to use instead).
-Reuse: which existing units were checked and why none fits.
+Reuse: which existing units (the design's inventory first) were checked and why none fits.
 
 ## Accessibility
 - Element / role: e.g. native `<button>`; `role="dialog"` via the primitive.
@@ -30,7 +30,7 @@ Behaviour per breakpoint or container width, or "None of its own".
 - `Default`: what it shows.
 - `AllVariants`: ...
 - `WithLongContent`: ...
-- Flows (`<Name>/Flows`): one story per flow, named for it (`OpenWithKeyboard`), and what its play test performs.
+- Play tests, after the visual stories: one story per flow, named for it (`OpenWithKeyboard`), and what its play test performs.
 
 ## Open questions
 Draft only; deleted at approval.

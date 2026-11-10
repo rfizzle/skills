@@ -1,6 +1,6 @@
 ---
 name: svelte-frontend
-description: Use this skill when writing, reviewing or setting up Svelte or SvelteKit code in the web frontend - a .svelte component or .svelte.ts module, props and runes ($state, $derived, $effect, $bindable), snippets, event callbacks, a bits-ui or shadcn-svelte widget, icons, the cn class helper, the web/src folder layout and which layer may import which, svelte.config.js, vite.config.ts, adapter-static, the dev proxy, Svelte story files, vitest or Storybook test setup, eslint, prettier or svelte-check failures, the web-lint, web-test or web-budget targets, bundle size, fonts or images. Also when an $effect syncs state, a unit fetches in onMount, or an each block has no key. Holds the mechanics the framework-neutral UI skills leave to the framework skill. Not for which UX pattern applies (ui-patterns), a unit's card and required stories (ui-component-contract), token values (design-tokens), story titles and order (storybook-layout), API calls and caching (frontend-api-client), or end-to-end tests (browser-e2e).
+description: Use this skill when writing, reviewing or setting up Svelte or SvelteKit code in the web frontend - a .svelte component or .svelte.ts module, props and runes ($state, $derived, $effect, $bindable), snippets, event callbacks, a design unit import, a Zag.js widget, icons, the cn class helper, the web/src folder layout and which layer may import which, svelte.config.js, vite.config.ts, adapter-static, the dev proxy, Svelte story files, vitest or Storybook test setup, eslint, prettier or svelte-check failures, the web-lint, web-test or web-budget targets, bundle size, fonts or images. Also when an $effect syncs state, a unit fetches in onMount, or an each block has no key. Not for which design an app uses or a missing library unit (design-system), which UX pattern applies (ui-patterns), a unit's card and required stories (ui-component-contract), token values (design-tokens), story titles and order (storybook-layout), API calls and caching (frontend-api-client), or end-to-end tests (browser-e2e).
 license: MIT
 metadata:
   author: rfizzle
@@ -17,8 +17,15 @@ keyboard use, data flow or the next change.
 
 Defaults, which a project's `AGENTS.md` or a decision record may override:
 SvelteKit with `adapter-static` as a single-page app embedded in the Go
-binary, TypeScript strict, pnpm, Tailwind 4 (`design-tokens`), bits-ui,
-tailwind-merge, lucide icons, Storybook 10, vitest 4 in browser mode.
+binary, TypeScript strict, pnpm, Tailwind 4 (`design-tokens`), Zag.js
+(`@zag-js/svelte`), tailwind-merge, lucide icons, Storybook 10, vitest 4 in
+browser mode.
+
+An **app on a design** (its `AGENTS.md` names one, `design-system`)
+imports its units from the design's Svelte package and builds only what
+the product needs. The **design-system repo** builds those units; its
+layers are under "Layout and the import rule". An app that names no design
+yet builds and keeps its own units until it adopts one.
 
 ## Runes only
 
@@ -55,14 +62,22 @@ Svelte 4 syntax fails the build.
   inherited from `svelte/elements` are exempt; spread `...rest` onto that
   element. Callbacks are `on` plus the intent (`onSelect`), typed.
 - `class` is a prop, merged last through the one helper
-  `cn = twMerge(clsx(...))` in `$lib/utils/cn.ts`, so the caller wins.
-- Any widget with keyboard or focus semantics (dialog, menu, select,
-  combobox, tabs, tooltip, popover) uses bits-ui through the project's
-  wrapper in `lib/components/<Name>/`, never hand-rolled. A shadcn-svelte
-  scaffold becomes the project's file, moved into that layout.
+  `cn = twMerge(clsx(...))`, so the caller wins. An app on a design imports
+  `cn` from the design's core package; a project without one keeps it in
+  `$lib/utils/cn.ts`.
+- In an app on a design, units come from the design's Svelte package and
+  are never wrapped, copied or restyled: `class` places a unit, it does not
+  change its look. A unit the design lacks goes upstream (`design-system`).
+- A widget with keyboard or focus semantics (dialog, menu, select,
+  combobox, tabs, tooltip, popover) that the project must build itself
+  uses a Zag.js machine (`@zag-js/<machine>` through `@zag-js/svelte`) in
+  its own `lib/components/<Name>/`, never hand-rolled, as the design-system
+  repo does. A project still on bits-ui wrappers keeps them until it adopts
+  a design.
 - Icons come one by one from `@lucide/svelte/icons/<name>`, rendered only
-  through `Icon` with `size` `sm` 16, `md` 20 or `lg` 24 px; decorative
-  unless given a `label`.
+  through `Icon`, decorative unless given a `label`. In an app on a design
+  it is the design's `Icon` with its size steps; a project's own `Icon`
+  has `size` `sm` 16, `md` 20 or `lg` 24 px.
 
 ## Layout and the import rule
 
@@ -70,18 +85,26 @@ Svelte 4 syntax fails the build.
 | --- | --- | --- |
 | `lib/utils` | none | `lib/utils` |
 | `lib/api` (data layer, `frontend-api-client`) | none | `lib/utils`; the client packages |
-| `lib/components` | `Components` | `lib/utils`; `bits-ui` |
+| `lib/components` | `Components` | `lib/utils`; `@zag-js/*` |
 | `lib/compositions` | `Compositions` | components, utils |
 | `lib/features` | `Features` | compositions, components, `lib/api`, utils |
 | `lib/layouts` | `Layouts` | compositions, components, utils |
 | `routes` | `Screens` | everything above; `$app/*` |
 | `explorations` | `Explorations` | everything above; imported by nothing; in `.gitignore` (`ui-exploration`) |
 
+In an app on a design every layer may import the design's packages, and
+`lib/components` and `lib/compositions` hold only units no other app would
+use, composed from the design's units; usually there are none. A unit a
+second app could use goes upstream (`design-system`). The design-system repo has no `api`, `features` or `routes`: its
+layers are `components`, `compositions`, `widgets`, `layouts`, `templates`,
+`dashboards`, each importing only those before it, and templates and
+dashboards stay out of the package entry because apps copy them.
+
 This is the import rule `storybook-layout` refers to;
 `scripts/check-imports.mjs` in `make web-lint` enforces it, and with domain
 types in `lib/api` it enforces "no domain types" below features too.
 Layouts take features through snippets. A unit is a directory
-`lib/<layer>/<Name>/` (component, card, stories, Flows file), imported by
+`lib/<layer>/<Name>/` (component, card, stories), imported by
 `$lib/` path, never through a barrel. A route's `+page.svelte` stays thin:
 it reads load data and the URL and renders `<Name>Screen.svelte` beside
 it, the file `Screens/<Screen>` renders. Tree: `references/layout.md`.
@@ -104,8 +127,8 @@ it, the file `Screens/<Screen>` renders. Tree: `references/layout.md`.
 
 - Stories are Svelte CSF (`@storybook/addon-svelte-csf`): `defineMeta` in
   `<script module>`, `Default` first, then the order `storybook-layout`
-  sets. Play tests live in `<Name>.flows.stories.svelte`, titled
-  `<Root>/<Name>/Flows`.
+  sets. One story file per unit: its play-test stories follow the visual
+  stories in the same `<Name>.stories.svelte`.
 - `pnpm test` runs vitest 4 in browser mode through Playwright: unit tests
   with `@testing-library/svelte`, and every story through
   `@storybook/addon-vitest` with the axe pass failing on violations, in
@@ -152,11 +175,15 @@ commit. Config files and the script: `references/config.md`.
 - `onMount(async () => { rows = await fetch(...) })` has no cancellation,
   no loading or error state, and a late response overwrites the next
   screen. Data comes through the data layer at the screen.
-- Importing `bits-ui` or a shadcn-svelte file outside `lib/components`
-  skips the wrapper's tokens, focus ring and card. Extend the wrapper.
-- shadcn-svelte output uses its own colour names (`bg-primary`,
-  `text-muted-foreground`). Tailwind 4 emits nothing for an unknown theme
-  name and reports no error; rewrite them to `design-tokens` roles.
+- Importing `@zag-js/*` outside `lib/components` skips the wrapper's
+  tokens, focus ring and card. Extend the wrapper.
+- A design unit copied into `lib/components` "to tweak it" stops receiving
+  the design's fixes and token changes, and the next upgrade becomes a
+  manual merge. The tweak is a prop or variant upstream.
+- Component code copied from elsewhere (shadcn-svelte, a docs example) uses
+  its own colour names (`bg-primary`, `text-muted-foreground`). Tailwind 4
+  emits nothing for an unknown theme name and reports no error; rewrite
+  them to `design-tokens` roles.
 - A mutated `Set`, `Map`, `Date` or `URL` in `$state` never updates the
   view; use `SvelteSet`, `SvelteMap`, `SvelteDate`, `SvelteURL` from
   `svelte/reactivity`. `$state` values are proxies: hand
@@ -165,18 +192,19 @@ commit. Config files and the script: `references/config.md`.
 ## Definition of done
 
 - No Svelte 4 syntax; every `$effect` talks to something outside Svelte;
-  every declared prop has a doc comment; focus widgets use the wrappers.
+  every declared prop has a doc comment; focus widgets are the design's
+  units or Zag.js wrappers; no design unit is wrapped, copied or restyled.
 - `make web-lint`, `make web-test` and `make web-budget` pass with zero
   warnings; the axe pass is clean in both themes (`a11y-review`).
 
 ## References
 
-- `references/units.md`: writing a component, a bits-ui wrapper, `Icon`,
-  `cn`, an attachment, `.svelte.ts` state, or a story or Flows file.
+- `references/units.md`: writing a component, a Zag.js wrapper, `Icon`,
+  `cn`, an attachment, `.svelte.ts` state, or a story file with play tests.
 - `references/layout.md`: creating a unit, route or screen, or setting up
   the import check.
 - `references/config.md`: Svelte, Vite, vitest, Storybook, eslint,
   prettier, `package.json` scripts, fonts, the bundle budget.
-- Related: `ui-patterns`, `ui-component-contract`, `design-tokens`,
+- Related: `design-system` (which design, import or copy), `ui-patterns`, `ui-component-contract`, `design-tokens`,
   `storybook-layout`, `a11y-review`, `repo-tooling`, `frontend-api-client`
   (the data layer), `browser-e2e`.

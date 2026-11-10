@@ -61,7 +61,7 @@ Cut one story per layer touched, skipping layers the feature does not touch:
 | 1 | schema | `golang-database`: numbered up/down migration, expand step only | the schema change on the topology map's storage lane (`api-topology`) |
 | 2 | API contract | `connect-rpc` (proto under `proto/`, the default) or `api-contract` (`api/openapi.yaml`): the contract edit plus generated code | the API change on the topology map (`api-topology`) |
 | 3 | backend | `contract-spec` for a new module or a cross-module flow | a summary of the contract and its decisions |
-| 4 | frontend components | `ui-sketch` for the look, then `ui-component-contract`, tokens via `design-tokens` | the sketch round, then the stories in Storybook, or the project's component review surface, light and dark |
+| 4 | frontend components (in an app on a design, generic units are a design-system repo story released first, `design-system`) | `ui-sketch` for the look, then `ui-component-contract`, tokens via `design-tokens` | the sketch round, then the stories in Storybook, or the project's component review surface, light and dark |
 | 5 | screen | `ui-sketch` for the look, then `ui-component-contract`, five async states | the sketch round, then the stories in Storybook, or the project's component review surface, light and dark |
 | 6 | end-to-end | `browser-e2e`, framework mechanics from the framework skill (`svelte-frontend`) | nothing |
 

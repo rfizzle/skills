@@ -122,7 +122,7 @@ a rewrite in its spirit.
    code name; fix the imports.
 2. Continue `ui-component-contract` from its build step, stories first:
    the required stories under `<Root>/<UnitName>` against the promoted
-   file, then the play tests in the Flows file, doc comments on every
+   file, then the play tests after them in the same file, doc comments on every
    public prop, the a11y review, the owner gate on behaviour.
 3. Add to the card's Decisions: `YYYY-MM-DD: kept Ledger over
    SplitManifesto (one column on a phone) and Quiet (no product

@@ -9,9 +9,13 @@ List every UI element the feature needs and search the existing tokens,
 components, compositions, features, layouts and screens for each. Classify, in this order of
 preference:
 
-- **Exists**: reuse as-is; note its path.
+- **Exists**: reuse as-is; note its path (or, in an app on a design, the
+  design's unit name).
 - **Enhance**: an existing unit gains a prop, variant or slot
   (`ui-component-contract` iteration rule).
+- **Upstream**: in an app on a design, a generic unit, prop, variant or
+  state the design lacks (`design-system`). It becomes a story in the
+  design-system repo, released before the app's story that needs it.
 - **New component** or **new composition**: only where reuse or enhancement
   would visibly harm the experience. Write that reason; "faster to write"
   is not one.

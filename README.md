@@ -10,7 +10,8 @@ from [rfizzle/images](https://github.com/rfizzle/images) deployed under
 systemd with Podman. Always: Go, Linux, Renovate, a Makefile as the command
 interface, Tailwind CSS 4 when there is a UI. Frontend skills are
 framework-neutral; Svelte mechanics belong to the framework skill,
-`svelte-frontend`.
+`svelte-frontend`. An app's look and generic units come from a shared
+design, installed as a package (`design-system`), not built per app.
 
 ## Skills
 
@@ -20,7 +21,7 @@ framework-neutral; Svelte mechanics belong to the framework skill,
 | Repository and docs | `project-docs`, `go-project-layout`, `repo-tooling`, `container-image`, `service-operations`, `create-skill`, `sound-patterns` |
 | API and data | `api-topology`, `connect-rpc`, `api-contract`, `golang-database`, `go-background-jobs` |
 | Go | `go-http-server`, `go-auth`, `go-library`, `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
-| UI | `svelte-frontend`, `frontend-api-client`, `browser-e2e`, `ui-patterns`, `ui-component-contract`, `ui-sketch`, `ui-exploration`, `design-tokens`, `a11y-review`, `storybook-layout` |
+| UI | `design-system`, `svelte-frontend`, `frontend-api-client`, `browser-e2e`, `ui-patterns`, `ui-component-contract`, `ui-sketch`, `ui-exploration`, `design-tokens`, `a11y-review`, `storybook-layout` |
 | Hosts and operations | `guided-ops`, `cloudflare-edge`, `credential-rotation` |
 
 A skill exists because something went wrong without it. It holds what a

@@ -1,6 +1,6 @@
 ---
 name: ui-sketch
-description: Use this skill when a new screen, feature, composition or component is being groomed and its look, structure or information order is not yet decided, when the owner wants to see directions before anything is built in the codebase ("show me some options", "sketch it", "what would this page look like", "mock it up", "closer to the second one", "that one but calmer"), or when a plan-feature story for a new UI unit reaches grooming. Holds the sketch round outside the codebase: three or four directions that disagree on a named axis, each a static HTML fragment on the project's tokens with real copy, in one page with direction tabs, desktop and phone widths, the five async states, both themes, the round table and a recommendation, narrowing on "closest, and what is still off" until one is kept as the brief for ui-component-contract. Not for redesigning a shipped unit (ui-exploration, in Storybook), the card and stories (ui-component-contract), the tokens (design-tokens), or the API shape (api-topology).
+description: Use this skill when a new screen, feature, composition or component is being groomed and its look, structure or information order is not yet decided, when the owner wants to see directions before anything is built in the codebase ("show me some options", "sketch it", "what would this page look like", "closer to the second one", "that one but calmer"), or when a plan-feature story for a new UI unit reaches grooming. Holds the sketch round outside the codebase: three or four directions that disagree on a named axis, each a static HTML fragment on the project's tokens with real copy, in one page with direction tabs, desktop and phone widths, the five async states, both themes, the round table and a recommendation, narrowing on "closest, and what is still off" until one is kept as the brief for ui-component-contract. Not for redesigning a shipped unit (ui-exploration, in Storybook), the card and stories (ui-component-contract), the tokens (design-tokens), or the API shape (api-topology).
 license: MIT
 metadata:
   author: rfizzle
@@ -35,7 +35,10 @@ code to promote.
    sketch shows the screen at those moments.
 2. **Read the ground.** The tokens (`design-tokens`), the components the
    unit will compose (`ui-patterns`), the neighbours it renders beside,
-   the product's tone and copy, the longest real content it must hold.
+   the product's tone and copy, the longest real content it must hold. In
+   an app on a design, the tokens are the design's token file and the
+   units are its inventory (`design-system`); a direction that needs a
+   unit the design lacks names it in `costs` as an upstream request.
 3. **Name the directions before drawing.** Three by default, four when the
    question is wide, never more than five. Each has a descriptive
    PascalCase name and an axis: layout, information order, density,
@@ -43,8 +46,9 @@ code to promote.
    when two directions share an axis.
 4. **Write the round** under `.agents/sketches/<slug>/`, from
    [references/round.md](references/round.md): `sketch.json`, `tokens.css`
-   copied from the project's token layer as plain `:root` declarations with
-   a `.dark` or `[data-theme="dark"]` override, and one fragment per
+   copied from the project's token layer (the design's `theme.css`, in an
+   app on a design) as plain `:root` declarations for a light scheme with
+   a `[data-theme="dark"]` override for a dark one, and one fragment per
    direction. A fragment is HTML and CSS only, uses token variables and
    never a literal colour, carries the product's real copy and realistic
    data, and marks its async variants with `data-state="loading"`,
