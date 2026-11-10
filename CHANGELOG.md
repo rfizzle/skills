@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-10
+
 ### Added
 
 - `design-system`: how an app uses a shared design: the one place that names the design-system repository and its package scope; one design per app, recorded in `AGENTS.md`; the install; Components, Compositions, Widgets and Layouts imported, Templates and Dashboards copied from the installed release into a screen and adapted; schemes and code fonts through `restoreTheme`, `setTheme` and `setCodeFont`; a missing unit, prop, variant or state goes upstream (inventory first) and never into a local fork; upgrades; what an app may add; React follows the same split once a design ships a `-react` package.
