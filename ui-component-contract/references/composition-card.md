@@ -12,9 +12,9 @@ screen instead. Reuse: which existing compositions (the design's inventory first
 | | | |
 
 ## Flows
-| Flow | Effect | State, and who owns it | Story |
-|---|---|---|---|
-| | | caller via URL / local | `<FlowName>` play test |
+| Flow | Triggers | Effect | State, and who owns it | Story |
+|---|---|---|---|---|
+| | every way to start it, and each starting state | | caller via URL / local | `<FlowName>` play test |
 
 ## Accessibility delegation
 - Landmark and heading level, if it is a page region.

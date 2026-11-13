@@ -133,8 +133,7 @@ it, the file `Screens/<Screen>` renders. Tree: `references/layout.md`.
   with `@testing-library/svelte`, and every story through
   `@storybook/addon-vitest` with the axe pass failing on violations, in
   light and dark.
-- Unit tests only for logic stories cannot express: derived values, edge
-  arithmetic, callback payloads, formatting.
+- Unit tests: `ui-component-contract` step 6.3.
 
 ## Scripts, lint and performance
 

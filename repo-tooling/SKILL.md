@@ -126,6 +126,11 @@ toolchain itself, and `mise` (or `direnv`) activates Node from `.nvmrc`.
 - Frontend jobs cache Playwright browsers, upload the Storybook build for
   review, check the bundle budget, and run behind path filters: a
   docs-only change skips them, a Go-only change still runs e2e.
+- GitHub's `ubuntu-latest` runner is 2 vCPU and 8 GB for a private
+  repository, 4 and 16 for a public one. Test workers, shards, page counts
+  and stress settings are sized for the runner the repository gets. A matrix
+  job bills its setup and rounds up each time, so read the plan's included
+  minutes before adding shards.
 - A binary shipped outside an image (systemd package, CLI archive) is
   released by GoReleaser with checksums, SBOM and signature, built with
   `CGO_ENABLED=0`, `-trimpath` and version stamping.

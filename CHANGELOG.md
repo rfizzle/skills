@@ -6,6 +6,12 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `ui-component-contract`: story data sits off the convenient boundary; step 2 lists every way to trigger each outcome and every starting state, and a composition gets a flow for each pair of flows that change the same state, with a `Triggers` column in the composition card; step 6.3 limits unit tests to logic a story cannot reach cheaply and asserts what a story renders or announces in its play, word for word.
+- `svelte-frontend`: the unit-test rule is a pointer to `ui-component-contract` step 6.3, so it has one home.
+- `repo-tooling`: the GitHub runner for a private repository is 2 vCPU; workers, shards and stress settings are sized for it, and the plan's included minutes are read before adding shards.
+
 ## [0.9.0] - 2026-11-10
 
 ### Added

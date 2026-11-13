@@ -46,6 +46,12 @@ Templates: [references/component-card.md](references/component-card.md) and
    (`svelte-frontend`) names the library. For a composition, name the
    children, each flow and who owns its state, and what accessibility each
    child keeps versus what the composition owns. List every required story (see below).
+   For each outcome, list every way to trigger it (pointer, each key on the
+   control, Enter in a field, Escape, a Cancel button) and the states it
+   can start from (an input already focused or typed in). Each is a step of
+   its play test. A composition also gets a flow for each pair of flows
+   that change the same state (delete a selected row; filter with a
+   selection).
 3. **Explore the look** when the unit's layout, information order or
    interaction is not yet decided and no sketch was kept at grooming
    (`ui-sketch` is the brief when one was; otherwise `ui-exploration`): three or four
@@ -74,8 +80,11 @@ Templates: [references/component-card.md](references/component-card.md) and
       tokens and styling rules from `design-tokens`; patterns from
       `ui-patterns`. Every public prop carries a one-line doc comment, since
       that comment is the props documentation.
-   3. Tests only for logic stories cannot express: derived values, edge
-      arithmetic, callback payloads, formatting.
+   3. Unit tests only for logic stories cannot reach cheaply: parsing and
+      arithmetic over many inputs, branches on targets a story cannot
+      produce. What a story renders or announces (a range, a countdown, an
+      accessible name, a status message, a callback payload) is asserted in
+      its play, word for word.
 7. **Verify.** Run the check script, the unit and story tests (including the
    automated accessibility pass in both themes), and `a11y-review`, build
    pass. Fix blocker and major findings.
@@ -94,6 +103,11 @@ Every story, play tests included, is in the unit's one story file.
 
 - Realistic, fictional data shaped like production: long names, real-looking
   timestamps, multi-word labels. No lorem ipsum, `test@test.com` or ID `1`.
+  Values sit off the convenient boundary, where rounding and parsing still
+  matter: a clock at `...:00.400Z`, 2 min 30 s left, a code pasted as
+  `482-913`, a count that makes a range or a plural non-trivial, a slow
+  response beside a fast one. Data on the boundary turns the bug into a
+  no-op.
 - No dark-only stories: the theme toolbar switches any story, and the test
   run covers both themes. Pin a theme only when markup, not tokens, differs.
 - Story names are plain-language states or scenarios, never internal IDs.
