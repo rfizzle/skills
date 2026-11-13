@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-11-13
+
 ### Changed
 
 - `ui-component-contract`: story data sits off the convenient boundary; step 2 lists every way to trigger each outcome and every starting state, and a composition gets a flow for each pair of flows that change the same state, with a `Triggers` column in the composition card; step 6.3 limits unit tests to logic a story cannot reach cheaply and asserts what a story renders or announces in its play, word for word.
