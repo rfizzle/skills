@@ -6,6 +6,14 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `merge-train`: many builders in parallel without a full gate each: builders run narrow checks on their own packages (race, strict limits, generators), one integrator stacks finished branches on a train branch and runs one full gate per one to three items; a register assigns migration numbers and shared lists before launch; every builder in a wave branches from the same train tip; semantic conflicts keep both intents with a test; a holistic review of each train before it lands; a stop point for a hard deadline.
+
+### Changed
+
+- `backlog-batches`: names `merge-train` for runs where a gate per item is too expensive.
+
 ## [0.10.0] - 2026-11-13
 
 ### Changed

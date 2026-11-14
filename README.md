@@ -17,7 +17,7 @@ design, installed as a package (`design-system`), not built per app.
 
 | Area | Skills |
 | --- | --- |
-| Planning and process | `plan-feature`, `groom`, `flow-map`, `contract-spec`, `iterate`, `backlog-batches`, `checkpoint`, `git-workflow`, `ci-green`, `release`, `deploy` |
+| Planning and process | `plan-feature`, `groom`, `flow-map`, `contract-spec`, `iterate`, `backlog-batches`, `merge-train`, `checkpoint`, `git-workflow`, `ci-green`, `release`, `deploy` |
 | Repository and docs | `project-docs`, `go-project-layout`, `repo-tooling`, `container-image`, `service-operations`, `create-skill`, `sound-patterns` |
 | API and data | `api-topology`, `connect-rpc`, `api-contract`, `golang-database`, `go-background-jobs` |
 | Go | `go-http-server`, `go-auth`, `go-library`, `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
