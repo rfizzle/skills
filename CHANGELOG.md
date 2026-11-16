@@ -6,6 +6,10 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `api-topology`: the map no longer scrolls sideways on a large API: the map panel grows past the text column to fit its widest lane (up to 1760px), a lane with more cards than that wraps onto further rows, connectors run their horizontal leg in the gap between lanes, a connector label that would land on another shows only while its connector is selected, and the up and down arrow keys step through the rows of a wrapped lane.
+
 ## [0.11.0] - 2026-11-14
 
 ### Added

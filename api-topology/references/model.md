@@ -127,4 +127,7 @@ response (`Returns`, or `Array<X>`); schema to the table that backs it
 (`stored in`). Schema-to-schema references are not drawn; selecting a
 schema outlines the schemas it references and the ones that use it, and
 the inspector's Used By tab lists them. Lanes are ordered so each node
-sits under the nodes that point at it.
+sits under the nodes that point at it. A lane with more cards than the
+page is wide wraps onto further rows, so the map never scrolls sideways;
+a connector label that would land on another shows only while its
+connector is selected.
