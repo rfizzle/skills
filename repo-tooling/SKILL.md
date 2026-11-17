@@ -1,6 +1,6 @@
 ---
 name: repo-tooling
-description: Use this skill when setting up or auditing the build and tooling of a Go service or tool (PostgreSQL and a frontend when it has them), or when touching its Makefile, go.mod toolchain or tool directives, Node or pnpm pins, compose.yaml, the local dev loop, seed data, environment configuration, CI workflows, action pinning and permissions, Renovate config, linter limits, pre-commit hook or coverage floor. Triggers include "add a make target", "pin this tool", "make dev should start everything", "add seed data", "add a local Postgres", "add a config variable", "CI should check X", "pin the actions", "add gitleaks", "skip the web jobs on docs changes", "Renovate opens too many PRs", "Renovate MRs fail go mod tidy", and "what does make ci run". Not for the Dockerfile, base images and image scanning or signing (use container-image), release tagging (use release), runtime health and runbooks (use service-operations), or the content of docs-check and skills-check (project-docs and the skills README own those).
+description: Use this skill when setting up or auditing the build and tooling of a Go service or tool (with PostgreSQL or a frontend), or when touching its Makefile or any repository's Makefile, go.mod toolchain or tool directives, Node or pnpm pins, compose.yaml, the local dev loop, seed data, environment configuration, CI workflows, action pinning and permissions, Renovate config, linter limits, pre-commit hook or coverage floor. Triggers include "add a make target", "the Makefile is too big", "pin this tool", "make dev should start everything", "add seed data", "add a config variable", "CI should check X", "pin the actions", "skip the web jobs on docs changes", "Renovate opens too many PRs", "Renovate MRs fail go mod tidy", and "what does make ci run". Not for the Dockerfile, base images and image scanning or signing (use container-image), release tagging (use release), runtime health and runbooks (use service-operations), or the content of docs-check and skills-check (project-docs and the skills README own those).
 license: MIT
 metadata:
   author: rfizzle
@@ -46,7 +46,14 @@ database) are omitted, not stubbed.
 
 Rules:
 
-- Every target has a `## description` and appears in `make help`.
+- Every target has a `## description` of at most 80 characters and appears
+  in `make help`.
+- The Makefile starts with the fixed preamble (`bash`, `pipefail`). A recipe
+  is at most three commands; more is a script in `scripts/`. `.PHONY` sits
+  beside its target. A gate's name is written once, in a group variable
+  that bundles and CI slices are built from. An area with many targets moves
+  to `mk/<area>.mk`. `references/makefile-structure.md` has these rules and
+  applies to a repository in any language.
 - `ci` depends on the read-only targets, in this order: `env`, a generate
   check (generate, then fail on any diff or untracked file), `web-budget`
   (the embedded frontend must exist before Go compiles), `proto-lint`,
@@ -199,6 +206,9 @@ Adopt these where the repository can hold them; each is a target in
 
 ## References
 
+- `references/makefile-structure.md`: before adding a target, and when a
+  Makefile is audited or has grown: preamble, fragments, recipes,
+  parameters, help, names, gate groups, the audit list.
 - `references/makefile.md`: when changing the Makefile: skeleton, pins,
   the local loop (`air`, Vite proxy, seed, `mise`), hook, coverage floor.
 - `references/compose.md`: when adding a local service or the e2e stack.
