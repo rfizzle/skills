@@ -59,7 +59,11 @@ project-specific command, and every agent prompt quotes from that sheet.
 1. `git status --short` on the main checkout must be clean, or every dirty
    file accounted for (the user may commit from another session).
    `git log --oneline -5` and `git worktree list`: note the head and any
-   stale worktrees. Do not remove worktrees; tell the user which are merged.
+   stale worktrees. Remove the ones an earlier run left whose branch is
+   merged (section 7, step 7); name the rest to the user and leave them.
+   Read the real free disk (on a VM or WSL, the host drive, not the
+   guest's view) and write the floor in the run sheet: below it nothing
+   launches until worktrees and caches are cleared.
 2. Read the project's verification rule and put the narrowest declared gate
    in the run sheet (a `make` target the project calls its gate, a quality
    suite). Never let agents run the full CI pipeline, evaluations that cost
@@ -131,6 +135,10 @@ designer first; the returned plan goes in the item's addendum.
   dependencies have landed and whose files do not overlap the agents still
   running. With nothing eligible, leave the slot empty rather than launch a
   parked item.
+- Every launch is written in the run sheet's ledger (a list beside it:
+  agent, item, worktree, start time, budget) with a time budget from the
+  run sheet (by size; after five landings, twice the
+  median time of the landed items of that size). Section 8 sweeps it.
 
 ## 6. The per-agent prompt
 
@@ -139,7 +147,7 @@ paragraphs. Fill the placeholders from the run sheet; do not paraphrase the
 fixed prompt. The implementer's agent definition already carries the
 worktree, no-stash, rebase, refusal, one-item and report rules, so the
 addendum supplies only the per-run facts: SIZE, THE SOURCE, VERIFICATION,
-GOLDENS AND GENERATED FILES, SIBLINGS, COMMIT, DEFAULT BRANCH AND GRANTS,
+COMMANDS, GOLDENS AND GENERATED FILES, SIBLINGS, COMMIT, DEFAULT BRANCH AND GRANTS,
 and any project-specific paragraph (a driven capture, a spec that only the
 orchestrator edits, a constant to bump). Restate context
 rather than assuming shared memory: the agent has only its prompt, the
@@ -166,13 +174,40 @@ repository, and the source.
 5. Fill the freed slot (section 5).
 6. Triage the agent's follow-ups (section 1.2) and file the ones that
    qualify in the source's own format; never widen a running item.
-7. Never amend a landed commit after telling a running agent the head.
+7. Remove the landed item's worktree and branch now, not at the end of the
+   run: a worktree with installed dependencies or a build tree holds
+   gigabytes, and two runs filled the disk and crashed the host with dozens
+   of merged worktrees still on it. Only a worktree this run created, only
+   when `git merge-base --is-ancestor <branch> <default branch>` succeeds and
+   `git -C <worktree> status --short` prints nothing, and only after its
+   agent is stopped: `git worktree remove <path>`, `git branch -d <branch>`
+   (`-d` refuses an unmerged branch; never `-D`), then `git worktree prune`.
+   A worktree that is unmerged, dirty, or not this run's is listed in the
+   report and left.
+8. Never amend a landed commit after telling a running agent the head.
 
-## 8. Reporting
+## 8. Reporting and the stall sweep
 
+- At every landing, and whenever the user asks for status, sweep the
+  ledger. For each running agent and background task: elapsed time against
+  its budget, and whether it has produced a commit or output since the
+  last sweep. Over budget: ask it for one line (what is done, what it is
+  waiting on). No answer, or nothing new for two sweeps: stop it, record
+  what its worktree holds, and requeue or report the item. Then list the
+  harness's tasks and stop every one that belongs to no running item (a
+  finished agent that lingers, a dev server, a watcher, a cache trimmer
+  from an earlier run). The owner should never be the one who finds them.
 - After every five landings, or when the user asks: landed, remaining,
   decisions waiting on the user, follow-ups filed and parked, backlog growth
   since kickoff, in the `checkpoint` report shape (decisions waiting first).
+  The report also carries the run's clock: started, elapsed, items landed
+  per hour, and the estimate for what remains (remaining items times the
+  measured time per item, not a guess). When the rate is under half the
+  first hour's, say where the time went, from the ledger: a gate queue, a
+  rebase chain, a stalled agent, a wait on the owner.
+- A wait on the owner holds only the item that needs the answer. The other
+  slots keep working the queue; an unattended run that stops every slot on
+  one question loses the night.
 - Push only when the user asks, and ask in the first report whether to push
   per batch.
 - At the end of a batch: a table of item, commit hash, files changed, review
@@ -181,18 +216,24 @@ repository, and the source.
   target, not the per-item gate) once on the batch's final head, in a
   clean worktree or `git archive` export, and report its result with the
   commit it ran on; `ci-green` has the rule and the push discipline.
-  Cleanup of merged worktrees is the user's call: list them with the
-  commands (`git worktree unlock`, `git worktree remove`, `git branch -D`,
-  `git worktree prune`).
+  The table ends with `git worktree list` and the free disk: only
+  unlanded or foreign worktrees should remain, each with why.
 
 ## Gotchas
 
 - The harness's permission layer may refuse an agent's edit to a shared file
   outside its worktree (the source file, a spec), a plain gate run, or a
-  rebase, and it treats `git worktree remove` and `git branch -D` as
-  destructive. Tell agents: when refused, put the exact text of the edit at
+  rebase. Tell agents: when refused, put the exact text of the edit at
   the end of the report and stop; the orchestrator applies it. Never let an
   agent work around a refusal.
+- The same layer may treat `git worktree remove` and `git branch -d` as
+  destructive. The orchestrator runs each as its own plain command, after
+  the merged check; if one is still refused, it puts the three commands in
+  the next report for the user to run or grant, once for the run.
+- A harness that isolates an agent in a worktree refuses any command it
+  cannot prove stays inside: 323 such refusals in four repositories, most
+  from a `cd` chain, a loop or pipeline around git, or a heredoc script
+  that edits files. The COMMANDS paragraph of the prompt prevents them.
 - Agents often finish before a "head moved" message arrives and commit on a
   stale parent. The fast-forward refuses; resume the agent to rebase.
 - An agent resumed by message can linger in the task list after completing;

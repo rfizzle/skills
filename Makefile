@@ -9,6 +9,7 @@ test: ## Go and Node tests for the checkers
 	go vet ./...
 	go test ./...
 	node --test scripts/*.test.mjs api-topology/scripts/*.test.mjs flow-map/scripts/*.test.mjs ui-sketch/scripts/*.test.mjs
+	bash deterministic-tests/scripts/test-time-check.bash --self-test
 
 validate: ## Lint every skill: frontmatter, size, links, client-neutral wording
 	node scripts/validate-skills.mjs . --allow-client-terms=$(CLIENT_SKILLS)

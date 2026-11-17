@@ -5,6 +5,7 @@
 - CI jobs
 - Frontend jobs
 - Workflow conventions
+- Running a job as CI does
 - renovate.json
 - The skills bump
 
@@ -107,6 +108,34 @@ jobs:
   `id-token: write` and `attestations: write`.
 - `secrets.GITHUB_TOKEN` goes only to a step that needs it (registry login,
   a release upload); never into a workflow-level `env`.
+
+## Running a job as CI does
+
+`ci-local` exists because a job that passes on the workstation and fails
+on the runner costs a paid run per attempt. It is a script, not a recipe
+(`makefile-structure.md`), and does four things:
+
+- exports the commit (`git archive <sha> | tar -x -C <tmp>`), so nothing
+  untracked or from a sibling worktree is tested;
+- runs each named job's target in the image the workflow's job uses
+  (read from the workflow file, never copied into the script), with
+  `--cpus` and `--memory` set to the runner the repository gets (2 and
+  8g private, 4 and 16g public), `TZ=UTC` and `CI=true`;
+- with `REPEAT=n`, runs n copies side by side, each in its own container
+  and temporary directory, and prints `passed/n` and the first failing
+  line of each failure;
+- mounts the dependency and build caches read-only, so a repeat measures
+  the tests and not the download.
+
+```makefile
+.PHONY: ci-local
+ci-local: ## A CI job in its image at runner size: make ci-local JOBS=<job>[,<job>] [REPEAT=n]
+	@scripts/ci-local.bash --jobs "$(JOBS)" --repeat "$(or $(REPEAT),1)"
+```
+
+The script has a test that fails when a job named in the workflow has no
+image or target it can read, so a renamed job cannot silently leave
+`ci-local` running nothing.
 
 ## renovate.json
 

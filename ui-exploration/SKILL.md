@@ -76,7 +76,9 @@ or interaction model teach the owner what they want.
    size in one viewport; thumbnails distort spacing and are never used.
 6. **Look at every direction yourself** before speaking: the story tests
    pass, the console is clean, light and dark through the theme toolbar,
-   the phone viewport once.
+   the phone viewport once, and the render check of
+   `ui-component-contract` (`references/render-check.md`) on each story. A
+   direction with a clipped label or two scrollbars is judged on the defect.
 7. **Hand over in the conversation and stop.** The question, a table with
    one row per direction (name, what it changes, when it wins, what it
    costs), your recommendation with a reason rooted in how the product is

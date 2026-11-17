@@ -45,6 +45,16 @@ agent definition cannot know.
   forbidden (full CI, evaluations, integration tiers, live experiments),
   whether the gate is known to pass clean on this host, and any shared lock
   or `-p` limit the host needs.
+- **COMMANDS**: use this text; it holds whatever the harness.
+  > Your working directory is already your worktree's root. Run one plain
+  > command per call from there: no `cd`, no `git -C`, no path into
+  > another checkout, no loop, subshell or pipeline around git. Change
+  > files with the edit tool, never a heredoc script or `sed -i`, and read
+  > a file before you overwrite it. Stop only processes you started, by the
+  > PID you recorded when you started them; never `pkill -f` or `killall`
+  > by name, because a sibling agent's gate matches the same pattern. Never
+  > bypass a hook: no `--no-verify`, no `core.hooksPath` override, in a
+  > commit or a rebase. A hook you cannot satisfy is a stop and a report.
 - **GOLDENS AND GENERATED FILES**: the project's regenerate command. Name
   every shared constant to bump and its current value.
 - **SIBLINGS**: who is running now, which files each owns, and which later

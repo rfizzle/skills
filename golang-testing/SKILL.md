@@ -128,7 +128,9 @@ only if the project deliberately adopts and maintains that dependency.
 - New behavior, errors, and documented invariants are covered; each invariant has a
   test named for its behaviour.
 - Assertions fail with enough context to diagnose the case.
-- Tests do not depend on timeouts, order, or shared mutable globals.
+- Tests do not depend on timeouts, order, or shared mutable globals; a sleep, a poll or
+  an elapsed-time bound is replaced as `deterministic-tests` says, and its wall-clock
+  check is in the project's gate.
 - Mocks model consumer interfaces, not implementation internals.
 - Integration boundaries use the integration build tag and real services intentionally.
 - Race-sensitive code is exercised under `-race`.

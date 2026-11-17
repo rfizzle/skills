@@ -87,7 +87,12 @@ Templates: [references/component-card.md](references/component-card.md) and
       its play, word for word.
 7. **Verify.** Run the check script, the unit and story tests (including the
    automated accessibility pass in both themes), and `a11y-review`, build
-   pass. Fix blocker and major findings.
+   pass. Fix blocker and major findings. Then the render check
+   ([references/render-check.md](references/render-check.md)): the
+   mechanical layout defects (content past its box, two scrollbars, a row
+   of controls at different heights, overlapping items, a control that
+   does nothing) are found by a script and by looking at a screenshot of
+   every new or changed story, before the owner is asked to look.
 8. **Owner review in Storybook.** Serve Storybook from the branch; the owner
    checks each new or changed story in light and dark before the frontend
    commit lands. The commit follows the review, never the other way round.
@@ -135,7 +140,8 @@ Use for a card, a built unit, or a diff. Check against the card, then
   primitive exists; an a11y-review blocker.
 - **major**: a listed story missing or its play test failing; an async state
   missing; a public prop without a doc comment; palette utilities, arbitrary
-  values or inline styles; a child's internals restyled from a composition.
+  values or inline styles; a child's internals restyled from a composition;
+  a render-check failure (`references/render-check.md`).
 - **minor**: naming, story order, a weak story name, documentation drift
   that misleads no one.
 
@@ -168,3 +174,7 @@ The check reports; it never approves on anyone's behalf.
   unit, the enhancement is upstream, never a wrapper or copy in the app.
 - A card in an app for a generic unit (a date picker, a stat card) is the
   sign it is being built in the wrong repository.
+- Green story tests and a clean axe pass say nothing about layout. Across
+  three projects the owner's Storybook review found about twenty defects a
+  script or one look at a screenshot would have: every one cost a review
+  round.

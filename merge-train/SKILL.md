@@ -38,9 +38,12 @@ adapters; this skill replaces only its verification and landing steps.
 
 1. Measure the host: free memory, cores, the real free disk (on a VM or WSL,
    the host drive, not the guest's view), and the build cache's size. Start a
-   cache trimmer (delete entries older than an hour). Cap builders at what
+   cache trimmer (delete entries older than an hour) and record its PID in
+   the ledger so the run stops it at the end. Cap builders at what
    one full gate plus N narrow checks fits in; heavy test suites (containers,
    browsers) run only at the integrator, never beside more than one builder.
+   Set a disk floor: below it no wave launches until section 4, step 5 has
+   run and the cache is trimmed.
 2. Write the register in the ledger before launch, and each builder's brief
    quotes its rows: the next migration or schema number each item takes, and
    every shared list an item appends to (route or method tables, service
@@ -84,7 +87,11 @@ packages that import them:
 
 They commit each finished part as it passes, so a stop keeps the work, and
 report what is committed and what is left. A builder that cannot satisfy a
-commit hook stops and reports; it never bypasses it.
+commit hook stops and reports; it never bypasses it. Every brief carries
+the COMMANDS paragraph of `backlog-batches` (`references/agent-prompt.md`)
+word for word: one plain command per call from the worktree's root, files
+changed with the edit tool, only its own processes stopped and by PID.
+Eight builders that `pkill` a gate by name stop each other's.
 
 ## 4. The train
 
@@ -101,6 +108,14 @@ commit hook stops and reports; it never bypasses it.
    the item's builder.
 4. Green: fast-forward the default branch to the train. Record the hash and
    the items in the ledger.
+5. Then remove the worktree and branch of every item that train landed,
+   by the rule in `backlog-batches` section 7, step 7 (this run's, merged,
+   clean, agent stopped; `git branch -d`, never `-D`), before the next wave
+   launches. Eight builders leave eight dependency and build trees a wave.
+6. Sweep at each train as `backlog-batches` section 8 says: every builder
+   against its time budget, every background task against a running item.
+   A builder silent for two trains is stopped and its branch listed with
+   what is left.
 
 ## 5. Semantic conflicts and the holistic review
 

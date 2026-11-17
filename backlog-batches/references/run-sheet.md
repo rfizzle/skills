@@ -26,6 +26,9 @@ Shared conflicts:    <file: resolution> ...
 Sizes:               <id: small|medium|large> ...
 Queue:               batch 1: <ids>; batch 2: <ids> ...; per item: files, overlaps, depends on
 Status cadence:      every 5 landings
+Time budget:         small <min>; medium <min>; large <min>; then twice the median landed time per size
+Disk floor:          <GB free on the real drive below which nothing launches>; measured with <command>
+Worktree cleanup:    this run's merged, clean worktrees and branches removed at each landing
 Push:                only on request (ask in the first report)
 ```
 
@@ -50,4 +53,7 @@ Tiers:               routine=sonnet; capable=opus; frontier=fable
 Worktree launch:     Agent tool with subagent_type, isolation: "worktree", model by tier; `git worktree add ../<name>` when the harness places worktrees inside the repository (ci-green)
 Standing grants:     "For future sub-agent reference: you are allowed to use `git merge --ff-only master` and `git rebase master` inside worktrees" (2026-09-27)
 Shared conflicts:    CHANGELOG.md Unreleased: keep both; SPEC.md: rebase; testdata goldens: regenerate with -update; internal/config/default.yaml and its goldens: rebase
+Time budget:         small 20; medium 45; large 90
+Disk floor:          40 GB on C:, measured with `df -h /mnt/c` (WSL: `df /` reports the virtual disk)
+Worktree cleanup:    this run's merged, clean worktrees and branches removed at each landing
 ```

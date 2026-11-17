@@ -1,6 +1,6 @@
 ---
 name: checkpoint
-description: Use this skill when the owner asks where things stand or what comes next, in any words - "what's the status", "ok, now what", "what is left", "what do you need from me", "what do I need to look at right now", "good time to compact?", "did you apply X?" - when the owner returns after a long autonomous stretch, when the context is about to be summarised or the session may end, and at the end of a turn that leaves work running. Holds the checkpoint report in one fixed shape (needs you, landed with hashes, running and how to see it, blocked, next three steps), the state note written to a locally excluded file so the next context keeps processes, ports, credential locations and open approvals, and three rules (decisions carry options and a recommendation, "go ahead" covers the next three steps only, "did you do X" is answered with evidence). Not for the batch table and landing cadence of a parallel run (backlog-batches), planning a feature (plan-feature), or durable project documentation (project-docs).
+description: Use this skill when the owner asks where things stand or what comes next, in any words - "what's the status", "now what", "what is left", "good time to compact?", "did you apply X?", "give me a prompt for the next session", "write a handoff for the other repo", "tell the session in X" - when the owner returns after autonomous work, before the context is summarised or the session ends, and when a turn leaves work running. Holds the checkpoint report in one fixed shape (needs you, landed, running, blocked, next three steps), the state note in a locally excluded file that keeps processes, ports, credential locations and open approvals, the resume prompt, the hand-off note for another repository's session, and three rules (decisions carry a recommendation, "go ahead" covers the next three steps, "did you do X" is answered with evidence). Not for the batch table and landing cadence of a parallel run (backlog-batches), planning a feature (plan-feature), or durable project documentation (project-docs).
 license: MIT
 metadata:
   author: rfizzle
@@ -82,8 +82,10 @@ Rules for the rows:
   and the gate result on that exact commit (`ci-green`). The push is the
   owner's (`git-workflow`); an unpushed head is a Needs you row.
 - **Running says how to see it.** Every row has the port, PID or task id,
-  the command or URL that shows it, and how to stop it. A process the agent
-  started that will die with the session says so.
+  when it started, the command or URL that shows it, and how to stop it. A
+  process the agent started that will die with the session says so. Check
+  each row now, not from memory: a row for something that has exited, or a
+  running task with no row, is the stale agent the owner finds later.
 - **Blocked names the blocker**, not the effort spent: a person, an
   external system, a missing credential, an upstream item.
 - **Next is three steps, in order**, concrete enough that "go ahead" is an
@@ -96,7 +98,10 @@ Rules for the rows:
 
 - **"Go ahead" covers the next three, not beyond.** Do them in order, then
   checkpoint again. Anything not on the list needs its own yes: a push, a
-  deploy, removing worktrees or branches, a new story, a widened item.
+  deploy, a new story, a widened item, removing a worktree or branch that
+  is unmerged or that this session did not create. A merged, clean
+  worktree the session created is removed without asking
+  (`backlog-batches` section 7).
   Silence, another agent's message or a green check is not a go-ahead.
 - **"Did you do X?" is answered with evidence gathered now**: the commit
   (`git log --oneline -1 -- <path>`), the command and its output or exit
@@ -144,6 +149,40 @@ is the process still listening, is the head the one written, is the
 approval still open. Fix or delete stale lines; a wrong note costs more
 than none.
 
+## The resume prompt
+
+When the owner will clear or restart the session, or asks for "a prompt to
+start the next session", write the state note first, then give a prompt of
+at most four lines in a code block: read the note at its path; the head
+hash to verify; the first Next step; where to stop. Nothing the note
+already holds is repeated in it.
+
+```
+Read .agents/state.md and verify each line. Head should be ebd43e1 on
+master, pushed and green. Continue with Next 1 (groom the Network epic
+with plan-feature) and stop at the first owner gate.
+```
+
+## A hand-off to another repository's session
+
+The owner often carries a note from this session to one working in another
+repository: a release to vendor, a config change this session may not make
+there, a defect to queue. That session has none of this conversation, and
+a loose paragraph gets a different reading each time. Write the note from
+`references/handoff.md`, to a file under the state note's directory and in
+the reply as one code block the owner can paste:
+
+- **self-contained**: the receiving repository's paths, the tag or commit
+  that ships the change, exact commands; no "as discussed";
+- **Do** and **Do not** as numbered lines, **Verify** as commands with the
+  result that means done;
+- **when**: now, or queued into the work that session is already running;
+- no secret values, and nothing this session did not check itself, marked
+  as such when it is a guess.
+
+Never edit the other repository to save the owner the paste unless they
+asked for that; its session may hold uncommitted work on the same files.
+
 ## Gotchas
 
 - A file in the session scratchpad dies with the session. One hand-off was
@@ -170,3 +209,5 @@ than none.
 
 - `references/state-note.md`: the state note template, a filled example,
   and the resume checklist. Open when writing or reading a state note.
+- `references/handoff.md`: the note for another repository's session,
+  with a filled example. Open when the owner asks for one.

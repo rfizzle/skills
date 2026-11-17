@@ -6,6 +6,21 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `deterministic-tests`: why a test passes here and fails in CI or under load, and the rules that stop it: wait on state and never on time, time only under a fake clock or when time is the behaviour, no elapsed-time assertions, the specific expected value, an assertion broken on purpose once. Ships the wall-clock check for Go tests (`scripts/test-time-check.bash`), the lint rules for play and browser tests, the stress run, and the procedure for a failure seen only in CI, with a Go and a browser reference.
+- `codebase-assessment`: an assessment answers one question against a finish line and changes nothing: the plan and agent count are shown before anything runs, evidence is gathered a tier below with no hypothesis handed over, the session judges and confirms each finding, peers are named and measured, the report leads with the answer and lists what was checked and sound, and filing is limited so the backlog does not grow without bound. A reference lists the evidence for each lens (conformance, tests, gates, structure, parity, process, library), and a periodic form covers the check every N items of an unattended run.
+
+### Changed
+
+- `backlog-batches`: a landed item's worktree and branch are removed at the landing when they are this run's, merged and clean, instead of being left for the user; the run sheet gains a disk floor, a time budget per size and a ledger of launches; a stall sweep at every landing and status stops silent agents and stray background tasks; reports carry the run's clock and an estimate from measured rates; a wait on the owner holds one item, not every slot. The prompt gains a COMMANDS paragraph: one plain command per call from the worktree's root, files changed with the edit tool, only the agent's own processes stopped and by PID, hooks never bypassed.
+- `merge-train`: the worktrees and branches a green train landed are removed before the next wave; builders carry the COMMANDS paragraph; a sweep at each train; the cache trimmer's PID is recorded so the run stops it.
+- `checkpoint`: a resume prompt of at most four lines for the next session; a hand-off note for another repository's session, with a template (`references/handoff.md`); Running rows say when each started and are checked when written; a merged, clean worktree the session created no longer needs its own yes.
+- `ci-green`: a section on spending CI runs: one push per landing, a failure seen only in CI reproduced in the job's image at the runner's size before a fix is pushed, one job rerun once with a reason, no second verification of a commit that is already green, and every watched run reported with its duration.
+- `repo-tooling`: a `ci-local` target that runs a CI job in its image at runner size on a clean export, repeated on request.
+- `ui-component-contract`: a render check before the owner review (`references/render-check.md`): a script for sideways overflow, nested scroll, clipped text, overlapping siblings, uneven control heights and elements that look interactive and are not, then a look at a screenshot of each changed story. `ui-exploration` runs it on each direction.
+- `golang-testing`: the review checklist points at `deterministic-tests` for sleeps, polls and elapsed bounds.
+
 ## [0.13.0] - 2026-11-17
 
 ### Changed

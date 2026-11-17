@@ -138,6 +138,12 @@ toolchain itself, and `mise` (or `direnv`) activates Node from `.nvmrc`.
   and stress settings are sized for the runner the repository gets. A matrix
   job bills its setup and rounds up each time, so read the plan's included
   minutes before adding shards.
+- `make ci-local JOBS=<job> REPEAT=<n>` runs a CI job's target in that
+  job's image with the runner's CPU, memory and time zone, on a clean
+  export of the commit, and prints how many of n passed
+  (`references/ci-renovate.md`, "Running a job as CI does"). A workstation
+  with many times the runner's cores hides the races the runner shows;
+  `ci-green` says when the target is required.
 - A binary shipped outside an image (systemd package, CLI archive) is
   released by GoReleaser with checksums, SBOM and signature, built with
   `CGO_ENABLED=0`, `-trimpath` and version stamping.

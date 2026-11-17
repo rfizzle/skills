@@ -1,6 +1,6 @@
 ---
 name: ci-green
-description: Use this skill before pushing to the default branch or telling the owner a batch is ready to push, when CI is red or "the pipeline failed", when commits were pushed on top of a failing run, when a check exists only in CI and not in the local gate ("make ci" versus "make check"), when a test or check is flaky in CI, when writing a pre-push hook, or when deciding what "done" means for a change that lands straight on the default branch. Holds the rule that the push gate is the CI target, not the fast gate; that a push is watched and a red run is fixed forward before anything else lands; that a check encoding a product fact names it; and the pre-push hook that refuses to pile commits onto a red branch. Not for staging, commit messages and history (git-workflow), the Makefile, the pipeline's layout and speed (repo-tooling), release tagging (release), or batch orchestration (backlog-batches, which cites this skill for its landing gate).
+description: Use this skill before pushing to the default branch or telling the owner a batch is ready to push, when CI is red, when commits were pushed onto a failing run, when a check exists only in CI ("make ci" versus "make check"), when a check passes here and fails in CI, when a failed job is about to be rerun, when CI minutes are the complaint, when writing a pre-push hook, or when deciding what "done" means for a change landing straight on the default branch. Holds the rules that the push gate is the CI target, not the fast gate; that a push is watched and red is fixed forward before anything else lands; that a run is paid for, so pushes are batched and a failure is reproduced in CI's conditions first; and the pre-push hook that refuses to pile commits onto a red branch. Not for staging, commit messages and history (git-workflow), why a test is flaky (deterministic-tests), the Makefile and the pipeline's layout and speed (repo-tooling), release tagging (release), or batch orchestration (backlog-batches).
 license: MIT
 metadata:
   author: rfizzle
@@ -37,8 +37,9 @@ carries a `Fixes-CI: <run url>` trailer; the pre-push hook below refuses
 any other push onto a red or still-running default branch.
 
 **A flaky check is a bug.** A failure that passes on rerun is fixed or
-quarantined the same day (`browser-e2e` has the quarantine shape); it is
-never rerun until green, because that teaches everyone to ignore red.
+quarantined the same day (`deterministic-tests` has the causes and the
+quarantine shape); it is never rerun until green, because that teaches
+everyone to ignore red.
 
 **A check that encodes a product fact names it.** A check that assumes
 "this path has no route", "this port is free", "this heading exists" says
@@ -72,6 +73,38 @@ own and keeps the steps.
    lacks one: it refuses a push when the remote branch's latest run is red
    and the push does not say it is the fix, and it runs the CI-only fast
    checks on the pushed head.
+
+## Spending CI runs
+
+A hosted run is billed by the minute and a red one is paid for twice. One
+repository kept pushing tests that passed on the workstation and failed on
+the runner's two cores, until the owner asked why CI minutes were being
+spent to find them.
+
+- **One push per landing.** Commits wait for the landing gate on the
+  final head and go up together. Two pieces of work that will both land
+  today share one push; say so in the report instead of pushing the first.
+- **"Passes here" is evidence only in CI's conditions.** Before pushing a
+  fix for a failure seen only in CI, run the failed job's target in the
+  job's own image at the runner's size (CPU and memory limits, UTC, a
+  clean export of the commit; `repo-tooling` has the `ci-local` target
+  and the runner sizes), as many times as it took to
+  fail. A fix that was not reproduced first is a guess paid for by the
+  next run.
+- **Rerun one job, once, with a reason.** `gh run rerun <id> --failed`
+  reruns only the failed jobs. It is for a failure shown not to be the
+  code's (a lost runner, a registry timeout in the log) or one the
+  CI-conditions run above passes repeatedly; the report names which. The
+  whole workflow is never rerun, and a second red is a bug to fix.
+- **Do not verify the same commit twice.** A release or deploy workflow
+  on a tag whose commit already has a green run reuses that result
+  (`gh run list --commit <sha> --status success`) and builds; it does not
+  repeat the tests.
+- **Report the clock.** Every watched run is reported with its duration.
+  The project's agent instructions state a budget for the run; over it,
+  read per-job durations (`gh run view <id> --json jobs`) and hand the
+  slowest job to `repo-tooling` before adding shards, which bill their
+  setup again each.
 
 ## Orchestrating agents
 
