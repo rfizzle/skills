@@ -52,6 +52,9 @@ dependency order and stops them in reverse.
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
+	// After the first signal, restore the default handling, so a second
+	// Ctrl-C kills a drain that hangs instead of being swallowed.
+	context.AfterFunc(ctx, stop)
 	if err := app.Run(ctx); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)

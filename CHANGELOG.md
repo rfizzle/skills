@@ -6,6 +6,13 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- `go-auth`: verifying a token's signature is not validating its claims, with the expired, not-yet-valid and wrong-audience tests that prove it; rows no tenant owns are widened into reads only and written through a separate tenant-only method; three invariants for editable roles when the owner asks for them; the session id is never returned in the sign-in response body; required tests gain the least-privileged user through the real middleware, every route outside an explicit public list refusing an anonymous caller, and a tenant administrator's write to a shared row.
+- `ui-patterns`: a callback for an action that can fail returns a promise, so a unit below the screen shows progress and the outcome without calling the API; every nav item and in-app link resolves to a route, and an unbuilt destination or action is left out.
+- `golang-security`: a secret is never a command-line flag and a command that prints configuration redacts it; a key generator writes 0600 and refuses to overwrite.
+- `golang-design-patterns`: the shutdown example restores default signal handling after the first signal, so a second one ends a hung drain.
+
 ## [0.12.0] - 2026-11-16
 
 ### Changed

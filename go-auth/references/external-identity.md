@@ -54,6 +54,12 @@ record.
   require `iss`, `aud`, `exp` and a lifetime of 15 minutes or less.
   Signing keys come from a JWKS with `kid`, cached with a refresh on an
   unknown `kid`.
+- Verifying a signature is not validating claims. Many token libraries'
+  `Verify` or `Parse` (JWT and PASETO alike) check the signature and decode,
+  and leave `exp`, `nbf`, `aud` and `iss` to a second call or an option the
+  caller must pass. Read the library's source for which it is, and prove it
+  with tests: a correctly signed token that is expired, one not yet valid,
+  and one with another audience or issuer are each refused.
 - The token resolves to a `Principal` with `Via` set to a third value
   (`AuthJWT`) and scopes, then everything downstream is unchanged.
 - No JWT in a browser: the SPA always uses the session cookie. No refresh

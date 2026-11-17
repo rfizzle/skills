@@ -10,6 +10,13 @@ Hardcoded secrets, credentials, and sensitive data in source code is a major sec
    and slog `LogValue` print `***`. No `os.Getenv` elsewhere in the code.
 2. NEVER commit secrets to VCS.
 3. `.gitignore` MUST exclude secret files (`.env`, `*.key`, `*.pem`).
+4. A secret is never a command-line flag (`--password`, `--signing-key`):
+   the value shows in the process list and in shell history. A command that
+   needs one reads the environment or a file path. A command that prints
+   the configuration prints the `Secret` fields as `***`.
+5. A command that generates key material writes it mode 0600 and refuses
+   to overwrite an existing file: replacing a data-encryption key orphans
+   everything already encrypted with it.
 
 ---
 

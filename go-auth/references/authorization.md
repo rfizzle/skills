@@ -101,6 +101,13 @@ the constants never changes data. Adding a permission is a code change
 reviewed like any other; there is no admin-editable permission table
 unless the owner asks for one.
 
+When the owner does ask for editable roles, three invariants hold. A
+permission name in a write is checked against the table in code, and an
+unknown one is refused. An update never changes a role's scope (which
+tenant owns it, whether it is built in): those fields are set at creation
+and absent from the update. A built-in role is never edited in place; a
+tenant that wants a variant gets a copy it owns.
+
 ## A Can function
 
 ```go
@@ -160,6 +167,14 @@ has the column and an index that starts with it. A single-tenant app uses
 the owning user as the tenant. A review that finds a query without the
 filter treats it as a vulnerability, not a style issue.
 
+Rows that belong to no tenant (built-in roles, templates, defaults) are
+the one case where a read widens the filter: `tenant_id = $1 OR tenant_id
+IS NULL`. That lookup is for reads only. A write that reuses it lets one
+tenant's administrator change a row every tenant shares, so updates and
+deletes go through a separate method that filters on `tenant_id = $1`
+alone, and shared rows change only through a migration or a
+platform-administrator route.
+
 ## Mapping errors
 
 | Module error | HTTP (OpenAPI) | Connect |
@@ -176,6 +191,9 @@ filter treats it as a vulnerability, not a style issue.
 | No principal in the context | `ErrUnauthenticated`, and no repository call |
 | Another tenant's id | `ErrNotFound` |
 | A role without the permission | `ErrForbidden` |
+| The least-privileged real user (lowest role, one tenant, no optional relation set), through the real middleware | a permitted read succeeds |
+| Every registered route or procedure, called with no principal | 401 or `unauthenticated`, unless it is on the test's explicit public list |
+| A tenant administrator writes to a row no tenant owns | `ErrNotFound`, and the row is unchanged |
 | An API key whose scopes lack the permission, owner has it | `ErrForbidden` |
 | Session idle past the limit, and past the absolute limit | anonymous, cookie cleared |
 | The pre-sign-in session id after `Start` | anonymous |
@@ -188,3 +206,9 @@ Module tests set the principal with `domain.WithPrincipal` and use a fake
 repository; the session and CSRF cases run through the real middleware
 with `httptest` and a real database behind the integration tag
 (`golang-database`).
+
+The route case takes its list from the contract (the proto descriptors or
+the OpenAPI document), not from a list kept by hand, so a new route fails
+until it is either protected or added to the public list on purpose. The
+least-privileged case exists because fixtures drift towards administrators:
+when every test user is one, the path most users take never runs.

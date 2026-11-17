@@ -5,6 +5,10 @@
 - **Links go places, buttons do things.** Anything that changes the URL is
   an `a` with an `href`, so it can be opened in a new tab and its
   destination is announced. Anything that acts in place is a `button`.
+- **Nothing leads nowhere.** Every nav item and in-app link resolves to a
+  route that exists, in every nav that lists it (desktop and mobile read
+  one list). A destination or action that is not built yet is left out,
+  not shipped as a link to a missing route or a button with no handler.
 - **Landmarks**: one `header`, one `main`, `nav` elements each with a label
   when there is more than one ("Primary", "Breadcrumb"), `footer`. A skip
   link to `main` is the first focusable element.
@@ -34,6 +38,7 @@
 ## Checklist
 
 - [ ] URL changes use links; in-place actions use buttons.
+- [ ] Every nav item and in-app link resolves to a route; no control without a handler.
 - [ ] Landmarks present and labelled; skip link to `main` works.
 - [ ] Active item has `aria-current="page"` and a non-colour indicator.
 - [ ] Unique document title per route; one `h1`; no skipped heading levels.

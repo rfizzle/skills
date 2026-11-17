@@ -61,6 +61,11 @@ through `ui-component-contract`.
 - Data enters a unit through its props; the unit reports user intent
   through callbacks or events (`onSelect`, `onDismiss`). Name callbacks for
   the intent, not the DOM event.
+- A callback for an action that can fail returns a promise
+  (`onCreate(values): Promise<void>`). The unit awaits it to show progress,
+  ignore a repeat submit, keep its input on rejection and reset on success;
+  the screen owns the call. A form in a panel that has no way to learn the
+  outcome ends up calling the API itself.
 - Only screens fetch; every other layer gets data through its props.
   The exception, a self-contained interaction such as inline edit-and-save,
   is written in the unit's card.

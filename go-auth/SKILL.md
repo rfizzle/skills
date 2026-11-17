@@ -141,7 +141,10 @@ Every auth module and every module with a `Can...` function proves:
 unauthenticated is refused; another tenant's id is not found; an idle- and
 an absolute-expired session are refused; the pre-rotation id is refused
 after sign-in; the per-account limit answers 429; an unsafe request without
-the required header, or with `Sec-Fetch-Site: cross-site`, is 403.
+the required header, or with `Sec-Fetch-Site: cross-site`, is 403; the
+least-privileged real user completes a permitted request through the real
+middleware; every route not on the explicit public list refuses an
+anonymous caller.
 
 ## Gotchas
 
@@ -155,6 +158,12 @@ the required header, or with `Sec-Fetch-Site: cross-site`, is 403.
   method is no check: the next caller skips it. The check lives in the
   module.
 - Forgetting rotation on sign-in is session fixation.
+- The session id travels in the `Set-Cookie` header only. Returning it in
+  the sign-in response body as well hands it to any script that can read
+  the response, which is what `HttpOnly` was for.
+- A lookup widened to include rows no tenant owns (built-in roles,
+  templates) is for reads; reused for a write, it lets one tenant edit what
+  all tenants share (`references/authorization.md`).
 - `Secure` off is allowed only when a dev flag is set and both the listener
   and the configured public origin are loopback; startup fails otherwise.
   The cookie then drops the `__Host-` prefix, which requires `Secure`.
