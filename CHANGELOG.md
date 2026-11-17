@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-17
+
 ### Changed
 
 - `repo-tooling`: a new reference, `makefile-structure.md`, for the layout of a Makefile in a repository of any language: a fixed preamble with `pipefail`, areas split into `mk/` fragments, recipes of at most three commands with the rest in scripts, `.PHONY` beside each target, parameters that never take an environment variable's name, descriptions of at most 80 characters, one help recipe that prints names with digits and sizes its column, gate names written once in group variables that bundles and CI slices are built from, and an audit list. The skeleton in `makefile.md` follows it, and the skill now triggers on any repository's Makefile.
