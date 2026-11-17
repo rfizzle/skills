@@ -6,6 +6,8 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-17
+
 ### Added
 
 - `deterministic-tests`: why a test passes here and fails in CI or under load, and the rules that stop it: wait on state and never on time, time only under a fake clock or when time is the behaviour, no elapsed-time assertions, the specific expected value, an assertion broken on purpose once. Ships the wall-clock check for Go tests (`scripts/test-time-check.bash`), the lint rules for play and browser tests, the stress run, and the procedure for a failure seen only in CI, with a Go and a browser reference.
