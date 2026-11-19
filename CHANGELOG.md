@@ -6,6 +6,10 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Removed
+
+- `guided-ops`, `cloudflare-edge` and `credential-rotation`: they were about running the owner's own hosts and devices, not building or running a repository's code, so they do not belong in the shared set. `project-docs` no longer names the device page or the exposure list (`docs/edge.md`) that they owned.
+
 ## [0.14.0] - 2026-11-17
 
 ### Added

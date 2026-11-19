@@ -132,7 +132,7 @@ tunnel. Steps: `references/host-setup.md`.
 ## Alternatives
 
 - **Debian package under systemd**: a host agent that must drive Podman or
-  systemd itself (the owner's game-server agent), by decision record;
+  systemd itself (a vendor or host agent), by decision record;
   GoReleaser builds it (`repo-tooling`).
 - **Kubernetes**: only when the project already has a cluster.
 - **Cloudflare Workers**: static sites and small edge functions.

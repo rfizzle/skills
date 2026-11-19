@@ -22,7 +22,6 @@ design, installed as a package (`design-system`), not built per app.
 | API and data | `api-topology`, `connect-rpc`, `api-contract`, `golang-database`, `go-background-jobs` |
 | Go | `go-http-server`, `go-auth`, `go-library`, `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-benchmark`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
 | UI | `design-system`, `svelte-frontend`, `frontend-api-client`, `browser-e2e`, `ui-patterns`, `ui-component-contract`, `ui-sketch`, `ui-exploration`, `design-tokens`, `a11y-review`, `storybook-layout` |
-| Hosts and operations | `guided-ops`, `cloudflare-edge`, `credential-rotation` |
 | Security architecture | `security-architecture` |
 
 A skill exists because something went wrong without it. It holds what a
