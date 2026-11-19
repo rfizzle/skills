@@ -6,7 +6,7 @@
 
 **Diagnosis:**
 
-Use pprof goroutine profile (see [pprof.md](./pprof.md)) with `?debug=2` for human-readable output, then look for goroutines stuck in `chan receive`.
+Use pprof goroutine profile (`golang-performance`, `references/pprof.md`) with `?debug=2` for human-readable output, then look for goroutines stuck in `chan receive`.
 
 ```go
 // Programmatic monitoring — log goroutine count to detect leaks

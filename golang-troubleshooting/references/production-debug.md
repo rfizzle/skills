@@ -6,7 +6,7 @@ When paged for a production issue:
 
 ### Step 1: Capture Immediately (don't restart!)
 
-Capture all profiles before restarting the process. Use the curl commands from [pprof.md](./pprof.md), targeting your production server address. At minimum, capture: goroutine dump (`?debug=2`), heap, CPU (30s), and mutex profiles.
+Capture all profiles before restarting the process. Use the endpoints and `go tool pprof` commands in `golang-performance` (`references/pprof.md`, "From running service") against the production address; pprof is enabled and secured per `golang-observability` (`references/profiling.md`). At minimum, capture: goroutine dump (`?debug=2`), heap, CPU (30s), and mutex profiles.
 
 ### Step 2: System Metrics
 
@@ -19,7 +19,7 @@ netstat -an | grep ESTABLISHED | wc -l
 
 ### Step 3: Analyze Locally
 
-Download the captured `.prof` files and analyze with `go tool pprof` (see [pprof.md](./pprof.md)).
+Download the captured `.prof` files and analyze with `go tool pprof` (`golang-performance`).
 
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: golang-observability
-description: "Instrument and review Go services with structured slog logging, Prometheus metrics, OpenTelemetry traces, secured profiling, dashboards, alerts, and privacy-safe product telemetry. Use when adding production signals, correlating logs and traces, defining metric labels or buckets, adding spans, exposing pprof, creating alerts, or auditing whether a feature can be operated safely. Not for benchmarking methodology (use golang-benchmark) or non-Go services."
+description: "Instrument and review Go services with structured slog logging, Prometheus metrics, OpenTelemetry traces, secured profiling, dashboards, alerts, and privacy-safe product telemetry. Use when adding production signals, correlating logs and traces, defining metric labels or buckets, adding spans, exposing pprof, creating alerts, or auditing whether a feature can be operated safely. Not for benchmarking or reading profiles (use golang-performance) or non-Go services."
 license: MIT
 metadata:
   author: rfizzle
@@ -51,8 +51,9 @@ Prometheus, OpenTelemetry, or `slog` facilities already cover the need.
 
 ## Profiling
 
-Expose pprof only behind explicit configuration and network/authentication controls. Use
-temporary profiling for investigations and continuous profiling only after its overhead,
+Expose pprof only behind explicit configuration and network/authentication controls
+([profiling](references/profiling.md) has the handler setup). Reading profiles is
+`golang-performance`. Use temporary profiling for investigations and continuous profiling only after its overhead,
 retention, and access controls are accepted.
 
 ## Product telemetry and RUM
@@ -60,7 +61,10 @@ retention, and access controls are accepted.
 Product analytics and RUM are optional product decisions, not a default backend
 definition-of-done item. Add them only with an approved purpose, consent/legal basis,
 retention policy, deletion path, and data minimization. A product that handles sensitive user
-data should be especially conservative about session replay and identity data.
+data should be especially conservative about session replay and identity data. Use the
+internal immutable `user_id` as the analytics identity key, never an email; pass the frontend
+session ID in a header and set it as a span attribute to correlate a RUM session with its
+backend trace.
 
 ## Gate
 
@@ -79,7 +83,6 @@ Read the focused references only when needed:
 - [profiling](references/profiling.md)
 - [alerting](references/alerting.md)
 - [dashboards](references/dashboards.md)
-- [privacy and RUM](references/rum.md)
 
-Use `golang-benchmark` for temporary performance measurement and
+Use `golang-performance` for temporary performance measurement and
 `golang-troubleshooting` for incident diagnosis.

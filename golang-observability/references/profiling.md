@@ -1,16 +1,45 @@
-# Profiling and Continuous Profiling
+# Profiling in a Running Service
 
-→ See `golang-troubleshooting` skill (pprof.md) for on-demand debugging.
+Capturing and reading profiles (profile types, `top`/`list`, flamegraphs, heap diffs, traces): `golang-performance` (`references/pprof.md`, `trace.md`). This file is only the production-exposure side.
 
-## What Profiling Is
+## Exposing pprof
 
-Profiling analyzes the runtime behavior of your program — where CPU time is spent, how memory is allocated, which goroutines are blocked, and where lock contention occurs. While metrics tell you "the service is slow," profiling tells you "this specific function on line 42 is the bottleneck."
+pprof endpoints MUST be protected with basic auth (or network isolation) and NEVER exposed publicly: they leak goroutine stacks and memory contents, and CPU profiling is expensive enough to DoS the service. Toggle with `PPROF_ENABLED`. Register the handlers explicitly on a mux; do not rely on `import _ "net/http/pprof"` on a public listener (it registers on `DefaultServeMux`). Locally, `localhost:6060` with the blank import is fine.
 
-## On-Demand Profiling with `pprof`
+```go
+import "net/http/pprof"
 
-pprof endpoints MUST be protected with basic auth — NEVER expose them publicly. They leak sensitive runtime information and can be abused for DoS.
+func setupPprof(mux *http.ServeMux) {
+    if os.Getenv("PPROF_ENABLED") != "true" {
+        return
+    }
+    auth := basicAuth(os.Getenv("PPROF_USERNAME"), os.Getenv("PPROF_PASSWORD"))
+    mux.Handle("/debug/pprof/", auth(http.HandlerFunc(pprof.Index)))
+    mux.Handle("/debug/pprof/cmdline", auth(http.HandlerFunc(pprof.Cmdline)))
+    mux.Handle("/debug/pprof/profile", auth(http.HandlerFunc(pprof.Profile)))
+    mux.Handle("/debug/pprof/symbol", auth(http.HandlerFunc(pprof.Symbol)))
+    mux.Handle("/debug/pprof/trace", auth(http.HandlerFunc(pprof.Trace)))
+    slog.Info("pprof endpoints enabled (basic auth required)")
+}
 
-→ See `golang-troubleshooting` pprof.md for the full pprof CLI reference (profile types, capturing, analyzing, commands).
+func basicAuth(username, password string) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            u, p, ok := r.BasicAuth()
+            if !ok || u != username || subtle.ConstantTimeCompare([]byte(p), []byte(password)) != 1 {
+                w.Header().Set("WWW-Authenticate", `Basic realm="pprof"`)
+                http.Error(w, "unauthorized", http.StatusUnauthorized)
+                return
+            }
+            next.ServeHTTP(w, r)
+        })
+    }
+}
+```
+
+- The server's `WriteTimeout` must exceed the capture length (`?seconds=30` for CPU, and for `/trace`), or the profile is cut off.
+- Heap is a snapshot and cheap; a 30s CPU profile is the expensive one. Mutex and block profiles are empty until `runtime.SetMutexProfileFraction` / `SetBlockProfileRate` is set (`golang-performance`).
+- During an incident capture before restarting: goroutine dump (`/debug/pprof/goroutine?debug=2`), heap, 30s CPU, mutex.
 
 ## Continuous Profiling with Pyroscope
 
@@ -63,6 +92,17 @@ Continuous profiling adds overhead to every running instance — CPU for collect
 - Toggle via environment variable (`PROFILING_ENABLED`) — enable only when needed or on a subset of instances
 - Start with CPU + heap profiles only; add mutex/block/goroutine profiles when investigating specific issues
 - In large deployments, enable continuous profiling on a fraction of replicas (e.g., 1 in 10) rather than all of them
+
+### Other continuous-profiling backends
+
+| Tool | Model | Overhead | Best for |
+| --- | --- | --- | --- |
+| **Grafana Pyroscope** | push SDK, or pull via Grafana Alloy scraping `/debug/pprof/*` (no code change) | ~2-5% | Grafana ecosystem, historical flamegraph comparison |
+| **Parca** (Polar Signals) | eBPF-based pull | <1% | Infrastructure-wide profiling, no code changes |
+| **Datadog Continuous Profiler** | push (agent) | ~1-2% | Existing Datadog users |
+| **Google Cloud Profiler** | push (agent) | ~1-2% | GCP-hosted Go services |
+
+Continuous profiles also feed PGO (`golang-performance`, `runtime.md`). For library API details use the library's own documentation.
 
 ## When to Profile
 

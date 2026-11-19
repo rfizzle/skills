@@ -1,6 +1,6 @@
 ---
 name: golang-performance
-description: "Go performance optimization patterns: if a given bottleneck, then apply a given fix. Covers allocation reduction, CPU efficiency, memory layout, GC tuning, pooling, caching, and hot-path optimization. Use when profiling or benchmarks have identified a bottleneck, or when reviewing code for performance wins. Not for measurement methodology (see golang-benchmark) or debugging workflow (see golang-troubleshooting)."
+description: "Measure and optimize Go performance: write, run and compare benchmarks (b.Loop, benchstat), profile with pprof and execution traces, set up CI benchmark regression detection, investigate production runtime metrics, then apply the fix for the bottleneck found (allocations, CPU, GC tuning, pooling, caching, I/O). Use when benchmarking, profiling, or optimizing a hot path, or reviewing code for performance wins. Not for debugging a crash or wrong behaviour (golang-troubleshooting), exposing pprof in production, continuous profiling or alerts (golang-observability), or test timing and flakiness (deterministic-tests)."
 license: MIT
 metadata:
   author: rfizzle
@@ -9,51 +9,69 @@ metadata:
 
 **Modes:**
 
-- **Review mode (architecture)** — broad scan of a package or service for structural
-  anti-patterns. Partition independent concerns only when the current client supports
-  parallel work and the audit is broad enough to benefit.
-- **Review mode (hot path)** — focused analysis of a single function or measured loop.
-  Work sequentially.
-- **Optimize mode** — a bottleneck has been identified by profiling. Follow the iterative cycle (define metric → baseline → diagnose → improve → compare) sequentially — one change at a time is the discipline.
+- **Review (architecture)**: broad scan of a package or service for structural anti-patterns;
+  partition independent concerns only when the client supports parallel work.
+- **Review (hot path)**: one function or measured loop, sequentially.
+- **Optimize**: a bottleneck is identified. Define the metric, baseline, diagnose, change ONE
+  thing, compare.
 
-# Go Performance Optimization
+# Go Performance: Measure, Then Fix
 
-## Core Philosophy
-
-1. **Profile before optimizing** — use representative benchmarks and profiles to find
-   actual hot spots (→ See `golang-troubleshooting`).
-2. **Follow the measured signal** — allocation reduction often helps GC-sensitive paths,
-   but CPU, I/O, locks, queries, and algorithms may dominate elsewhere.
-3. **Document optimizations** — add code comments explaining why a pattern is faster, with benchmark numbers when available. Future readers need context to avoid reverting an "unnecessary" optimization
+Profile before optimizing; follow the measured signal (CPU, I/O, locks, queries and
+algorithms can dominate instead of allocations); comment why an optimization is faster, with
+numbers, so nobody reverts it.
 
 ## Rule Out External Bottlenecks First
 
-Before optimizing Go code, verify the bottleneck is in your process — if 90% of latency is a slow DB query or API call, reducing allocations won't help.
+If 90% of latency is a slow query or API call, reducing allocations will not help. Check with
+`fgprof` (on-CPU plus off-CPU time; off-CPU dominating means external), the goroutine profile
+(many goroutines blocked in network or pool frames), and trace span breakdown. When external,
+fix that component: query tuning, caching, pools, circuit breakers.
 
-**Diagnose:** 1- `fgprof` — captures on-CPU and off-CPU (I/O wait) time; if off-CPU dominates, the bottleneck is external 2- `go tool pprof` (goroutine profile) — many goroutines blocked in network or pgxpool frames indicate external wait 3- Distributed tracing (OpenTelemetry) — span breakdown shows which upstream is slow
+## Measure
 
-**When external:** optimize that component instead — query tuning, caching, connection pools, circuit breakers).
+Run the repository's generation step first; use `benchstat` only if available or approved.
 
-## Iterative Optimization Methodology
+- Use `b.Loop()` (Go 1.24+): it stops the compiler eliminating the call and excludes setup
+  before the loop from timing. Migrate `for range b.N` loops (they need `b.ResetTimer()` and a
+  sink variable). `b.ReportAllocs()` or `-benchmem`; `b.ReportMetric` for custom units.
+- One function per benchmark; sub-benchmarks with `b.Run` for sizes.
+- Baseline and compare: `go test -bench=BenchmarkX -benchmem -count=10 ./pkg | tee old.txt`,
+  change, rerun to `new.txt`, then `benchstat old.txt new.txt`. Only claim a result benchstat
+  marks significant (never one shown as `~`).
+- Profiles straight from a benchmark, no server: `-cpuprofile=cpu.prof`,
+  `-memprofile=mem.prof` (`go tool pprof -alloc_objects mem.prof` for GC churn,
+  `-inuse_space` for leaks), `-trace=trace.out` (`go tool trace`).
+- Output: `BenchmarkEncode/size=64-8  5000000  230.5 ns/op  128 B/op  2 allocs/op`; `-8` is
+  GOMAXPROCS.
+- Commit a performance change as `perf(scope): summary` with the benchstat rows of the
+  affected benchmarks only, plus the `goos/goarch/cpu` line, in the body. Keep durable
+  evidence in the change or issue, not a `./bench/` directory.
 
-Run any repository-required generation step before benchmarks or tests. Use optional
-profiling and comparison tools only when they are installed or their installation is
-approved.
+```
+perf(parser): reduce Parse allocations 50% with sync.Pool
 
-### The cycle: Define Goals → Benchmark → Diagnose → Improve → Benchmark
+goos: linux / goarch: amd64 / cpu: AMD Ryzen 9 5950X
+          │   old    │            new             │
+          │  B/op    │  B/op     vs base          │
+Parse-32   1.024Ki ± 0%  0.512Ki ± 0%  -50.00% (p=0.000 n=10)
+```
 
-1. **Define your metric** — latency, throughput, memory, or CPU? Without a target, optimizations are random
-2. **Write an atomic benchmark** — isolate one function per benchmark to avoid result contamination (→ See `golang-benchmark` skill)
-3. **Measure baseline** — `go test -bench=BenchmarkMyFunc -benchmem -count=6 ./... | tee ./bench/report-1.txt`
-4. **Diagnose** — use the **Diagnose** lines in each deep-dive section to pick the right tool
-5. **Improve** — apply ONE optimization at a time with an explanatory comment
-6. **Compare** — `benchstat ./bench/report-1.txt ./bench/report-2.txt` to confirm statistical significance
-7. **Commit** — paste the benchstat output in the commit body so reviewers and future readers see the exact improvement; follow the `perf(scope): summary` commit type
-8. **Repeat** — preserve durable results in the change/issue; temporary `./bench/` reports
-   may be removed after the evidence is recorded
+Load when needed:
 
-Refer to official library documentation for known patterns before inventing custom
-solutions. Record durable benchmark evidence in the change, issue, or review.
+- [pprof](references/pprof.md): profile types, enabling mutex/block profiles, CLI commands, comparing profiles, reading output.
+- [trace](references/trace.md): execution tracer, when pprof's "where" is not enough.
+- [benchstat](references/benchstat.md): output, filtering, comparisons, regression detection.
+- [compiler analysis](references/compiler-analysis.md): escape analysis, inlining, SSA, assembly; when allocations are unexpected.
+- [tools](references/tools.md): fieldalignment, GODEBUG, fgprof, race detector, expvar.
+- [CI regression](references/ci-regression.md): benchdiff, cob, gobenchdata, noisy-neighbour and runner tuning.
+- [investigation session](references/investigation-session.md): production metrics workflow, PromQL queries, cost warnings.
+- [Prometheus Go metrics](references/prometheus-go-metrics.md): every Go runtime metric `client_golang` exposes.
+
+## CI Regression Detection
+
+Compare benchmarks in CI so regressions are caught before production; tool choice and runner
+tuning are in the CI regression reference.
 
 ## Decision Tree: Where Is Time Spent?
 
@@ -65,7 +83,7 @@ solutions. Record durable benchmark evidence in the change, issue, or review.
 | Network / I/O latency | goroutines blocked on I/O | [I/O & networking](references/io-networking.md) |
 | Repeated expensive work | same computation/fetch multiple times | [Caching patterns](references/caching.md) |
 | Wrong algorithm | O(n²) where O(n) exists | [Algorithmic complexity](references/caching.md#algorithmic-complexity) |
-| Lock contention | mutex/block profile hot | → See `golang-concurrency` skill |
+| Lock contention | mutex/block profile hot | Shrink the critical section, shard locks, `atomic` for counters, `RWMutex` when reads dominate; → See `golang-concurrency` skill |
 | Slow queries | DB time dominates traces | tune the query and the pool before the Go code |
 
 ## Common Mistakes
@@ -80,28 +98,8 @@ solutions. Record durable benchmark evidence in the change, issue, or review.
 | No GC tuning in containers | Set `GOMEMLIMIT` to 80-90% of container memory to prevent OOM kills |
 | `reflect.DeepEqual` in production | 50-200x slower than typed comparison; use `slices.Equal`, `maps.Equal`, `bytes.Equal` |
 
-## Deep Dives
+## Not for
 
-- [Memory Optimization](references/memory.md) — allocation patterns, backing array leaks, sync.Pool, struct alignment
-- [CPU Optimization](references/cpu.md) — inlining, cache locality, false sharing, ILP, reflection avoidance
-- [I/O & Networking](references/io-networking.md) — HTTP transport config, streaming, JSON performance, cgo, batch operations
-- [Runtime Tuning](references/runtime.md) — GOGC, GOMEMLIMIT, GC diagnostics, GOMAXPROCS, PGO
-- [Caching Patterns](references/caching.md) — algorithmic complexity, compiled patterns, singleflight, work avoidance
-- [Production Observability](references/observability.md) — Prometheus metrics, PromQL queries, continuous profiling, alerting rules
-
-When adding Prometheus performance alerts, adapt
-[the example alert rules](assets/prometheus-alerts.yml) to the service's metric names,
-labels, and error-budget policy; do not copy thresholds without validating them against a
-measured baseline.
-
-## CI Regression Detection
-
-Automate benchmark comparison in CI to catch regressions before they reach production. → See `golang-benchmark` skill for `benchdiff` and `cob` setup.
-
-## Cross-References
-
-- → See `golang-benchmark` skill for benchmarking methodology, `benchstat`, and `b.Loop()` (Go 1.24+)
-- → See `golang-troubleshooting` skill for pprof workflow, escape analysis diagnostics, and performance debugging
-- → See the memory and CPU references in this skill for preallocation and `strings.Builder`
-- → See `golang-concurrency` skill for worker pools, `sync.Pool` API, goroutine lifecycle, and lock contention
-- → See `golang-observability` skill for continuous profiling in production
+- Why something is broken, crashes, deadlocks: `golang-troubleshooting`.
+- Exposing pprof, runtime metrics, alerts, continuous profiling in production: `golang-observability`.
+- Worker pools, `sync.Pool` API, lock contention: `golang-concurrency`.

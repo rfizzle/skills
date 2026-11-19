@@ -248,63 +248,14 @@ Exposed by Prometheus `process` collector (not Go-specific):
 
 ## Common PromQL Queries
 
-### Memory Leak Detection
+GC, memory, goroutine and CPU queries: [investigation-session.md](./investigation-session.md). Alert rules: `golang-observability` (`references/alerting.md`). File descriptors:
 
 ```promql
-# Current heap allocation (should be stable under constant load)
-go_memstats_alloc_bytes
-
-# Live heap bytes (optional metric)
-go_gc_heap_live_bytes
-
-# Heap growth rate
-rate(go_memstats_alloc_bytes_total[5m])
+delta(process_open_fds[1h])          # FD growth
+process_open_fds / process_max_fds   # FD saturation ratio
 ```
 
-### GC Pressure
-
-```promql
-# Worst-case GC pause (quantile 1 = max)
-go_gc_duration_seconds{quantile="1"}
-
-# Average GC pause
-rate(go_gc_duration_seconds_sum[5m]) / rate(go_gc_duration_seconds_count[5m])
-
-# GC frequency (cycles per second)
-rate(go_gc_duration_seconds_count[5m])
-```
-
-### Goroutine Leaks
-
-```promql
-# Current goroutine count
-go_goroutines
-
-# Goroutine growth (leak indicator)
-delta(go_goroutines[1h])
-```
-
-### CPU Usage
-
-```promql
-# Total CPU time consumed
-rate(process_cpu_seconds_total[5m])
-
-# CPU utilization ratio (0-1)
-rate(process_cpu_seconds_total[5m]) / <GOMAXPROCS>
-```
-
-### File Descriptor Leaks
-
-```promql
-# FD growth
-delta(process_open_fds[1h])
-
-# FD saturation ratio
-process_open_fds / process_max_fds
-```
-
-Execute these queries through the project's documented Prometheus or Grafana workflow.
+Run queries through the project's documented Prometheus or Grafana workflow.
 
 ## References
 

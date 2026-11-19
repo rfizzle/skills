@@ -1,6 +1,6 @@
 ---
 name: golang-troubleshooting
-description: "Troubleshoot Golang programs systematically - find and fix the root cause. Use when encountering bugs, crashes, deadlocks, or unexpected behavior in Go code. Covers debugging methodology, common Go pitfalls, test-driven debugging, pprof setup and capture, Delve debugger, race detection, GODEBUG tracing, and production debugging. Start here for any 'something is wrong' situation. Not for interpreting profiles or benchmarking (see golang-benchmark skill) or applying optimization patterns (see golang-performance skill)."
+description: "Troubleshoot Golang programs systematically - find and fix the root cause. Use when encountering bugs, crashes, deadlocks, or unexpected behavior in Go code. Covers debugging methodology, common Go pitfalls, test-driven debugging, Delve debugger, race detection, GODEBUG tracing, and production debugging. Start here for any 'something is wrong' situation. Not for interpreting profiles, benchmarking, pprof capture or applying optimization patterns (see golang-performance skill), or exposing pprof or production metrics (see golang-observability skill)."
 license: MIT
 metadata:
   author: rfizzle
@@ -9,8 +9,8 @@ metadata:
 
 **Modes:**
 
-- **Single-issue debug** (default): Follow the sequential Golden Rules — read the error,
-  reproduce, and test one hypothesis at a time.
+- **Single-issue debug** (default): read the error, reproduce, and test one hypothesis at a
+  time.
 - **Codebase bug hunt** (explicit audit of a large codebase): partition independent bug
   categories only when the current client supports parallel work and the user requested a
   broad sweep. Keep a single reported issue sequential.
@@ -26,8 +26,8 @@ When the user reports a bug, crash, performance problem, or unexpected behavior 
 code, diagnose it. Implement a fix only when the request includes fixing it.
 
 1. **Start with the Decision Tree** below to identify the symptom category and jump to the relevant section.
-2. **Follow the Golden Rules** — especially: reproduce before proposing a fix, test one
-   hypothesis at a time, and find the root cause.
+2. **Follow the rules below**: reproduce before proposing a fix, test one hypothesis at a
+   time, and find the root cause.
 3. **Work through the General Debugging Methodology** step by step. Do not skip steps.
 4. **Watch for Red Flags** in your own reasoning. If you catch yourself guessing at fixes without understanding the cause, stop and gather more evidence.
 5. **Escalate tools incrementally.** Start with the simplest diagnostic (`fmt.Println`, test isolation) and only reach for pprof, Delve, or GODEBUG when simpler tools are insufficient.
@@ -56,87 +56,40 @@ WHAT ARE YOU SEEING?
 
 "Program hangs / frozen"
   → curl localhost:6060/debug/pprof/goroutine?debug=2
-  → See [concurrency-debug.md](./references/concurrency-debug.md), [pprof.md](./references/pprof.md)
+  → See [concurrency-debug.md](./references/concurrency-debug.md)
 
 "High CPU usage"
-  → pprof CPU profiling
-  → See [performance-debug.md](./references/performance-debug.md), [pprof.md](./references/pprof.md)
+  → CPU profile; reading it and fixing the bottleneck are `golang-performance`
 
 "Memory growing over time"
-  → pprof heap profiling
-  → See [performance-debug.md](./references/performance-debug.md), [concurrency-debug.md](./references/concurrency-debug.md)
+  → heap profile (`golang-performance`); goroutine leaks: [concurrency-debug.md](./references/concurrency-debug.md)
 
 "Slow / high latency / p99 spikes"
-  → CPU + mutex + block profiles
-  → See [performance-debug.md](./references/performance-debug.md), [diagnostic-tools.md](./references/diagnostic-tools.md)
+  → CPU + mutex + block profiles (`golang-performance`)
+  → See [diagnostic-tools.md](./references/diagnostic-tools.md)
 
 "Simple bug, easy to reproduce"
   → Write a test, add fmt.Println / log.Debug
   → See [testing-debug.md](./references/testing-debug.md)
 ```
 
-**Remember:** Read the Error → Reproduce → Measure One Thing → Fix → Verify
-
 Most Go bugs are: missing error checks, nil pointers, forgotten context cancel, unclosed resources, race conditions, or silent error swallowing.
 
-## The Golden Rules
+## Rules that matter in Go
 
-### 1. Read the Error Message First
-
-Go error messages are precise. Read them fully before doing anything else:
-
-- **File and line number** → go directly there
-- **Type mismatch** → check function signatures, interface satisfaction
-- **"undefined"** → check imports, exported names, build tags
-- **"cannot use X as Y"** → check concrete types vs interfaces
-
-### 2. Reproduce Before You Fix
-
-NEVER debug by guessing — reproduce first. Always:
-
-- Write a failing test that captures the bug
-- Make it deterministic
-- Isolate the minimal failing example
-- Use `git bisect` when history and a reliable good/bad command make it efficient
-
-### 3. If You Don't Measure It, You're Guessing
-
-Never rely on intuition for performance or concurrency bugs:
-
-- **pprof over intuition**
-- **race detector over reasoning**
-- **benchmarks over assumptions**
-
-### 4. One Hypothesis at a Time
-
-Change one thing, measure, confirm. If you change three things at once, you learn nothing.
-
-### 5. Find the Root Cause — No Workarounds
-
-A band-aid fix that masks the symptom IS NOT ACCEPTABLE. You MUST understand **why** the bug happens before writing a fix.
-
-When you don't understand the issue:
-
-- **Trace the data flow backwards** from the symptom to its origin.
-- **Question your assumptions.** The code you trust might be wrong.
-- **Ask "why" five times.** Keep going until you reach the actual root cause.
-- **Perform more troubleshooting checks.** More fmt.Println, more output inspection...
-
-### 6. Research the Codebase, Not Just the Diff
-
-Before flagging a bug or proposing a fix, trace the data flow and check for upstream handling. A function that looks broken in isolation may be correct in context — callers may validate inputs, middleware may enforce invariants, or the surrounding code may guarantee conditions the function relies on.
-
-1. **Trace callers** — search for every call site and inspect its values and guarantees.
-2. **Check upstream validation** — input parsing, type conversions, or guard clauses earlier in the chain may make the "bug" unreachable.
-3. **Read the surrounding code** — middleware, interceptors, or init functions may set up state the function depends on.
-
-**When the context reduces severity but doesn't eliminate the issue:** report it at the
-adjusted priority and explain which upstream guarantees protect it. Do not edit code merely
-to record a review observation unless the user requested changes.
-
-### 7. Start Simple
-
-Sometimes `fmt.Println` IS the right tool for local debugging. Escalate tools only when simpler approaches fail. NEVER use `fmt.Println` for production debugging — use `slog`.
+- **Reproduce first**: a failing, deterministic test of the minimal case; `git bisect run`
+  when a reliable good/bad command exists.
+- **Measure, do not reason**: race detector for concurrency, pprof for performance
+  (`golang-performance`), benchmarks over assumptions.
+- **One hypothesis at a time.** Change one thing, measure, confirm.
+- **Root cause, no band-aids**: trace the data flow backwards from the symptom; keep asking
+  why until you reach the cause.
+- **Research the codebase, not just the diff.** Before flagging a bug, trace every caller,
+  upstream validation, and middleware or init code that may make it unreachable. When
+  context lowers severity without removing the issue, report it at the adjusted priority and
+  name the upstream guarantee. Do not edit code merely to record a review observation.
+- **Start simple**: `fmt.Println` is fine locally; escalate to pprof, Delve or GODEBUG only
+  when simpler tools fail. In production use `slog`, never `fmt.Println`.
 
 ## Red Flags: You're Debugging Wrong
 
@@ -161,21 +114,16 @@ If any of these are happening, stop and return to Step 1:
 - **[Concurrency Debugging](./references/concurrency-debug.md)** — Race conditions,
   deadlocks, goroutine leaks, race-detector output, explicit shutdown tests, and stack dumps.
 
-- **[Performance Troubleshooting](./references/performance-debug.md)** — When your code is slow: CPU profiling workflow, memory analysis (heap vs alloc_objects profiles, finding leaks), lock contention (mutex profile), and I/O blocking (goroutine profile). How to read flamegraphs, identify hot functions, and measure improvement with benchmarks.
-
-- **[pprof Reference](./references/pprof.md)** — Complete pprof manual. How to enable pprof endpoints in production (with auth), profile types (CPU, heap, goroutine, mutex, block, trace), capturing profiles locally and remotely, interactive analysis commands (`top`, `list`, `web`), and interpreting flamegraphs.
-
 - **[Diagnostic Tools](./references/diagnostic-tools.md)** — Auxiliary tools for specific symptoms. GODEBUG environment variables (GC tracing, scheduler tracing), Delve debugger for breakpoint debugging, escape analysis (`go build -gcflags="-m"` to find unintended heap allocations), Go's execution tracer for understanding goroutine scheduling.
 
-- **[Production Debugging](./references/production-debug.md)** — Debugging live production systems without stopping them. Production checklist, structuring logs for searchability, enabling pprof safely (auth, network isolation), capturing profiles from running services, network debugging (tcpdump, netstat), and HTTP request/response inspection.
+- **[Production Debugging](./references/production-debug.md)** — Debugging live production systems without stopping them. Production checklist, structuring logs for searchability, capturing profiles from running services, network debugging (tcpdump, netstat), and HTTP request/response inspection.
 
 - **[Compilation Issues](./references/compilation.md)** — Build failures: module version conflicts, CGO linking problems, version mismatch between `go.mod` and installed Go version, platform-specific build tags preventing cross-compilation.
 
 - **[Code Review Red Flags](./references/code-review-flags.md)** — Patterns to watch during code review that signal potential bugs: unchecked errors, missing nil checks, concurrent map access, goroutines without clear exit, resource leaks from defer in loops.
 
-## Cross-References
+## Not for
 
-- → See `golang-performance` skill for optimization patterns after identifying bottlenecks
-- → See `golang-observability` skill for metrics, alerting, and Grafana dashboards for Go runtime monitoring
-- → Use the project's documented Prometheus or Grafana workflow during production incidents
-- → See `golang-concurrency` and `golang-error-handling`
+- Reading profiles, pprof capture, traces, benchstat, applying a fix for a known bottleneck: `golang-performance`.
+- Exposing pprof safely, metrics, alerts, continuous profiling: `golang-observability`.
+- `golang-concurrency` and `golang-error-handling` hold the patterns behind the fixes.

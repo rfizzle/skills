@@ -1,6 +1,6 @@
 ---
 name: golang-testing
-description: "Design, write, review, and debug Go tests, including table-driven unit tests, HTTP tests, integration tests, race detection, fuzzing, deterministic concurrency tests with testing/synctest, benchmarks, fixtures, and coverage. Use for any Go test change or test-strategy decision. Not for database fakes and pgxmock (golang-database) or benchmark measurement methodology (see golang-benchmark)."
+description: "Design, write, review, and debug Go tests, including table-driven unit tests, HTTP tests, integration tests, race detection, fuzzing, benchmarks, fixtures, and coverage. Use for any Go test change or test-strategy decision. Not for timing, flaky tests or testing/synctest (deterministic-tests), database fakes and pgxmock (golang-database) or benchmark measurement (see golang-performance)."
 license: MIT
 metadata:
   author: rfizzle
@@ -33,40 +33,11 @@ Use a focused `go test` command only after the preflight and retain `-race` when
 - A runnable `Example` with `// Output:` documents the main entry point
   (`project-docs`); an interface with two or more implementations gets a conformance
   suite (`go-conformance-suite`).
-- Use descriptive lowercase subtest names.
-- Use table-driven tests when cases share setup and assertion shape; do not force a table
-  around a single behavior with unique setup.
-- Keep tests independent of execution order and wall-clock timing.
-- Use `t.Helper`, `t.Cleanup`, `t.TempDir`, and `t.Setenv` for lifecycle and isolation.
+- Table-driven only when cases share setup and assertion shape.
+- Keep tests independent of execution order; timing is `deterministic-tests`.
 - Use `t.Parallel()` only when the test and all fixtures are concurrency-safe and do not
   share process-global state, ports, database rows, or environment variables.
 - Test public behavior and documented package invariants rather than private call order.
-
-```go
-func TestParseStatus(t *testing.T) {
-    tests := []struct {
-        name    string
-        input   string
-        want    Status
-        wantErr bool
-    }{
-        {name: "valid active status", input: "active", want: StatusActive},
-        {name: "unknown status", input: "wat", wantErr: true},
-    }
-
-    for _, tt := range tests {
-        t.Run(tt.name, func(t *testing.T) {
-            got, err := ParseStatus(tt.input)
-            if (err != nil) != tt.wantErr {
-                t.Fatalf("ParseStatus() error = %v, wantErr %v", err, tt.wantErr)
-            }
-            if got != tt.want {
-                t.Errorf("ParseStatus() = %v, want %v", got, tt.want)
-            }
-        })
-    }
-}
-```
 
 ## Repository and integration tests
 
@@ -86,58 +57,32 @@ testing reference when those tests are in scope.
 
 ## HTTP tests
 
-Use `httptest.NewRequest`, `httptest.NewRecorder`, or `httptest.NewServer`. Assert status,
-headers, body contract, authentication/authorization outcomes, and error mapping. Avoid
-calling handler internals directly when the HTTP boundary is the behavior under test.
+Assert through the HTTP boundary: status, headers, body contract, auth outcomes and error
+mapping.
 
 Read [HTTP testing](references/http-testing.md) for detailed patterns.
 
-## Deterministic concurrency tests
-
-In Go 1.25+, `testing/synctest` is stable. Use `synctest.Test`, not the removed
-experimental `synctest.Run` API:
-
-```go
-func TestTimeout(t *testing.T) {
-    synctest.Test(t, func(t *testing.T) {
-        ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-        defer cancel()
-
-        time.Sleep(time.Second)
-        synctest.Wait()
-        if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
-            t.Fatalf("ctx.Err() = %v, want deadline exceeded", ctx.Err())
-        }
-    })
-}
-```
-
-Keep the bubble self-contained: avoid real network I/O, external processes, and goroutines
-created outside it. Use the race detector for shared-memory behavior. Add a leak detector
-only if the project deliberately adopts and maintains that dependency.
+Timing, flakiness, wall-clock checks, quarantine and `testing/synctest`: `deterministic-tests`.
 
 ## Fuzzing and benchmarks
 
 - Seed fuzz tests with valid, empty, boundary, and previously failing inputs.
 - Assert invariants rather than duplicating implementation logic.
 - Use `b.Loop()` on Go 1.24+ and keep setup before the loop.
-- Use the `golang-benchmark` skill for statistically meaningful comparisons.
+- Use the `golang-performance` skill for statistically meaningful comparisons.
 
 ## Review checklist
 
 - New behavior, errors, and documented invariants are covered; each invariant has a
   test named for its behaviour.
 - Assertions fail with enough context to diagnose the case.
-- Tests do not depend on timeouts, order, or shared mutable globals; a sleep, a poll or
-  an elapsed-time bound is replaced as `deterministic-tests` says, and its wall-clock
-  check is in the project's gate.
+- Tests do not depend on order or shared mutable globals; sleeps, polls, timeouts and
+  elapsed bounds follow `deterministic-tests`.
 - Mocks model consumer interfaces, not implementation internals.
 - Integration boundaries use the integration build tag and real services intentionally.
 - Race-sensitive code is exercised under `-race`.
 - No new test dependency was added without clear value and approval.
-- No flaky test is retried in CI. Within the day it is quarantined behind a `flaky` build
-  tag or a `t.Skip` naming its linked issue, then fixed or deleted before the next release.
-  The cause is usually time, ordering or shared state; look there first.
+- Flaky tests: `deterministic-tests` (no CI retries; quarantine rules there).
 
 Read [helpers](references/helpers.md) and [mocking](references/mocking.md) only when the
 task needs those deeper patterns.

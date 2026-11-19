@@ -1,7 +1,8 @@
 # Deterministic tests in Go
 
-`golang-testing` owns structure, fixtures and `testing/synctest` usage.
-This file is what to write instead of a sleep, a poll or an elapsed bound.
+`golang-testing` owns test structure and fixtures. This file owns
+`testing/synctest`, flakiness and wall-clock: what to write instead of a
+sleep, a poll or an elapsed bound.
 
 ## Replacements
 
@@ -21,7 +22,8 @@ Each row is a change one service made to pass its wall-clock gate.
 ## The fake clock
 
 - Code that sleeps, sets a timer or a deadline is tested inside
-  `synctest.Test`: time advances only when every goroutine in the bubble
+  `synctest.Test` (stable in Go 1.25+; the experimental `synctest.Run` is
+  removed; use `t.Context()` inside): time advances only when every goroutine in the bubble
   is blocked, so a one-hour backoff costs nothing and cannot race.
 - The bubble cannot contain real network I/O, a child process or a
   goroutine started outside it. Code that mixes a timer with a socket gets
@@ -30,6 +32,10 @@ Each row is a change one service made to pass its wall-clock gate.
   consumer.
 - `synctest.Wait()` after the action is the "wait on state" for a bubble:
   it returns when everything the action started has blocked or finished.
+- Use `-race` for shared-memory behaviour. Add a goroutine-leak detector only
+  if the project deliberately adopts and maintains that dependency.
+- Quarantine (SKILL.md, "A failure only in CI") is a `flaky` build tag or a
+  `t.Skip` naming its linked issue; never a CI retry.
 
 ## The check
 

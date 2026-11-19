@@ -25,32 +25,11 @@ Before touching code, articulate clearly:
 - What **actually** happens?
 - What **changed** recently?
 
-```bash
-# What changed recently?
-git log --oneline -20
-git diff HEAD~5
-
-# Binary search for the breaking commit
-git bisect start
-git bisect bad          # current commit is broken
-git bisect good abc123  # this commit was working
-# git bisect will walk you to the breaking commit
-```
+Use `git bisect run` when there is a reliable good/bad command.
 
 ## Step 2: Get the Full Error
 
-```bash
-# Full build errors
-go build ./... 2>&1
-
-# Verbose test output
-go test ./... -v 2>&1
-
-# Static analysis
-go vet ./...
-
-# Also run the repository's lint target for its configured linters
-```
+Read the full output of the build, `go test -v` and `go vet`, not the summary line.
 
 Run the repository's lint target early in the debugging workflow. It applies the repository's configured
 checks and catches unchecked errors and suspicious constructs that are easy to miss by
@@ -80,35 +59,7 @@ Write more tests if you suspect missing test cases or need to test something in 
 
 Sometimes the bug is not in your code. Before diving deeper, verify that external components behave as expected:
 
-```bash
-# Reproduce an API call outside your app
-curl -v -X POST https://api.example.com/endpoint \
-  -H "Content-Type: application/json" \
-  -d '{"key": "value"}'
-
-# Check database content directly
-psql -h localhost -U myuser -d mydb -c "SELECT * FROM orders WHERE id = 123"
-# Or: mysql, mongosh, redis-cli, etc.
-# Or use a database MCP server to query interactively
-
-# Test connectivity and DNS resolution
-dig api.example.com
-nc -zv api.example.com 443
-
-# Check if an external service is responding at all
-curl -o /dev/null -s -w "HTTP %{http_code} in %{time_total}s\n" https://api.example.com/health
-
-# Inspect message queue state
-rabbitmqctl list_queues
-# Or: kafka-console-consumer, redis-cli LLEN, etc.
-
-# Check certificate validity
-openssl s_client -connect api.example.com:443 -brief
-
-# Verify environment variables and config
-env | grep DATABASE
-env | grep API_KEY
-```
+Reproduce the external call outside the app (`curl -v`), query the database directly, and check connectivity, certificate validity and the effective environment before diving deeper.
 
 **Common external causes:**
 

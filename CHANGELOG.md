@@ -10,6 +10,11 @@ All notable changes to this repository. The format follows
 
 - `guided-ops`, `cloudflare-edge` and `credential-rotation`: they were about running the owner's own hosts and devices, not building or running a repository's code, so they do not belong in the shared set. `project-docs` no longer names the device page or the exposure list (`docs/edge.md`) that they owned.
 
+### Changed
+
+- Removed duplicated content so each topic has one home. `golang-testing` points at `deterministic-tests` for timing, flaky tests and `testing/synctest` (the Go-version and quarantine facts moved into its Go reference) and drops its table-test and basic `httptest` tutorial. The pprof, performance-debug and Prometheus-alert references in `golang-troubleshooting` and `golang-performance` are gone: reading profiles stays with the measurement references, exposing pprof and continuous profiling in `golang-observability`, and the optimization cycle in `golang-performance` is a pointer to the measurement workflow. `golang-troubleshooting` keeps only the Go-specific debugging rules, and its Cross-References sections (and that of `golang-performance`) are now short "Not for" lists. `golang-observability` drops `rum.md`; the rule stays in its `SKILL.md`.
+- `golang-benchmark` is merged into `golang-performance`: one skill now covers measuring (benchmarks, pprof, traces, benchstat, CI regression gates) and the bottleneck-to-fix patterns, and its references moved over unchanged. Projects that vendored `golang-benchmark` should sync `golang-performance` instead.
+
 ## [0.14.0] - 2026-11-17
 
 ### Added

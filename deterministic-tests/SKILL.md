@@ -124,7 +124,7 @@ test a regression, run it on the default branch at the same severity.
   the fixture to what shows the behaviour first.
 - Timing tests do not belong in the CI gate. A measured duration is a
   benchmark, run on a quiet machine and compared statistically
-  (`golang-benchmark`); in the gate it is rule 3.
+  (`golang-performance`); in the gate it is rule 3.
 - A fake clock does not cover a real socket, a child process or the
   kernel. Those tests are the integration tier, tagged, and wait on the
   peer's own signal (a line it logs, a byte on a pipe).
