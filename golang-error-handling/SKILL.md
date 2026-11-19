@@ -47,7 +47,7 @@ At the boundary:
 
 ```go
 if err := worker.Run(ctx); err != nil {
-    logger.ErrorContext(ctx, "analysis worker failed", "error", err, "job_id", jobID)
+    logger.ErrorContext(ctx, "worker failed", "error", err, "job_id", jobID)
 }
 ```
 

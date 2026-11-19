@@ -29,11 +29,11 @@ go doc log/slog.HandlerOptions                        # read the contract
 
 ## Measure, and normalize
 
-Raw counts lie. Comparing naked returns between this repo and four stdlib
-packages: 617 in the stdlib against 184 here, which reads as "the stdlib uses
-them three times more". Per thousand lines it is 6.47 against 1.51 — more than
-four times — and the direction of the surprise is the opposite of what the raw
-numbers suggested.
+Raw counts lie. One comparison of naked returns between a service and four
+stdlib packages found 617 in the stdlib against 184 in the service, which reads
+as "the stdlib uses them three times more". Per thousand lines it was 6.47
+against 1.51 — more than four times. The size of each corpus changed the
+answer, so the count alone could not be trusted.
 
 ```bash
 # always divide by size, and compare distributions rather than anecdotes

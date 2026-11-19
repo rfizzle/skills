@@ -28,7 +28,7 @@ Prometheus, OpenTelemetry, or `slog` facilities already cover the need.
 - Use the repository's structured `slog.Logger` and context-aware methods.
 - Use stable messages and consistent attribute names.
 - Return errors through lower layers and log once at the request, job, or process boundary.
-- Do not log credentials, authorization headers, raw recordings, or unnecessary private
+- Do not log credentials, authorization headers, raw user content, or unnecessary private
   data.
 
 ## Metrics
@@ -59,8 +59,8 @@ retention, and access controls are accepted.
 
 Product analytics and RUM are optional product decisions, not a default backend
 definition-of-done item. Add them only with an approved purpose, consent/legal basis,
-retention policy, deletion path, and data minimization. A compliance platform should be
-especially conservative about session replay and identity data.
+retention policy, deletion path, and data minimization. A product that handles sensitive user
+data should be especially conservative about session replay and identity data.
 
 ## Gate
 
