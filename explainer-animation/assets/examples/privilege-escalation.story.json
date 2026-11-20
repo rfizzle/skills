@@ -1,0 +1,94 @@
+{
+  "meta": {
+    "id": "privilege-escalation",
+    "title": "How far a build bot really reaches",
+    "kind": "plan",
+    "audience": "executive",
+    "redaction": "none",
+    "scene": "privesc",
+    "source": { "kind": "illustrative" },
+    "_note": "Invented example for the custom scene seam (graph reachability). Every record is illustrative; reach, chains and counts are computed from nodes and edges by the scene."
+  },
+  "start": "build-bot",
+  "phases": [
+    { "id": "given", "title": "What it is given", "source": { "kind": "illustrative" } },
+    { "id": "reach", "title": "What it can reach", "source": { "kind": "illustrative" } },
+    { "id": "cut", "title": "Where to cut", "source": { "kind": "illustrative" } }
+  ],
+  "steps": [
+    {
+      "id": "meant", "phase": "given", "act": "meant",
+      "title": "What the build bot is given",
+      "body": "The build bot exists to deploy a single service. It is given a deploy role and the right to change that service, and nothing else.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "spread", "phase": "reach", "act": "spread",
+      "title": "Reach spreads hop by hop",
+      "body": "Each permission opens the next. Following them hop by hop shows how far the bot really reaches, well beyond the service it was given.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "chain", "phase": "reach", "act": "chain",
+      "title": "The chain to full control",
+      "body": "Step by step, the bot changes the service's code, borrows a stronger role and grants itself Administrator. Customer data is then a read away.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "cut", "phase": "cut", "act": "cut",
+      "title": "One boundary breaks the chain",
+      "body": "A permission boundary stops the Operations role from changing policies. Administrator is out of reach, and so is everything behind it.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "others", "phase": "cut", "act": "others",
+      "title": "Who else could do this",
+      "body": "Other identities share the weakness. Before the boundary the on-call engineer could climb the same way; afterwards only the developer's own direct access remains.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "rule", "phase": "cut", "act": "rule",
+      "title": "Grant on reach, not on grants",
+      "body": "Judge access by what an identity can reach, not by what it is given. Each grant is only the first hop; the chain behind it is the risk.",
+      "source": { "kind": "illustrative" }
+    }
+  ],
+  "nodes": [
+    { "id": "build-bot", "name": "Build bot", "kind": "identity", "source": { "kind": "illustrative" } },
+    { "id": "developer", "name": "Developer", "kind": "identity", "source": { "kind": "illustrative" } },
+    { "id": "on-call", "name": "On-call engineer", "kind": "identity", "source": { "kind": "illustrative" } },
+    { "id": "deploy-role", "name": "Deploy role", "kind": "role", "source": { "kind": "illustrative" } },
+    { "id": "runtime-role", "name": "Runtime role", "kind": "role", "source": { "kind": "illustrative" } },
+    { "id": "ops-role", "name": "Operations role", "kind": "role", "source": { "kind": "illustrative" } },
+    { "id": "admin", "name": "Administrator", "kind": "role", "crown": true, "source": { "kind": "illustrative" } },
+    { "id": "orders", "name": "Orders service", "kind": "resource", "source": { "kind": "illustrative" } },
+    { "id": "customer-data", "name": "Customer data", "kind": "resource", "crown": true, "source": { "kind": "illustrative" } },
+    { "id": "secrets", "name": "Secrets store", "kind": "resource", "source": { "kind": "illustrative" } },
+    { "id": "audit", "name": "Audit logs", "kind": "resource", "source": { "kind": "illustrative" } },
+    { "id": "billing", "name": "Billing", "kind": "resource", "source": { "kind": "illustrative" } }
+  ],
+  "edges": [
+    { "id": "bot-deploy", "from": "build-bot", "to": "deploy-role", "kind": "can assume", "why": "The pipeline signs in as the Deploy role", "granted": true, "source": { "kind": "illustrative" } },
+    { "id": "deploy-orders", "from": "deploy-role", "to": "orders", "kind": "can change", "why": "It may replace the service's code", "granted": true, "source": { "kind": "illustrative" } },
+    { "id": "orders-ops", "from": "orders", "to": "ops-role", "kind": "runs as", "why": "The changed code runs with Operations rights", "source": { "kind": "illustrative" } },
+    { "id": "ops-admin", "from": "ops-role", "to": "admin", "kind": "can change", "why": "It edits policies and grants itself Administrator", "source": { "kind": "illustrative" } },
+    { "id": "ops-audit", "from": "ops-role", "to": "audit", "kind": "can read", "why": "Operations reads logs to run the service", "granted": true, "source": { "kind": "illustrative" } },
+    { "id": "admin-customer", "from": "admin", "to": "customer-data", "kind": "can read", "why": "Administrator can open all customer data", "source": { "kind": "illustrative" } },
+    { "id": "admin-secrets", "from": "admin", "to": "secrets", "kind": "can read", "why": "Administrator can open every secret", "source": { "kind": "illustrative" } },
+    { "id": "admin-billing", "from": "admin", "to": "billing", "kind": "can read", "why": "Administrator can see all billing", "source": { "kind": "illustrative" } },
+    { "id": "oncall-ops", "from": "on-call", "to": "ops-role", "kind": "member of", "why": "On-call engineers join the Operations role", "granted": true, "source": { "kind": "illustrative" } },
+    { "id": "dev-customer", "from": "developer", "to": "customer-data", "kind": "can read", "why": "Developers read customer data to debug", "granted": true, "source": { "kind": "illustrative" } },
+    { "id": "dev-runtime", "from": "developer", "to": "runtime-role", "kind": "can assume", "why": "Developers test as the runtime role", "granted": true, "source": { "kind": "illustrative" } },
+    { "id": "runtime-orders", "from": "runtime-role", "to": "orders", "kind": "can change", "why": "The runtime role may redeploy the service", "granted": true, "source": { "kind": "illustrative" } },
+    { "id": "dev-secrets", "from": "developer", "to": "secrets", "kind": "can list", "why": "Developers see secret names only", "granted": true, "source": { "kind": "illustrative" } }
+  ],
+  "cuts": [
+    {
+      "id": "boundary",
+      "name": "Permission boundary on the Operations role",
+      "why": "Operations can no longer change permission policies",
+      "edges": ["ops-admin"],
+      "source": { "kind": "illustrative" }
+    }
+  ]
+}

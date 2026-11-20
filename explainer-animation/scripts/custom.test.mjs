@@ -212,3 +212,128 @@ test('build: the flow pattern still treats --scene as --extra (the stub path) an
   assert.equal(r.status, 0, r.stderr);
   assert.match(fs.readFileSync(out, 'utf8'), /EXK\.runSteps = function/);
 });
+
+// ---- the seam's helpers for text that changes, legends, groups and measures (the parts that need no browser) ----
+const T = EXK.timing;
+
+test('caption clock: a text may be replaced only after its hold, the old fades out before the new fades in', () => {
+  const c = C.captionClock(T), a = c.say('one two three', 1);
+  assert.equal(a.outAt, null);
+  assert.equal(a.inAt, 1);
+  assert.equal(a.visible, 1 + a.inDur);
+  assert.equal(a.hold, T.holdFor('one two three'));
+  assert.ok(Math.abs(a.readyAt - (a.visible + T.LABEL_HOLD_MIN)) < 1e-9);
+  assert.equal(c.readyAt(), a.readyAt);
+  assert.throws(() => c.say('next', a.readyAt - 0.01), /before it has been readable standing still for its hold; the earliest is /);
+  const b = c.say('next', a.readyAt);
+  assert.equal(b.outAt, a.readyAt);
+  assert.ok(b.inAt >= b.outAt + b.outDur - 1e-9, 'the new text starts after the old one has gone');
+  assert.ok(b.readyAt > a.readyAt);
+});
+
+test('caption clock: the last text of a step holds for its shorter time; clear obeys the hold; order is enforced', () => {
+  const c = C.captionClock(T), words = 'a b c d e f g h i j k l m n o p';
+  assert.equal(c.say(words, 0, true).hold, T.lastHoldFor(words));
+  assert.notEqual(T.lastHoldFor(words), T.holdFor(words));
+  assert.throws(() => c.clear(1), /readable standing still/);
+  const r = c.readyAt(), cl = c.clear(r);
+  assert.equal(cl.outAt, r);
+  assert.equal(c.readyAt(), -Infinity);
+  assert.equal(c.clear(r + 5), null, 'clearing nothing is a no-op');
+  const nx = c.say('again', r + 6);
+  assert.equal(nx.outAt, null);
+  assert.equal(nx.inAt, r + 6);
+  assert.throws(() => c.say('early', 0), /time order/);
+  assert.throws(() => c.say('x', NaN), /time in seconds/);
+});
+
+test('caption clock: a text said right after a clear waits for the fade-out to finish', () => {
+  const c = C.captionClock(T), a = c.say('x y', 0);
+  c.clear(a.readyAt);
+  const b = c.say('z', a.readyAt + 0.05);
+  assert.ok(b.inAt >= a.readyAt + 0.25 - 1e-9);
+});
+
+test('legend layout: column puts one item per line; row runs left to right and wraps when the next does not fit', () => {
+  const col = C.legendLayout({ widths: [100, 200, 50], width: 340, direction: 'column', top: 14, bottom: 10 });
+  eq(col.pos.map((p) => [p.x, p.line, p.y]), [[18, 0, 14], [18, 1, 58], [18, 2, 102]]);
+  assert.equal(col.lines, 3);
+  assert.equal(col.height, 14 + 3 * 44 + 10);
+  const one = C.legendLayout({ widths: [100, 200, 50], width: 500, direction: 'row', gap: 40, top: 4, bottom: 4 });
+  eq(one.pos.map((p) => [p.x, p.line]), [[18, 0], [158, 0], [398, 0]]);
+  assert.equal(one.height, 52);
+  const wrap = C.legendLayout({ widths: [100, 200, 50], width: 340, direction: 'row', gap: 40, top: 4, bottom: 4 });
+  eq(wrap.pos.map((p) => [p.x, p.line]), [[18, 0], [18, 1], [258, 1]]);       // the 200 wide one does not fit beside the first
+  assert.equal(wrap.lines, 2);
+  assert.equal(wrap.height, 4 + 88 + 4);
+  assert.equal(C.legendLayout({ widths: [], width: 100, direction: 'row', top: 4, bottom: 4 }).lines, 0);
+  assert.equal(C.legendLayout({ widths: [999], width: 100, direction: 'row' }).lines, 1, 'one item wider than the row still gets a line');
+});
+
+test('measure start: a figure key, a figure handle, a ctx.count or a computed number; of: false drops "of M"', () => {
+  const L = C.makeLedger(story()), fig = L.figure;
+  const k = C.measureStart({ key: 'risk.a' }, fig);
+  assert.deepEqual([k.n, k.of, k.fig], [70, null, fig('risk.a')]);
+  assert.equal(C.measureStart({ value: fig('goal') }, fig).fig, fig('goal'));
+  assert.equal(C.measureStart({ value: fig('goal') }, fig).n, 90);
+  eq(C.measureStart({ value: C.count(3, 9) }, fig), { n: 3, of: 9, fig: null });
+  eq(C.measureStart({ value: C.count(3, 9), of: false }, fig), { n: 3, of: null, fig: null });
+  eq(C.measureStart({ value: 5, of: 12 }, fig), { n: 5, of: 12, fig: null });
+  eq(C.measureStart({ value: 5 }, fig), { n: 5, of: null, fig: null });
+  assert.throws(() => C.measureStart({ value: 'x' }, fig), /ctx\.figure\(key\), a ctx\.count\(n, of\) or a number/);
+  assert.throws(() => C.measureStart({}, fig), /needs key/);
+  assert.throws(() => C.measureStart({ key: 'nope' }, fig), /no such key/);
+});
+
+test('lint: a legend swatch given as an SVG fragment is not text; a literal measure value and a number in a caption are still warned about', () => {
+  const js = [
+    "ctx.hud.legend([{ label: 'Given', swatch: '<rect width=\"46\" height=\"30\"/>', count: ctx.count(0, n) }], { direction: 'row' });",
+    "ctx.hud.measure({ label: 'Gaps', value: ctx.count(0, n), of: false });",
+    "ctx.hud.measure({ label: 'Gaps', value: 0 });",
+    "ctx.hud.caption({ x: 1, y: 2, w: 3, h: 4 }, { title: 'Top 5' });",
+  ].join('\n');
+  const w = lintHudNumbers(js, 's.js');
+  assert.equal(w.length, 2, w.join('\n'));
+  assert.match(w[0], /^s\.js:3: hud\.measure value is a number typed into the scene/);
+  assert.match(w[1], /^s\.js:4: hud\.caption text 'Top 5' has a number typed into it/);
+});
+
+test('the three seam scenes lint clean and use the seam helpers instead of their workarounds', () => {
+  for (const n of ['roadmap-risk-burn-down', 'privilege-escalation', 'shared-responsibility']) {
+    const file = example(n + '.scene.js'), js = fs.readFileSync(file, 'utf8');
+    assert.deepEqual(lintHudNumbers(js, file, Object.keys(JSON.parse(fs.readFileSync(example(n + '.story.json'), 'utf8')).figures ?? {})), [], n);
+  }
+  for (const n of ['privilege-escalation', 'shared-responsibility']) {
+    const js = fs.readFileSync(example(n + '.scene.js'), 'utf8');
+    assert.match(js, /hud\.caption\(/, n);
+    assert.match(js, /hud\.legend\(/, n);
+    assert.match(js, /ctx\.group\(/, n);
+    assert.doesNotMatch(js, /\.also\(/, n);
+  }
+});
+
+test('caption clock: check refuses a clear before the hold without changing anything', () => {
+  const c = C.captionClock(T), a = c.say('x y', 0);
+  assert.throws(() => c.check('clear', a.readyAt - 0.1), /readable standing still/);
+  assert.doesNotThrow(() => c.check('clear', a.readyAt));
+  assert.equal(c.readyAt(), a.readyAt, 'check leaves the clock alone');
+  assert.equal(c.clear(a.readyAt).outAt, a.readyAt);
+});
+
+test('rest rule: a step fails when the caption panel is on at its rest and the text is not fully in', () => {
+  const F = C.captionRestFailures;
+  // a text said at 1 s is fully in at 1.35 s; the panel came up with it
+  const say = [{ kind: 'panel', on: true, t: 1 }, { kind: 'say', start: 1, visible: 1.35 }];
+  eq(F(say, [5]), []);
+  eq(F(say, [1.2]), [0], 'still fading in at rest');
+  // the old text goes at 10 s, the new one is in by 10.6 s
+  const swap = say.concat([{ kind: 'say', start: 10, visible: 10.6 }]);
+  eq(F(swap, [9, 10.3, 12]), [1]);
+  // a clear with the panel left on is an empty panel; clear with the panel hidden is fine
+  const cleared = say.concat([{ kind: 'clear', start: 8 }]);
+  eq(F(cleared, [5, 9]), [1]);
+  eq(F(cleared.concat([{ kind: 'panel', on: false, t: 8 }]), [5, 9]), []);
+  // no panel at all (a scene without a caption), or a panel that never came up: nothing to fail
+  eq(F([], [1, 2]), []);
+  eq(F(say, [0.5]), [], 'before the panel is up');
+});

@@ -1,0 +1,358 @@
+{
+  "meta": {
+    "id": "defence-in-depth",
+    "title": "No single control is the defence",
+    "kind": "plan",
+    "audience": "executive",
+    "redaction": "none",
+    "scene": "bowtie",
+    "source": {
+      "kind": "illustrative"
+    },
+    "_note": "Invented example for the custom scene seam (barriers between threats and consequences, a bow-tie). Every record is illustrative; which threats get through, and the counts, are computed from the barriers and additions by the scene. The order of the barriers array is the order along a path: from a threat toward the event, and from the event toward a consequence."
+  },
+  "phases": [
+    {
+      "id": "picture",
+      "title": "The picture",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "today",
+      "title": "Today",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "plan",
+      "title": "The plan",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "picture",
+      "phase": "picture",
+      "act": "picture",
+      "title": "What could go wrong",
+      "body": "Several routes lead to one event, and the event has costly consequences. Between them stand the controls we rely on.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "held",
+      "phase": "today",
+      "act": "held",
+      "title": "A control that holds",
+      "body": "A stolen staff sign-in is tried. Strong sign-in stops it at the first barrier, so the attack goes no further.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "through",
+      "phase": "today",
+      "act": "through",
+      "title": "Thin layers let attacks through",
+      "body": "A supplier's access is abused and a web page flaw is exploited. Weak limits and no least access let both reach the data.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "cost",
+      "phase": "today",
+      "act": "cost",
+      "title": "What reaches the consequences",
+      "body": "The leak is costly. Encryption, notification and backups soften regulatory and service impact, but weak detection leaves customer loss exposed.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "add",
+      "phase": "plan",
+      "act": "add",
+      "title": "What the plan adds",
+      "body": "Least access to data is added and detection and response is strengthened. The same supplier attack is now held.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "layers",
+      "phase": "plan",
+      "act": "layers",
+      "title": "No single control is the defence",
+      "body": "Each attack meets several layers, and one layer's gap is covered by the next. Keep every layer owned and tested.",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "threats": [
+    {
+      "id": "t-signin",
+      "name": "A staff sign-in is stolen",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "t-supplier",
+      "name": "A supplier's access is abused",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "t-web",
+      "name": "A flaw in a public web page is exploited",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "t-insider",
+      "name": "An insider copies data",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "event": [
+    {
+      "id": "e-leak",
+      "name": "Customer data leaves the company",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "consequences": [
+    {
+      "id": "c-penalty",
+      "name": "Regulatory penalty",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "c-loss",
+      "name": "Customer loss",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "c-disrupt",
+      "name": "Service disruption",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "barriers": [
+    {
+      "id": "b-signin",
+      "name": "Strong sign-in",
+      "side": "prevent",
+      "on": [
+        "t-signin"
+      ],
+      "state": "strong",
+      "owner": "Head of Identity",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "b-device",
+      "name": "Device checks",
+      "side": "prevent",
+      "on": [
+        "t-signin"
+      ],
+      "state": "strong",
+      "owner": "IT Operations lead",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "b-supplier",
+      "name": "Supplier access limits",
+      "side": "prevent",
+      "on": [
+        "t-supplier"
+      ],
+      "state": "weak",
+      "owner": "Vendor Manager",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "b-patch",
+      "name": "Patching and code review",
+      "side": "prevent",
+      "on": [
+        "t-web"
+      ],
+      "state": "weak",
+      "owner": "Engineering lead",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "b-leaver",
+      "name": "Leaver process",
+      "side": "prevent",
+      "on": [
+        "t-insider"
+      ],
+      "state": "strong",
+      "owner": "People Operations lead",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "b-least",
+      "name": "Least access to data",
+      "side": "prevent",
+      "on": [
+        "t-supplier",
+        "t-web",
+        "t-insider"
+      ],
+      "state": "missing",
+      "owner": "Data owner",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "m-detect",
+      "name": "Detection and response",
+      "side": "mitigate",
+      "on": [
+        "c-loss",
+        "c-disrupt"
+      ],
+      "state": "weak",
+      "owner": "Security Operations lead",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "m-encrypt",
+      "name": "Data encrypted at rest",
+      "side": "mitigate",
+      "on": [
+        "c-penalty"
+      ],
+      "state": "strong",
+      "owner": "Platform lead",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "m-notify",
+      "name": "Breach notification plan",
+      "side": "mitigate",
+      "on": [
+        "c-penalty"
+      ],
+      "state": "strong",
+      "owner": "Legal counsel",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "m-backup",
+      "name": "Tested backups",
+      "side": "mitigate",
+      "on": [
+        "c-disrupt"
+      ],
+      "state": "strong",
+      "owner": "Infrastructure lead",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "attempts": [
+    {
+      "id": "at-held",
+      "step": "held",
+      "threat": "t-signin",
+      "when": "today",
+      "expect": "held",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "at-supplier",
+      "step": "through",
+      "threat": "t-supplier",
+      "when": "today",
+      "expect": "through",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "at-web",
+      "step": "through",
+      "threat": "t-web",
+      "when": "today",
+      "expect": "through",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "at-replay",
+      "step": "add",
+      "threat": "t-supplier",
+      "when": "plan",
+      "expect": "held",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "additions": [
+    {
+      "id": "a-least",
+      "barrier": "b-least",
+      "change": "new",
+      "state": "strong",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "a-detect",
+      "barrier": "m-detect",
+      "change": "stronger",
+      "state": "strong",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ]
+}

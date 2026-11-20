@@ -1,0 +1,107 @@
+{
+  "meta": {
+    "id": "data-protection-views",
+    "title": "Tokenization, encryption and masking compared",
+    "kind": "architecture",
+    "audience": "technical",
+    "redaction": "none",
+    "scene": "views",
+    "source": { "kind": "illustrative" },
+    "_note": "Invented example for the custom scene seam (one record, many viewers). The card number is a published test number and the cardholder and email are placeholders. Every view, count and comparison cell is computed from the record, the protections, the viewers and the access flags by the scene."
+  },
+  "phases": [
+    { "id": "three", "title": "Three protections", "source": { "kind": "illustrative" } },
+    { "id": "who", "title": "Who sees what", "source": { "kind": "illustrative" } },
+    { "id": "choose", "title": "Choosing", "source": { "kind": "illustrative" } }
+  ],
+  "steps": [
+    {
+      "id": "record", "phase": "three", "act": "record",
+      "title": "One record, as it arrives",
+      "body": "A customer payment record holds a name, card number, email and amount. Every system starts from this readable copy.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "three", "phase": "three", "act": "three",
+      "title": "Protections applied side by side",
+      "body": "The same record gets a different protection in each column. Each character changes as the sweep passes, so the results can be compared directly.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "processor", "phase": "who", "act": "processor",
+      "title": "What the processor sees",
+      "body": "Charging the card needs the real number, so the processor recovers it in every column.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "others", "phase": "who", "act": "others",
+      "title": "Order, analytics and support",
+      "body": "The order service holds the key but not the vault. Analytics holds neither. Support can ask the vault but sees masked screens. Each protection treats them differently.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "thief", "phase": "who", "act": "thief",
+      "title": "What a stolen copy gives",
+      "body": "A thief copies the database and reads what is stored. Tokens and ciphertext are useless; display masking leaves the originals.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "choose", "phase": "choose", "act": "choose",
+      "title": "Which protection fits which job",
+      "body": "Tokens suit data that only needs matching, encryption suits data that must come back, and display masking suits screens. None replaces the others.",
+      "source": { "kind": "illustrative" }
+    }
+  ],
+  "record": [
+    { "id": "holder", "name": "Cardholder", "value": "Pat Sample", "kind": "name", "source": { "kind": "illustrative" } },
+    { "id": "card", "name": "Card number", "value": "4242 4242 4242 4242", "kind": "card", "source": { "kind": "illustrative" } },
+    { "id": "email", "name": "Email", "value": "pat.sample@example.test", "kind": "email", "source": { "kind": "illustrative" } },
+    { "id": "amount", "name": "Amount", "value": "$84.50", "kind": "amount", "source": { "kind": "illustrative" } }
+  ],
+  "protections": [
+    {
+      "id": "tokenize", "name": "Tokenization",
+      "define": "Swaps each value for a stand-in of the same shape. The original waits in a vault.",
+      "reversible": true, "by": "the token vault",
+      "transform": { "name": "token", "card": "token", "email": "token", "amount": "keep" },
+      "fits": "Tokenization fits data other systems only need to match or route.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "encrypt", "name": "Encryption",
+      "define": "Scrambles each value with a key. Anyone holding the key can unscramble it.",
+      "reversible": true, "by": "a key holder",
+      "transform": { "name": "encrypt", "card": "encrypt", "email": "encrypt", "amount": "encrypt" },
+      "fits": "Encryption fits data its owners must store and later read back.",
+      "source": { "kind": "illustrative" }
+    },
+    {
+      "id": "mask", "name": "Masking",
+      "define": "Hides part of a value on screen. This is display masking: the store keeps the original.",
+      "mode": "display",
+      "reversible": false, "by": null,
+      "transform": {
+        "name": { "op": "mask", "keep": 0 },
+        "card": { "op": "mask", "keep": 4 },
+        "email": { "op": "mask", "keep": 4 },
+        "amount": "keep"
+      },
+      "fits": "Masking fits screens and reports where people need only a hint.",
+      "source": { "kind": "illustrative" }
+    }
+  ],
+  "viewers": [
+    { "id": "processor", "name": "Payment processor", "needs": "Charges the card, so it has the key, vault access and unmasked screens.", "source": { "kind": "illustrative" } },
+    { "id": "order", "name": "Order service", "needs": "Sends receipts and tracks orders. It holds the key but cannot use the vault.", "source": { "kind": "illustrative" } },
+    { "id": "analytics", "name": "Analytics team", "needs": "Totals sales and spots trends. It has no key, no vault and masked screens.", "source": { "kind": "illustrative" } },
+    { "id": "support", "name": "Support agent", "needs": "Helps customers by phone. It can use the vault but has no key and masked screens.", "source": { "kind": "illustrative" } },
+    { "id": "thief", "name": "Thief with a copy", "needs": "Holds a copy of the stored data. It has no key, no vault and no screens.", "source": { "kind": "illustrative" } }
+  ],
+  "access": [
+    { "viewer": "processor", "key": true, "vault": true, "unmask": true, "copy": false, "source": { "kind": "illustrative" } },
+    { "viewer": "order", "key": true, "vault": false, "unmask": false, "copy": false, "source": { "kind": "illustrative" } },
+    { "viewer": "analytics", "key": false, "vault": false, "unmask": false, "copy": false, "source": { "kind": "illustrative" } },
+    { "viewer": "support", "key": false, "vault": true, "unmask": false, "copy": false, "source": { "kind": "illustrative" } },
+    { "viewer": "thief", "key": false, "vault": false, "unmask": false, "copy": true, "source": { "kind": "illustrative" } }
+  ]
+}

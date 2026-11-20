@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import { loadKit } from './load-kit.mjs';
 
 const REGISTER = /\bEXK\s*\.\s*scenes\s*(?:\.\s*([A-Za-z_$][\w$]*)|\[\s*(['"])([^'"]+)\2\s*\])\s*=/g;
-const HUD_CALL = /\bhud\s*\.\s*(banner|measure|legend|panel)\s*\(/g;
+const HUD_CALL = /\bhud\s*\.\s*(banner|measure|legend|panel|caption)\s*\(/g;
 const STRING = /'(?:[^'\\\n]|\\.)*'|"(?:[^"\\\n]|\\.)*"|`(?:[^`\\]|\\.)*`/g;
 
 export function registeredScenes(js) {
@@ -27,7 +27,7 @@ function callArgs(js, open) {
 }
 
 // Warnings (strings) for a digit typed into a string literal, or a numeric `value:`, inside a HUD helper call.
-// A string equal to a figure key is a key, not text.
+// A string equal to a figure key is a key, not text; a string that starts with "<" is markup, not text.
 export function lintHudNumbers(js, file, figureKeys = []) {
   const out = [], keys = new Set(figureKeys);
   const lineOf = (i) => js.slice(0, i).split('\n').length;
@@ -36,7 +36,7 @@ export function lintHudNumbers(js, file, figureKeys = []) {
     if (!call) continue;
     for (const s of call.text.matchAll(STRING)) {
       const body = s[0].slice(1, -1);
-      if (keys.has(body)) continue;
+      if (keys.has(body) || /^\s*</.test(body)) continue;      // a figure key, or an SVG fragment (a legend swatch)
       const literal = s[0][0] === '`' ? body.replace(/\$\{[^}]*\}/g, '') : body;
       if (/\d/.test(literal)) out.push(`${file}:${lineOf(call.start + s.index)}: hud.${m[1]} text ${s[0]} has a number typed into it; read it with ctx.figure(key) or ctx.count(n, of) instead`);
     }

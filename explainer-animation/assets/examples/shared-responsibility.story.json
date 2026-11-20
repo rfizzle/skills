@@ -1,0 +1,438 @@
+{
+  "meta": {
+    "id": "shared-responsibility",
+    "title": "Who owns what, and what nobody owns",
+    "kind": "plan",
+    "audience": "executive",
+    "redaction": "none",
+    "scene": "ownership",
+    "source": {
+      "kind": "illustrative"
+    },
+    "_note": "Invented example for the custom scene seam (ownership overlay). Every record is illustrative; counts and gaps are computed from cells and fixes by the scene."
+  },
+  "phases": [
+    {
+      "id": "who",
+      "title": "Who owns what",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "falls",
+      "title": "Where it falls through",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "closing",
+      "title": "Closing the gaps",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "stack",
+      "phase": "who",
+      "act": "stack",
+      "title": "What needs an owner",
+      "body": "Every layer of the service, from hardware to data, has the same jobs to do. Each cell is a job that needs a name on it.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "provider",
+      "phase": "who",
+      "act": "provider",
+      "title": "What the provider takes",
+      "body": "The cloud provider owns the bottom of the stack outright: the buildings, the hardware and the network. Customers inherit that protection.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "ours",
+      "phase": "who",
+      "act": "ours",
+      "title": "What our teams take",
+      "body": "The platform team runs the middle layers and the product teams run the application. Most of the grid now has a name on it.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "gaps",
+      "phase": "falls",
+      "act": "gaps",
+      "title": "Where it falls through",
+      "body": "Some jobs belong to nobody. Others sit between teams, each assuming the other has it. These are where incidents hide.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "assign",
+      "phase": "closing",
+      "act": "assign",
+      "title": "Each gap gets one owner",
+      "body": "Every gap goes to a single team, with a plain statement of what that takes. The cell takes its new owner's colour.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "rule",
+      "phase": "closing",
+      "act": "rule",
+      "title": "One name on every cell",
+      "body": "Shared responsibility works only when each job has exactly one name on it. Review the grid whenever the stack changes.",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "parties": [
+    {
+      "id": "provider",
+      "name": "Cloud provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "platform",
+      "name": "Platform team",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "product",
+      "name": "Product teams",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "layers": [
+    {
+      "id": "facilities",
+      "name": "Facilities and hardware",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "network",
+      "name": "Network",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "os",
+      "name": "Operating system",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "services",
+      "name": "Platform services",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "app",
+      "name": "Application",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "data",
+      "name": "Data",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "duties": [
+    {
+      "id": "configure",
+      "name": "Configure",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "patch",
+      "name": "Patch",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "monitor",
+      "name": "Monitor",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "respond",
+      "name": "Respond",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "cells": [
+    {
+      "layer": "facilities",
+      "duty": "configure",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "facilities",
+      "duty": "patch",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "facilities",
+      "duty": "monitor",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "facilities",
+      "duty": "respond",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "network",
+      "duty": "configure",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "network",
+      "duty": "patch",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "network",
+      "duty": "monitor",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "network",
+      "duty": "respond",
+      "owner": "provider",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "os",
+      "duty": "configure",
+      "owner": "platform",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "os",
+      "duty": "patch",
+      "owner": [
+        "platform",
+        "product"
+      ],
+      "note": "Each team thinks the other patches the shared base image",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "os",
+      "duty": "monitor",
+      "owner": "platform",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "os",
+      "duty": "respond",
+      "owner": "platform",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "services",
+      "duty": "configure",
+      "owner": "platform",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "services",
+      "duty": "patch",
+      "owner": "platform",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "services",
+      "duty": "monitor",
+      "owner": "none",
+      "note": "Nobody watches the platform's own audit trail",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "services",
+      "duty": "respond",
+      "owner": [
+        "platform",
+        "product"
+      ],
+      "note": "Each team assumes the other responds in a shared service",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "app",
+      "duty": "configure",
+      "owner": "product",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "app",
+      "duty": "patch",
+      "owner": "product",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "app",
+      "duty": "monitor",
+      "owner": "product",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "app",
+      "duty": "respond",
+      "owner": "product",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "data",
+      "duty": "configure",
+      "owner": "none",
+      "note": "Nobody decides how data is classified",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "data",
+      "duty": "patch",
+      "owner": "platform",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "data",
+      "duty": "monitor",
+      "owner": "product",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "data",
+      "duty": "respond",
+      "owner": "product",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "fixes": [
+    {
+      "layer": "os",
+      "duty": "patch",
+      "party": "platform",
+      "takes": "build and patch the shared base image",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "services",
+      "duty": "monitor",
+      "party": "platform",
+      "takes": "watch the audit trail and raise alerts",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "services",
+      "duty": "respond",
+      "party": "platform",
+      "takes": "lead incident response and call the product teams in",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "layer": "data",
+      "duty": "configure",
+      "party": "product",
+      "takes": "classify the data and set handling rules",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ]
+}

@@ -1,0 +1,346 @@
+{
+  "meta": {
+    "id": "harvest-now-decrypt-later",
+    "title": "Copied today, readable later",
+    "kind": "plan",
+    "audience": "executive",
+    "redaction": "none",
+    "scene": "exposure",
+    "source": {
+      "kind": "illustrative"
+    },
+    "_note": "Invented example for the custom scene seam (a deadline that has already started). Every number is illustrative and read from figures; exposure, deadlines and counts are computed by the scene. The threat is an estimated window, not a date."
+  },
+  "phases": [
+    {
+      "id": "taken",
+      "title": "What is being taken",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "matters",
+      "title": "When it matters",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "todo",
+      "title": "What to do",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "today",
+      "phase": "taken",
+      "act": "today",
+      "title": "Encrypted data is copied today",
+      "body": "Attackers can copy encrypted traffic and files now and keep them. Nothing can be read yet, so nothing looks wrong. The copies simply wait.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "secret",
+      "phase": "taken",
+      "act": "secret",
+      "title": "How long data must stay secret",
+      "body": "Each kind of data has a period during which it must stay confidential. Card numbers lose value quickly. Health records and signing keys must stay secret far longer.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "arrives",
+      "phase": "matters",
+      "act": "arrives",
+      "title": "When today's encryption could break",
+      "body": "A capable quantum computer is expected inside a window, not on a date. Data that must stay secret past the early end of that window is exposed already.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "start",
+      "phase": "matters",
+      "act": "start",
+      "title": "The last safe start is earlier",
+      "body": "Moving to quantum-safe encryption takes years, and data stays exposed until it finishes. So the last safe start comes well before the machine arrives.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "plan",
+      "phase": "todo",
+      "act": "plan",
+      "title": "The order of migration",
+      "body": "Moving the longest-lived data first protects everything created from then on. It cannot protect what has already been copied. That stays exposed.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "ask",
+      "phase": "todo",
+      "act": "ask",
+      "title": "Start with the longest-lived data",
+      "body": "Begin migrating now, longest-lived data first, and keep the estimate under review. The argument holds whatever the exact date turns out to be.",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "axis": [
+    {
+      "id": "time",
+      "name": "Years from now",
+      "span": "axis.span",
+      "step": "axis.step",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "datasets": [
+    {
+      "id": "cards",
+      "name": "Payment card numbers",
+      "secrecy": "secret.cards",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "contracts",
+      "name": "Customer contracts",
+      "secrecy": "secret.contracts",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "designs",
+      "name": "Product designs",
+      "secrecy": "secret.designs",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "health",
+      "name": "Health and ID records",
+      "secrecy": "secret.health",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "keys",
+      "name": "Board papers and keys",
+      "secrecy": "secret.keys",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "migration": [
+    {
+      "id": "migration",
+      "name": "Migration to quantum-safe encryption",
+      "lower": "migration.lower",
+      "upper": "migration.upper",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "threat": [
+    {
+      "id": "threat",
+      "name": "Capable quantum computer",
+      "earliest": "threat.earliest",
+      "latest": "threat.latest",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "plan": [
+    {
+      "id": "move-keys",
+      "dataset": "keys",
+      "completes": "plan.keys",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "move-health",
+      "dataset": "health",
+      "completes": "plan.health",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "move-designs",
+      "dataset": "designs",
+      "completes": "plan.designs",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "move-contracts",
+      "dataset": "contracts",
+      "completes": "plan.contracts",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "move-cards",
+      "dataset": "cards",
+      "completes": "plan.cards",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "figures": {
+    "axis.span": {
+      "value": 35,
+      "unit": "years",
+      "label": "Length of the time axis, from now",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "axis.step": {
+      "value": 5,
+      "unit": "years",
+      "label": "Spacing of the axis labels",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "secret.cards": {
+      "value": 3,
+      "unit": "years",
+      "label": "How long payment card numbers must stay secret",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "secret.contracts": {
+      "value": 5,
+      "unit": "years",
+      "label": "How long customer contracts must stay secret",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "secret.designs": {
+      "value": 18,
+      "unit": "years",
+      "label": "How long product designs must stay secret",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "secret.health": {
+      "value": 25,
+      "unit": "years",
+      "label": "How long health and identity records must stay secret",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "secret.keys": {
+      "value": 32,
+      "unit": "years",
+      "label": "How long board papers and signing keys must stay secret",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "migration.lower": {
+      "value": 4,
+      "unit": "years",
+      "label": "Fastest migration to quantum-safe encryption",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "migration.upper": {
+      "value": 8,
+      "unit": "years",
+      "label": "Slowest migration to quantum-safe encryption",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "threat.earliest": {
+      "value": 14,
+      "unit": "years",
+      "label": "Earliest a capable quantum computer could arrive (estimate)",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "threat.latest": {
+      "value": 22,
+      "unit": "years",
+      "label": "Latest a capable quantum computer could arrive (estimate)",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "plan.keys": {
+      "value": 4,
+      "unit": "years",
+      "label": "Board papers and signing keys protected from this point",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "plan.health": {
+      "value": 5,
+      "unit": "years",
+      "label": "Health and identity records protected from this point",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "plan.designs": {
+      "value": 6,
+      "unit": "years",
+      "label": "Product designs protected from this point",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "plan.contracts": {
+      "value": 7,
+      "unit": "years",
+      "label": "Customer contracts protected from this point",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    "plan.cards": {
+      "value": 8,
+      "unit": "years",
+      "label": "Payment card numbers protected from this point",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  }
+}
