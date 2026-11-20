@@ -70,6 +70,13 @@ the context deadline.
   reference: page is its `critical` label (`for:` 2 to 5 minutes), ticket
   is its `warning` label (`for:` 10 to 30 minutes). The runbook states
   which.
+- A service with an SLO has an error-budget policy agreed with the owner
+  before the first burn-rate alert (thresholds in `golang-observability`'s
+  metrics reference). It says what changes as budget burns: above half
+  left, normal shipping; below half, risky changes get owner review and
+  migrations wait; below a quarter or exhausted, only fixes that restore
+  the SLO ship until the budget recovers. An SLO with no agreed action is
+  a dashboard, not an objective.
 - One runbook page per alert: `docs/runbooks/<alert-name>.md`, with
   Symptom, Check and Fix. The alert's annotation links to it. Template:
   `references/runbook-template.md`.

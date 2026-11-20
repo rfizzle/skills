@@ -30,7 +30,9 @@ push that is a decision, not a reflex.
   Every hunk belongs to the subject; a hunk that does not is unstaged.
 - **Never commit** secrets or `.env` files with values, build output,
   `node_modules`, coverage files, editor state, or a worktree. The scanner
-  in the hook (`repo-tooling`) is the last line, not the first.
+  in the hook (`repo-tooling`) is the last line, not the first. A secret
+  that was pushed is rotated first and reported to the owner; deleting it
+  in a new commit leaves it in history.
 - **Generated code** lands in the same commit as the contract or schema
   change that produced it, produced by `make generate` and nothing else
   (`plan-feature`).
@@ -73,6 +75,10 @@ Rules:
   run. Never `--no-verify`; a failing hook is a finding to fix or report,
   not a flag to skip. The CI gate belongs to the push, not the commit
   (`ci-green`).
+- Every commit builds, not only the last. Before a series of local
+  commits leaves, `git rebase -x "make check" origin/<default>` runs the
+  fast gate on each one; a red commit is fixed in place, which is allowed
+  because nobody else holds the hash yet.
 
 ## History
 

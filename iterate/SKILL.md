@@ -21,7 +21,7 @@ applies only when a contract moves.
 
    | Change | Same commit | Gate |
    |---|---|---|
-   | bug fix or refactor | a regression test that fails before the fix | none |
+   | bug fix or refactor | a regression test that fails before the fix and again with the fix reverted (`deterministic-tests`); the body labels the cause Proven, Inferred or Unknown, and a behaviour a test or commit asserts on purpose (`git log -S`) is understood before it is inverted | none |
    | new behaviour, same API | doc comments, and a test named for the behaviour | none |
    | exported API, interface or error contract | doc comments; the commit body says what moved | owner accepts a summary of what moved |
    | schema | a new numbered up/down migration (`golang-database`) | owner accepts the schema change on the topology map (`api-topology`); one column with one plausible shape is a sentence |

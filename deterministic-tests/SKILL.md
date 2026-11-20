@@ -54,7 +54,11 @@ Nothing is random: the order was never guaranteed, only likely. So:
 5. **An assertion must be able to fail.** Break the unit once, where the
    input enters as well as in the logic, and watch the test fail; say what
    was broken in the commit body. A value that already holds before the
-   action is not an assertion of the action.
+   action is not an assertion of the action. For a regression test the
+   break is the fix itself: run the test red before the fix, green with
+   it, then revert the fix, watch it go red again and restore it. A test
+   that stays green with the fix reverted exercises a path next to the
+   bug, not the bug.
 6. **No shared state between tests**: a package global, a module store, a
    port, a temp path, an environment variable, test order. Each test makes
    its own and restores what it changes.
