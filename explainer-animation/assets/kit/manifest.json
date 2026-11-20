@@ -1,0 +1,127 @@
+{
+  "version": "0.1.0",
+  "files": [
+    {
+      "file": "00-ns.js",
+      "pure": true,
+      "bundle": [
+        "scene",
+        "replay"
+      ]
+    },
+    {
+      "file": "story/validate.js",
+      "pure": true,
+      "bundle": [
+        "scene",
+        "replay"
+      ]
+    },
+    {
+      "file": "story/provenance.js",
+      "pure": true,
+      "bundle": [
+        "scene",
+        "replay"
+      ]
+    },
+    {
+      "file": "estate/layout.js",
+      "pure": true,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "estate/route.js",
+      "pure": true,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "estate/frame.js",
+      "pure": true,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "replay/derive.js",
+      "pure": true,
+      "bundle": [
+        "replay"
+      ]
+    },
+    {
+      "file": "replay/graph.js",
+      "pure": true,
+      "bundle": [
+        "replay"
+      ]
+    },
+    {
+      "file": "replay/page.js",
+      "pure": false,
+      "bundle": [
+        "replay"
+      ]
+    },
+    {
+      "file": "scene/timing.js",
+      "pure": true,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "scene/shell.js",
+      "pure": false,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "scene/camera.js",
+      "pure": false,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "scene/text.js",
+      "pure": false,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "paint/flat.js",
+      "pure": false,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "paint/iso.js",
+      "pure": false,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "patterns/flow.js",
+      "pure": true,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "scene/beats.js",
+      "pure": false,
+      "bundle": [
+        "scene"
+      ]
+    }
+  ]
+}

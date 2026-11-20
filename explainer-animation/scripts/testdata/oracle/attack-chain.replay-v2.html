@@ -1,0 +1,1243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Incident replay v2: SSRF to cloud account compromise (illustrative)</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #111725; --panel-2: #18202f; --line: #263044; --line-2: #3a4660;
+    --text: #e6edf7; --soft: #c4cee0; --muted: #8b98ad; --accent: #4cc9f0; --token: #f5b941;
+    --identity: #a78bfa; --secure: #3ddc97; --danger: #ff5d6c;
+    --blind: #ff5d6c; --logged: #f5b941; --alerted: #3ddc97;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--sans); font-size: 15px; line-height: 1.5; }
+  body { background: radial-gradient(900px 380px at 18% -40px, rgba(255,93,108,.10), transparent 70%), var(--bg); }
+  button { font: inherit; color: inherit; }
+  :focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .mono { font-family: var(--mono); }
+  .num { font-variant-numeric: tabular-nums; }
+  .col { max-width: 1240px; margin: 0 auto; padding: 0 20px; }
+  .meta { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); line-height: 1.3; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 20px 22px; min-width: 0; }
+
+  /* ---- masthead ---- */
+  #mast { padding-top: 26px; }
+  .kick { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  #kick { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--danger); display: flex; align-items: center; gap: 10px; }
+  #kick::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--danger); flex: none; }
+  .chip { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; letter-spacing: .06em; font-weight: 600; color: var(--token); border: 1px solid rgba(245,185,65,.5); border-radius: 999px; padding: 3px 13px; white-space: nowrap; }
+  .chip::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--token); }
+  #ttl { margin: 10px 0 0; font-size: 56px; line-height: 1.05; font-weight: 800; letter-spacing: -.035em; }
+  #ttl em { font-style: normal; color: var(--danger); }
+  #tag { margin: 10px 0 0; font-size: 17px; color: var(--soft); max-width: 70ch; }
+  #chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .sc { display: inline-flex; align-items: baseline; gap: 8px; font-family: var(--mono); font-size: 12.5px; color: var(--muted); border: 1px solid var(--line); background: rgba(17,23,37,.7); border-radius: 999px; padding: 5px 15px; }
+  .sc b { color: var(--text); font-weight: 600; font-variant-numeric: tabular-nums; }
+
+  main { margin-top: 22px; }
+
+  /* ---- player card ---- */
+  #player { padding: 18px 22px 14px; }
+  .prow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .pbtn { flex: none; width: 46px; height: 46px; border-radius: 50%; background: var(--text); border: 0; color: var(--bg); font-size: 15px; line-height: 1; cursor: pointer; display: grid; place-items: center; }
+  .pbtn:hover { background: #fff; }
+  .rbtn { flex: none; height: 38px; display: inline-flex; align-items: center; gap: 8px; padding: 0 16px; border-radius: 10px; background: transparent; border: 1px solid var(--line-2); color: var(--soft); cursor: pointer; font-size: 14px; }
+  .rbtn:hover { border-color: var(--muted); color: var(--text); }
+  .speeds { flex: none; display: inline-flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 10px; }
+  .speeds button { background: transparent; border: 0; border-radius: 7px; padding: 0 12px; height: 30px; font-family: var(--mono); font-size: 13px; cursor: pointer; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .speeds button:hover { color: var(--text); }
+  .speeds button[aria-pressed="true"] { background: var(--danger); color: #1a0c0f; font-weight: 700; }
+  #clockBox { margin-left: auto; text-align: right; }
+  #clock { font-family: var(--mono); font-size: 36px; line-height: 1.1; font-weight: 700; letter-spacing: .01em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  #day { margin-top: 3px; }
+  #scrub { position: relative; height: 70px; margin-top: 12px; }
+  .track { position: absolute; left: 0; right: 0; top: 0; height: 48px; cursor: ew-resize; touch-action: none; z-index: 5; }
+  .rail { position: absolute; top: 30px; height: 6px; border-radius: 3px; background: #2a3550; }
+  .fill { position: absolute; top: 30px; height: 6px; border-radius: 3px; background: linear-gradient(90deg, #8b98ad, var(--text)); width: 0; }
+  .shead { position: absolute; left: 0; top: 21px; width: 14px; height: 24px; border-radius: 5px; background: var(--text); border: 0; cursor: grab; box-shadow: 0 1px 8px rgba(0,0,0,.7); z-index: 7; }
+  .shead::after { content: ""; position: absolute; left: 4px; right: 4px; top: 6px; bottom: 6px; border-left: 2px solid #7d8cab; border-right: 2px solid #7d8cab; }
+  .track.drag, .track.drag .shead { cursor: grabbing; }
+  .band { position: absolute; top: 0; height: 46px; border-radius: 6px; border-left: 2px solid; overflow: hidden; }
+  .band span { display: inline-block; padding: 3px 8px; font-family: var(--mono); font-size: 11.5px; line-height: 16px; white-space: nowrap; letter-spacing: .02em; }
+  .brk { position: absolute; top: 0; height: 46px; border-left: 1px dashed #5a6a8c; border-right: 1px dashed #5a6a8c; background: repeating-linear-gradient(135deg, rgba(255,255,255,.10) 0 2px, transparent 2px 7px); z-index: 2; pointer-events: none; }
+  .brkl { position: absolute; top: 51px; font-family: var(--mono); font-size: 11.5px; line-height: 14px; color: var(--soft); white-space: nowrap; transform: translateX(-50%); }
+  .ax { position: absolute; top: 51px; font-family: var(--mono); font-size: 11.5px; line-height: 14px; color: var(--muted); white-space: nowrap; padding-left: 5px; border-left: 1px solid #3a4660; height: 14px; }
+  #pl { position: absolute; top: 0; height: 46px; width: 2px; background: var(--text); opacity: .55; pointer-events: none; z-index: 4; }
+  .mk { position: absolute; top: 18px; width: 12px; height: 12px; margin-left: -6px; border-radius: 50%; border: 2px solid currentColor; z-index: 3; pointer-events: none; }
+  .mk.blind { color: var(--blind); } .mk.logged { color: var(--logged); background: linear-gradient(90deg, currentColor 50%, transparent 50%); } .mk.alerted { color: var(--alerted); background: currentColor; }
+
+  /* ---- sticky mini bar ---- */
+  #sbar { position: fixed; left: 0; right: 0; top: 0; z-index: 30; background: rgba(11,15,23,.94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); transform: translateY(-110%); visibility: hidden; }
+  #sbar.on { transform: none; visibility: visible; }
+  #sbar .col { display: flex; align-items: center; gap: 14px; height: 52px; }
+  #sbar .pbtn { width: 34px; height: 34px; font-size: 12px; }
+  #sclock { flex: none; font-family: var(--mono); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; width: 126px; white-space: nowrap; }
+  #smini { position: relative; flex: 1 1 auto; height: 30px; min-width: 100px; }
+  #sbar .chip { padding: 1px 10px; font-size: 11px; }
+  #sbar .track { height: 30px; }
+  #sbar .rail, #sbar .fill { top: 12px; height: 6px; }
+  #sbar .shead { top: 3px; }
+  #sbar .brk { top: 8px; height: 14px; }
+
+  /* ---- stat cards ---- */
+  #stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
+  .stat { padding: 16px 22px 16px; position: relative; overflow: hidden; }
+  .stat .val { margin-top: 8px; font-size: 27px; line-height: 1.15; font-weight: 750; letter-spacing: -.02em; min-height: 52px; display: flex; align-items: center; white-space: nowrap; }
+  .stat .sub { margin-top: 6px; font-family: var(--mono); font-size: 12px; line-height: 1.5; color: var(--muted); }
+  #sAct .val { font-size: 52px; line-height: 1; min-height: 52px; color: var(--danger); font-variant-numeric: tabular-nums; font-family: var(--mono); font-weight: 700; letter-spacing: -.03em; }
+  #sAct::after { content: ""; position: absolute; right: -40px; top: -40px; width: 160px; height: 160px; background: radial-gradient(closest-side, rgba(255,93,108,.18), transparent); pointer-events: none; }
+  #sAct .val.zero { color: #6a4047; }
+
+  /* ---- two-panel rows ---- */
+  .row { display: grid; grid-template-columns: minmax(0, 62fr) minmax(0, 38fr); gap: 16px; margin-top: 16px; }
+  .ph { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; margin-bottom: 14px; flex-wrap: wrap; }
+  .ph h2 { margin: 0; font-size: 17px; line-height: 1.3; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+  .ph h2::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--c, var(--danger)); flex: none; }
+  .ph .meta { text-align: right; text-transform: none; letter-spacing: .04em; }
+
+  /* graph */
+  #chain { position: relative; }
+  #gsvg { display: block; width: 100%; height: auto; overflow: visible; }
+  #gsvg .zl { font-family: var(--mono); font-size: 11.5px; letter-spacing: .08em; fill-opacity: .85; }
+  #gsvg .nn { font-family: var(--sans); font-size: 13px; font-weight: 650; fill: var(--muted); }
+  #gsvg .nr { font-family: var(--sans); font-size: 11.5px; fill: #6d7a90; }
+  #gsvg .gk { font-family: var(--sans); font-size: 11.5px; fill: var(--muted); }
+  #gsvg .lt { font-family: var(--sans); font-size: 11.5px; font-weight: 600; }
+  #gsvg .node { cursor: pointer; outline: none; }
+  #gsvg .node .body { fill: #141c2b; stroke: #2e3a52; stroke-width: 1.2; }
+  #gsvg .node.lit .body { fill: #1b2233; stroke-width: 1.6; }
+  #gsvg .node.lit .nn { fill: var(--text); }
+  #gsvg .node.lit .nr { fill: var(--muted); }
+  #gsvg .node:hover .body { stroke: var(--soft); }
+  #gsvg .node:focus-visible .body { stroke: var(--accent); stroke-width: 3; }
+  #pop { position: absolute; display: none; width: 290px; max-width: calc(100% - 12px); padding: 14px 16px 12px; z-index: 6; background: var(--panel-2); border: 1px solid var(--line-2); border-left: 4px solid var(--danger); border-radius: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.6); font-size: 13.5px; line-height: 1.5; color: var(--soft); }
+  #pop.on { display: block; }
+  #pop .ch { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  #pop h3 { font-size: 17px; margin: 2px 0 6px; line-height: 1.3; color: var(--text); }
+  #pop h3:focus { outline: none; }
+  #pop p { margin: 0 0 8px; }
+  #pop .x { flex: none; width: 30px; height: 30px; border-radius: 8px; background: transparent; border: 1px solid var(--line-2); cursor: pointer; font-size: 17px; line-height: 1; color: var(--muted); }
+  #pop .x:hover { border-color: var(--accent); }
+
+  /* phase activity */
+  #phaseP { display: flex; flex-direction: column; }
+  #phases { display: flex; flex-direction: column; justify-content: space-between; flex: 1 1 auto; gap: 0; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 18px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin: -4px 0 12px; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .prow2 { display: block; width: 100%; text-align: left; background: transparent; border: 0; border-radius: 10px; padding: 4px 10px 5px; cursor: pointer; --h: var(--muted); }
+  .prow2:hover { background: rgba(255,255,255,.035); }
+  .prow2.dim { opacity: .42; }
+  .pr1 { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+  .pn { font-size: 14.5px; font-weight: 700; color: var(--h); }
+  .pc { font-family: var(--mono); font-size: 15px; font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+  .pd { display: block; margin-top: 1px; font-family: var(--mono); font-size: 11.5px; line-height: 1.4; color: var(--muted); }
+  .tr { display: block; position: relative; height: 7px; margin-top: 6px; border-radius: 3px; background: #1d2638; }
+  .tr i { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: var(--h); }
+  .tr2 { display: block; position: relative; height: 5px; margin-top: 4px; border-radius: 2px; background: #18202f; }
+  .tr2 b { position: absolute; top: 0; bottom: 0; width: 3px; margin-left: -1px; border-radius: 1px; opacity: .18; }
+  .tr2 b.on { opacity: 1; }
+  .tr2 b.blind { background: var(--blind); } .tr2 b.logged { background: var(--logged); } .tr2 b.alerted { background: var(--alerted); }
+
+  /* visibility marks: a shape as well as a colour (hollow = nothing recorded, half = recorded, solid = alert) */
+  .vg { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; border: 2px solid currentColor; vertical-align: -1px; }
+  .vg.blind { color: var(--blind); background: transparent; }
+  .vg.logged { color: var(--logged); background: linear-gradient(90deg, currentColor 50%, transparent 50%); }
+  .vg.alerted { color: var(--alerted); background: currentColor; }
+
+  /* stream */
+  #streamP { display: flex; flex-direction: column; }
+  #filters { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: -4px 0 10px; }
+  #filters button.f { display: inline-flex; align-items: center; gap: 7px; background: transparent; border: 1px solid var(--line); border-radius: 999px; padding: 2px 13px; font-size: 13px; cursor: pointer; color: var(--soft); }
+  #filters button.f:hover { border-color: var(--muted); }
+  #filters button.f[aria-pressed="true"] { background: var(--panel-2); border-color: var(--muted); color: var(--text); }
+  #nodechip { display: inline-flex; align-items: center; gap: 4px; background: var(--panel-2); border: 1px solid var(--line-2); border-radius: 999px; padding: 1px 4px 1px 13px; font-size: 13px; color: var(--text); margin-left: auto; }
+  #nodechip[hidden] { display: none; }
+  #nodechip button { width: 24px; height: 24px; border-radius: 50%; border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 16px; line-height: 1; }
+  #nodechip button:hover { color: var(--text); background: rgba(255,255,255,.08); }
+  #stream { list-style: none; margin: 0 -8px; padding: 0 8px; flex: 1 1 290px; min-height: 0; overflow: auto; border-top: 1px solid var(--line); }
+  #stream li { margin: 0; border-bottom: 1px solid #1a2233; }
+  #stream .ln { display: block; width: 100%; text-align: left; background: transparent; border: 0; border-radius: 8px; padding: 9px 8px; cursor: pointer; }
+  #stream .ln:hover { background: rgba(255,255,255,.035); }
+  #stream li.cur .ln { background: rgba(255,93,108,.07); box-shadow: inset 2px 0 0 var(--danger); }
+  .r1 { display: flex; align-items: baseline; gap: 10px; }
+  .r1 .when { flex: none; width: 74px; font-family: var(--mono); font-size: 11.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .r1 .ptag { flex: none; width: 76px; font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--h); border: 1px solid var(--h); border-radius: 4px; padding: 0 5px; line-height: 16px; text-align: center; opacity: .95; }
+  .r1 .act { flex: 1 1 0; min-width: 0; font-family: var(--mono); font-size: 12.5px; line-height: 1.45; color: var(--text); overflow-wrap: anywhere; }
+  .r1 .cnt { flex: none; font-family: var(--mono); font-size: 12px; color: var(--soft); }
+  .r1 .vm { flex: none; display: inline-flex; align-items: center; gap: 6px; width: 62px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .r2 { display: block; margin: 2px 0 0 170px; font-size: 13px; line-height: 1.4; color: var(--muted); }
+  #stream .empty { padding: 20px 8px; font-size: 14px; color: var(--muted); border: 0; }
+
+  /* activity */
+  #actP { display: flex; flex-direction: column; }
+  #chart { position: relative; height: 130px; border-bottom: 1px solid var(--line-2); margin-top: 6px; }
+  #chart .bar { position: absolute; bottom: 0; display: flex; flex-direction: column-reverse; opacity: .35; }
+  #chart .bar.past { opacity: 1; }
+  #chart .bar i { display: block; width: 100%; }
+  #chart .bar i.blind { background: var(--blind); } #chart .bar i.logged { background: var(--logged); } #chart .bar i.alerted { background: var(--alerted); }
+  #chart .gap { position: absolute; top: 0; bottom: 0; border-left: 1px dashed #5a6a8c; border-right: 1px dashed #5a6a8c; background: repeating-linear-gradient(135deg, rgba(255,255,255,.07) 0 2px, transparent 2px 7px); }
+  #chart .gap span { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); width: 80px; text-align: center; font-family: var(--mono); font-size: 11px; line-height: 1.25; color: var(--soft); }
+  #chart .phl { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--text); opacity: .6; }
+  .cax { position: relative; height: 18px; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .cax span { position: absolute; top: 3px; white-space: nowrap; }
+  .nrule { border: 0; border-top: 1px dashed var(--line-2); margin: 8px 0 12px; }
+  #narr { flex: 1 1 auto; }
+  #narr .ey { margin-bottom: 5px; }
+  #narr p { margin: 0; font-size: 14px; line-height: 1.55; color: var(--muted); }
+  #narr p b { font-weight: 500; color: var(--text); font-size: 15px; display: block; margin-bottom: 2px; }
+
+  /* what would have stopped it */
+  #stop { margin-top: 16px; }
+  #ctls { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+  #ctls li { margin: 0; }
+  #ctls .cc { display: flex; flex-direction: column; gap: 8px; width: 100%; height: 100%; text-align: left; background: #0e1420; border: 1px solid var(--line); border-radius: 10px; padding: 14px 15px 14px; cursor: pointer; opacity: .55; }
+  #ctls .cc:hover { border-color: var(--muted); }
+  #ctls li.lit .cc { opacity: 1; border-color: rgba(61,220,151,.4); }
+  #ctls .nm { display: flex; align-items: center; gap: 9px; font-size: 14.5px; font-weight: 700; line-height: 1.25; }
+  #ctls .sh { flex: none; min-width: 26px; height: 22px; padding: 0 5px; border-radius: 6px; border: 1.5px solid var(--muted); display: grid; place-items: center; font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  #ctls li.lit .sh { border-color: var(--secure); color: var(--secure); }
+  #ctls .why { font-size: 13px; line-height: 1.45; color: var(--muted); }
+  #ctls .at { margin-top: auto; font-family: var(--mono); font-size: 12px; line-height: 1.4; color: var(--soft); }
+  #ctls .at b { color: var(--text); font-weight: 700; }
+  #ctls .pr { display: block; height: 4px; border-radius: 2px; background: #1d2638; overflow: hidden; }
+  #ctls .pr i { display: block; height: 100%; background: var(--secure); opacity: .4; }
+  #ctls li.lit .pr i { opacity: 1; }
+  #ctls .pl2 { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+
+  footer { margin-top: 24px; padding: 18px 0 40px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.6; color: var(--muted); }
+  footer p { margin: 0 0 6px; max-width: 100ch; }
+
+  @media (max-width: 1099px) { #ttl { font-size: 46px; } }
+  @media (max-width: 999px) {
+    .col { padding: 0 14px; }
+    #ttl { font-size: 38px; }
+    .row { grid-template-columns: minmax(0, 1fr); }
+    #stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #sAct { grid-column: 1 / -1; }
+    #clockBox { margin-left: 0; text-align: left; width: 100%; display: flex; align-items: baseline; gap: 14px; }
+    #clock { font-size: 30px; }
+    #sbar .chip { display: none; }
+  }
+  @media (max-width: 599px) { #stats { grid-template-columns: minmax(0, 1fr); } #ttl { font-size: 32px; } .r2 { margin-left: 0; } .r1 { flex-wrap: wrap; } }
+</style>
+</head>
+<body>
+<div id="sbar" role="group" aria-label="Replay player, compact"><div class="col">
+  <button type="button" class="pbtn" id="splay" aria-label="Play"><span aria-hidden="true">&#9654;</span></button>
+  <div id="sclock" aria-hidden="true"></div>
+  <div id="smini"></div>
+  <span class="chip">Illustrative data</span>
+</div></div>
+
+<div class="col">
+  <header id="mast">
+    <div class="kick"><div id="kick"></div><span class="chip" title="Every event, time and number on this page is invented for illustration">Illustrative data</span></div>
+    <h1 id="ttl"></h1>
+    <p id="tag"></p>
+    <div id="chips" role="group" aria-label="Incident summary"></div>
+  </header>
+
+  <main>
+    <section class="panel" id="player" aria-label="Replay player">
+      <div class="prow">
+        <button type="button" class="pbtn" id="play" aria-label="Play"><span id="playic" aria-hidden="true">&#9654;</span></button>
+        <button type="button" class="rbtn" id="restart" aria-label="Restart from the beginning"><span aria-hidden="true">&#8634;</span>Restart</button>
+        <div class="speeds" id="speeds" role="group" aria-label="Playback speed"></div>
+        <span class="chip" title="Every event, time and number on this page is invented for illustration">Illustrative data</span>
+        <div id="clockBox"><div id="clock" aria-hidden="true"></div><div id="day" class="meta" aria-hidden="true"></div></div>
+      </div>
+      <div id="scrub"></div>
+    </section>
+
+    <div id="stats" role="group" aria-label="Live figures">
+      <div class="panel stat" id="sAct" role="group" aria-label="Attacker actions replayed"></div>
+      <div class="panel stat" id="sPhase" role="group" aria-label="Active phase"></div>
+      <div class="panel stat" id="sBlast" role="group" aria-label="Blast radius"></div>
+    </div>
+
+    <div class="row">
+      <section class="panel" id="chainP" aria-labelledby="hChain">
+        <div class="ph"><h2 id="hChain">Attack chain across trust boundaries</h2><span class="meta">systems ignite as the attacker reaches them</span></div>
+        <div id="chain"><svg id="gsvg" role="group" aria-label="Attack chain graph: ten systems in trust zones"></svg>
+          <section id="pop" role="dialog" aria-label="System details" tabindex="-1"></section></div>
+      </section>
+      <section class="panel" id="phaseP" aria-labelledby="hPhase">
+        <div class="ph"><h2 id="hPhase">Phase activity</h2><span class="meta">first seen to last seen</span></div>
+        <div class="legend" id="legend" aria-label="How to read the marks"></div>
+        <div id="phases"></div>
+      </section>
+    </div>
+
+    <div class="row">
+      <section class="panel" id="streamP" aria-labelledby="hStream">
+        <div class="ph"><h2 id="hStream">Live action stream</h2><span class="meta" id="smeta">representative actions, as recorded</span></div>
+        <div id="filters" role="group" aria-label="Filter the stream"></div>
+        <ol id="stream" aria-label="Actions up to the clock, newest first"></ol>
+      </section>
+      <section class="panel" id="actP" aria-labelledby="hAct">
+        <div class="ph"><h2 id="hAct">Activity over time</h2><span class="meta" id="acap"></span></div>
+        <div id="chart" role="img" aria-label="Bar chart of actions over replay time, stacked by visibility"></div>
+        <div class="cax" id="cax" aria-hidden="true"></div>
+        <hr class="nrule">
+        <div id="narr" aria-live="off"></div>
+      </section>
+    </div>
+
+    <section class="panel" id="stop" aria-labelledby="hStop">
+      <div class="ph"><h2 id="hStop" style="--c:var(--secure)">What would have stopped it</h2><span class="meta" id="stopl"></span></div>
+      <ul id="ctls"></ul>
+    </section>
+  </main>
+
+  <footer id="foot"></footer>
+</div>
+<div id="live" class="sr" aria-live="polite"></div>
+<script>
+/* THE INCIDENT RECORD (illustrative). t = incident seconds from the first action; step = 1-based step (so also its phase); from/to = graph system ids. */
+var INCIDENT = {
+  id: 'IR-2025-0417',
+  title: 'SSRF to cloud account compromise',
+  accent: 'cloud account',
+  tagline: 'One flaw in a public web page, an audit log nobody read, and a nine-day wait for the first alert.',
+  source: 'illustrative',
+  redaction: 'Source addresses, account ids, the role’s key values and the database password are redacted. Hostnames, object names and the downloaded files’ contents are replaced by invented examples.'
+};
+
+var EVENTS = [];
+var DAY = 86400;
+var T10 = 830 + 8 * DAY + 21 * 3600 + 7 * 60;   /* the first alert: 8 days 21 hours after the last attacker action */
+function ev(t, step, from, to, action, note, visibility, count) { EVENTS.push({ t: t, step: step, from: from, to: to, action: action, note: note, visibility: visibility, count: count || 1 }); }
+
+/* 1 A normal request: the edge logs ordinary web requests */
+ev(0,   1, 'attacker', 'storefront', 'GET / → 200', 'A normal page view. The attacker starts out looking like any shopper.', 'logged');
+ev(7,   1, 'attacker', 'storefront', 'GET /static/* → 200', 'The page’s scripts and images load, as for any browser.', 'logged', 14);
+ev(19,  1, 'attacker', 'storefront', 'GET /shop?id=7 → 200', 'Browses a product page and notes how the shop builds its web addresses.', 'logged');
+ev(33,  1, 'attacker', 'storefront', 'GET /robots.txt → 200', 'The file lists a /preview path that crawlers should skip. The attacker takes note.', 'logged');
+ev(47,  1, 'attacker', 'storefront', 'GET /shop?id=12 → 200', 'Another product page. The web logs show nothing unusual.', 'logged');
+ev(63,  1, 'attacker', 'storefront', 'GET /preview?url=https://example.com/logo.png → 200', 'Tests the link-preview feature with a harmless address. The server fetches whatever it is given.', 'logged');
+/* 2 Crafted URL: the web request is logged, the call it causes is not */
+ev(84,  2, 'attacker', 'storefront', 'GET /preview?url=http://localhost/ → 500', 'An internal address makes the server error out. That confirms it fetches addresses on its own.', 'logged');
+ev(96,  2, 'attacker', 'storefront', 'GET /preview?url=http://10.0.0.1/ → 504', 'Probes the private network. A timeout shows the request left the storefront.', 'logged');
+ev(108, 2, 'attacker', 'storefront', 'GET /preview?url=http://169.254.169.254/ → 200', 'The metadata address goes into the url parameter. The edge sees only an ordinary web request.', 'logged');
+ev(111, 2, 'storefront', 'imds', 'GET / HTTP/1.1  Host: 169.254.169.254', 'The storefront itself calls the metadata service. That hop is inside the network and nothing records it.', 'blind');
+ev(126, 2, 'storefront', 'imds', 'GET /latest/meta-data/ → 200', 'Lists what the metadata service holds. No log on the server or in the cloud account covers it.', 'blind');
+ev(142, 2, 'storefront', 'imds', 'GET /latest/meta-data/iam/ → 200', 'Finds that the server has a cloud role attached.', 'blind');
+ev(158, 2, 'storefront', 'imds', 'GET /latest/meta-data/iam/security-credentials/ → node-role', 'Learns the role’s name, node-role.', 'blind');
+/* 3 Keys handed over */
+ev(174, 3, 'storefront', 'imds', 'GET /latest/meta-data/iam/security-credentials/node-role', 'Asks for the role’s keys. The metadata service wants no password and hands them over.', 'blind');
+ev(183, 3, 'imds', 'storefront', '200 OK  AccessKeyId, SecretAccessKey, Token, Expiration', 'Temporary keys for the server’s role come back to the storefront.', 'blind');
+ev(196, 3, 'storefront', 'attacker', 'HTTP 200 /preview  body 1.6 KB', 'The storefront passes the keys on inside the page response. The edge logs only the size.', 'logged');
+ev(214, 3, 'attacker', 'storefront', 'GET /preview?url=http://169.254.169.254/latest/meta-data/iam/info → 200', 'Uses the same trick again to see when the keys expire.', 'logged');
+ev(216, 3, 'storefront', 'imds', 'GET /latest/meta-data/iam/info', 'The metadata call behind the previous request. Also unrecorded.', 'blind');
+ev(246, 3, 'attacker', 'storefront', 'GET /preview?url=http://169.254.169.254/latest/dynamic/instance-identity/document → 200', 'Fetches the account id and region, to aim the next calls.', 'logged');
+ev(248, 3, 'storefront', 'imds', 'GET /latest/dynamic/instance-identity/document', 'Again the hop inside the network, again without a record.', 'blind');
+/* 4 Login with keys: from here the cloud audit log records every call */
+ev(282, 4, 'attacker', 'iam', 'sts:GetCallerIdentity', 'First use of the stolen keys, from the Internet. The audit log records it and no alert is set.', 'logged');
+ev(296, 4, 'attacker', 'iam', 'iam:ListAttachedRolePolicies  RoleName=node-role', 'Asks what the stolen role is allowed to do.', 'logged');
+ev(314, 4, 'attacker', 'iam', 'iam:GetRolePolicy  PolicyName=node-inline', 'Reads the policy itself, so the attacker knows exactly what to try.', 'logged');
+ev(336, 4, 'attacker', 'iam', 'sts:GetCallerIdentity', 'Confirms that the keys still work.', 'logged');
+ev(352, 4, 'attacker', 'iam', 'iam:GetAccountSummary', 'Gets a count of the account’s users, roles and policies.', 'logged');
+/* 5 Mapping access */
+ev(366, 5, 'attacker', 's3', 's3:ListBuckets', 'Lists every bucket the role can see. The audit log shows the node role, calling from outside.', 'logged');
+ev(380, 5, 'attacker', 's3', 's3:ListObjectsV2  Bucket=customer-exports', 'Lists the export bucket page by page. Three requests, all recorded.', 'logged', 3);
+ev(402, 5, 'attacker', 's3', 's3:GetBucketPolicy  Bucket=customer-exports', 'Reads the bucket’s policy. Nothing blocks the request.', 'logged');
+ev(424, 5, 'attacker', 'secrets', 'secretsmanager:ListSecrets', 'Lists the stored secrets. One is named orders-db-pass.', 'logged');
+ev(446, 5, 'attacker', 'secrets', 'secretsmanager:DescribeSecret  SecretId=orders-db-pass', 'Looks at the secret’s details before asking for its value.', 'logged');
+ev(470, 5, 'attacker', 's3', 's3:ListObjectsV2  Prefix=2025/', 'Narrows the listing to last year’s exports. Four requests, all recorded.', 'logged', 4);
+/* 6 Data streams out: S3 data events are off, so the downloads leave no record */
+ev(486, 6, 'attacker', 's3', 's3:GetObject  orders.csv', 'Downloads the first export. S3 data events are switched off, so this leaves no record.', 'blind');
+ev(498, 6, 'attacker', 's3', 's3:GetObject  refunds.csv', 'Second file. Still nothing recorded.', 'blind');
+ev(510, 6, 'attacker', 's3', 's3:GetObject  emails.csv', 'Third file, with customer email addresses.', 'blind');
+ev(522, 6, 'attacker', 's3', 's3:GetObject  cards.csv', 'Fourth file. Nothing on the path inspects or limits the download.', 'blind');
+ev(534, 6, 'attacker', 's3', 's3:GetObject  exports/2025/*', 'A scripted bulk download of this year’s exports. None of these requests is recorded.', 'blind', 186);
+ev(560, 6, 'attacker', 's3', 's3:GetObject  exports/2024/*', 'The same for last year’s exports. The run ends when the bucket is empty of new files.', 'blind', 142);
+/* 7 Password taken */
+ev(576, 7, 'attacker', 'secrets', 'secretsmanager:GetSecretValue  SecretId=orders-db-pass', 'Reads the database password. The audit log keeps the secret’s name, not its value.', 'logged');
+ev(600, 7, 'attacker', 'iam', 'sts:GetCallerIdentity', 'Checks once more that the keys are still valid before the next move.', 'logged');
+ev(626, 7, 'attacker', 'secrets', 'secretsmanager:GetResourcePolicy  SecretId=orders-db-pass', 'Checks who else may read the secret.', 'logged');
+ev(652, 7, 'attacker', 'secrets', 'secretsmanager:GetSecretValue  SecretId=orders-db-pass', 'A second read to confirm the password. It is the last cloud call of the incident.', 'logged');
+/* 8 Sideways move: through the storefront again, then inside the cluster where nothing is logged */
+ev(684, 8, 'attacker', 'storefront', 'GET /preview?url=http://payments.payments.svc:8080/health → 200', 'Back in through the same flaw, now aimed at the payments service.', 'logged');
+ev(690, 8, 'storefront', 'payments', 'GET /health HTTP/1.1', 'The storefront calls payments. No network policy blocks it and no log records it.', 'blind');
+ev(704, 8, 'attacker', 'storefront', 'GET /preview?url=http://payments.payments.svc:8080/v1/config → 200', 'Asks payments for its configuration, through the storefront.', 'logged');
+ev(710, 8, 'storefront', 'payments', 'GET /v1/config', 'The configuration names the database host. Again nothing is recorded.', 'blind');
+ev(728, 8, 'attacker', 'storefront', 'GET /preview?url=http://payments.payments.svc:8080/v1/orders?limit=5 → 200', 'Asks for a few orders to test that the route works.', 'logged');
+ev(734, 8, 'storefront', 'payments', 'GET /v1/orders?limit=5', 'Payments answers a caller it has never served before. No log, no alert.', 'blind');
+/* 9 Orders read */
+ev(756, 9, 'payments', 'db', 'TCP connect orders-db:5432', 'Payments opens a database connection for the attacker. Connection logging is off.', 'blind');
+ev(764, 9, 'payments', 'db', 'AUTH user=app password=<redacted>', 'Logs in with the password taken from Secrets Manager.', 'blind');
+ev(776, 9, 'payments', 'db', 'SELECT count(*) FROM orders', 'Sizes up the table before reading it.', 'blind');
+ev(794, 9, 'payments', 'db', 'SELECT * FROM orders', 'Reads the whole orders table. The database keeps no query log.', 'blind');
+ev(812, 9, 'db', 'attacker', 'HTTP 200 /preview  body 48 MB', 'Order rows travel out through the storefront. The edge logs only the response sizes.', 'logged', 3);
+ev(830, 9, 'db', 'attacker', 'HTTP 200 /preview  body 52 MB', 'The last chunk leaves. The attacker is done and goes quiet.', 'logged', 2);
+/* 10 Detection fires, long after the attacker has gone */
+ev(T10,      10, 'iam', 'detect', 'GuardDuty finding: InstanceCredentialExfiltration.OutsideAWS', 'The first alert: the node role’s keys were used from outside the account.', 'alerted');
+ev(T10 + 18, 10, 's3', 'detect', 'GuardDuty finding: Discovery:S3/AnomalousBehavior', 'A second finding: unusual bucket listing by the same role.', 'alerted');
+ev(T10 + 36, 10, 'secrets', 'detect', 'GuardDuty finding updated: 3 resources affected', 'The finding now covers the identity service, the bucket and the secret.', 'alerted');
+ev(T10 + 66, 10, 'detect', 'iam', 'Ticket SEC-4127 opened, severity high', 'A responder picks it up. By now the attacker has had nine days.', 'alerted');
+/* 11 Where controls would have cut it: the response, then the review */
+ev(T10 + 96,  11, 'detect', 'iam', 'iam:PutRolePolicy  AWSRevokeOlderSessions  node-role', 'Revokes every session issued before now, so the stolen keys stop working.', 'logged');
+ev(T10 + 120, 11, 'detect', 'secrets', 'secretsmanager:RotateSecret  SecretId=orders-db-pass', 'Rotates the database password the attacker took.', 'logged');
+ev(T10 + 144, 11, 'detect', 's3', 's3:PutBucketPolicy  deny non-VPC principals', 'Closes the export bucket to callers outside the private network.', 'logged');
+ev(T10 + 168, 11, 'detect', 'iam', 'Review opened: where would a control have cut the chain?', 'The review that produces the controls listed at the foot of this page.', 'logged');
+
+/* cards for the systems: what it is, what happened to it here */
+var CARDS = {
+  attacker: { role: 'Outside party sending every hostile request.',
+    what: 'The adversary, working over the public Internet with a browser and a few scripts. Everything they send is attacker-controlled.',
+    did: 'Starts as an ordinary visitor, then uses the storefront to get cloud keys, and finally calls the account’s services directly, going around the web defences.' },
+  cdn: { role: 'Front door: firewall and caching for web traffic.',
+    what: 'A content delivery network with a web application firewall. It inspects and filters web requests before they reach the company’s servers.',
+    did: 'It passed the first request and the crafted URL, because both looked like valid web traffic. It never sees the later calls to cloud services.' },
+  lb: { role: 'Spreads incoming requests across the storefront pods.',
+    what: 'Receives traffic from the CDN, ends the TLS encryption and shares the requests between the storefront pods.',
+    did: 'Forwarded every request it was given, including the crafted URL, and again when the attacker came back for the sideways move.' },
+  storefront: { role: 'Public web pod with the URL-fetching flaw.',
+    what: 'The customer-facing web application running in a pod. One of its features fetches any URL a visitor supplies, which is the SSRF flaw.',
+    did: 'Fetched the internal metadata address for the attacker, then served as the way back in to reach the payments service.' },
+  imds: { role: 'Hands the server’s keys to any caller on the server.',
+    what: 'The instance metadata service. Code on a server asks it who it is, and it returns temporary credentials for the server’s cloud role.',
+    did: 'Answered the storefront’s request without asking why, and returned the role’s access key, secret key and session token.' },
+  payments: { role: 'Payments service in its own namespace.',
+    what: 'A pod that processes payments and orders, kept in a separate namespace from the storefront.',
+    did: 'Reached from the compromised storefront because no network policy limited who may call it, then used the stolen password to open the Orders database.' },
+  db: { role: 'Orders database, reachable only inside the VPC.',
+    what: 'Stores customer orders. It sits in its own subnet and needs a password.',
+    did: 'Read in full by the attacker, through payments, with the password taken from Secrets Manager. The order rows flowed back out along the same route.' },
+  iam: { role: 'Identity service: says who a set of keys belongs to.',
+    what: 'IAM and STS issue and check cloud identities and temporary tokens.',
+    did: 'Accepted the stolen keys as the node’s role, from an Internet address, and confirmed their identity. That opened every later call.' },
+  s3: { role: 'Bucket holding customer data exports.',
+    what: 'An S3 storage bucket named customer-exports, holding files exported from the shop.',
+    did: 'Listed, then downloaded file by file. The node role could read it, and nothing on the path limited or inspected the download.' },
+  secrets: { role: 'Stores the Orders database password.',
+    what: 'Secrets Manager keeps passwords and keys and hands them to callers who have permission.',
+    did: 'Listed, then asked for the database password. The node role was allowed to read it, although the node never needs it.' },
+  detect: { role: 'Audit log and threat detection, after the fact.',
+    what: 'CloudTrail records every call made to the account. GuardDuty reads those records for suspicious patterns and raises findings.',
+    did: 'Recorded each of the attacker’s calls and later raised a finding about the keys being used from outside the account. By then the data had gone.' },
+};
+var STEPS = [ { "id": "recon", "short": "Normal request", "phase": "initial", "title": "A normal request comes in", "body": "First, the attacker behaves like a shopper. The request passes the firewall and load balancer and reaches the storefront. This is the legitimate path the attack will reuse." },
+ { "id": "ssrf", "short": "Crafted URL", "phase": "initial", "title": "Crafted URL tricks the storefront", "body": "The attacker puts an internal address in a URL parameter. The storefront fetches it on their behalf, so the request starts inside the network, where firewalls never look." },
+ { "id": "creds", "short": "Keys handed over", "phase": "cred", "title": "Metadata service hands over keys", "body": "The metadata service answers any request from the node, trusting it blindly. It returns temporary keys for the node’s cloud role, and they flow back out to the attacker." },
+ { "id": "identity", "short": "Login with keys", "phase": "cred", "title": "Attacker logs in with stolen keys", "body": "The attacker calls the account’s identity service directly from the Internet. This traffic never touches the firewall, load balancer or network, so none of those defences can see it." },
+ { "id": "enumerate", "short": "Mapping access", "phase": "disc", "title": "Mapping what the keys unlock", "body": "With valid keys, the attacker lists the storage buckets and the stored secrets, one after the other. Every call looks like normal, authorised activity." },
+ { "id": "exfil", "short": "Data streams out", "phase": "disc", "title": "Customer data streams out", "body": "The node role can read the export bucket, so objects stream straight to the attacker. Nothing on the path inspects or limits this download." },
+ { "id": "secret", "short": "Password taken", "phase": "disc", "title": "Database password taken", "body": "Secrets Manager hands the database password to anyone holding the role. The attacker now has what they need to reach the orders data." },
+ { "id": "pivot", "short": "Sideways move", "phase": "lateral", "title": "Back in, then sideways", "body": "Through the same SSRF the attacker returns to the storefront, then moves to the payments service next door. No network policy blocks traffic between namespaces." },
+ { "id": "db", "short": "Orders read", "phase": "lateral", "title": "Orders database read in full", "body": "Payments connects to the database using the stolen password, and customer order rows flow back out along the same route to the attacker." },
+ { "id": "detect", "short": "Detection fires", "phase": "detect", "title": "Detection fires, too late", "body": "GuardDuty notices the keys being used from outside the account and raises a finding. By now, most of the chain has already happened." },
+ { "id": "controls", "short": "Review", "phase": "detect", "title": "Where controls would have cut it", "body": "Each shield marks a link where one control breaks the chain. Fix the earliest and everything after it never happens, which is why prevention beats detection." } ];
+/* ==========================================================================
+   THE GRAPH  (its own small module)
+   Declarative data (ZONES, SYSTEMS, LINKS) -> layout for the panel -> SVG.
+   Lighting is a pure function of the events at or before the clock: Graph.light(events, ci, clock).
+   System ids are the join key with EVENTS (from / to).
+   ========================================================================== */
+var Graph = (function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  var CW = 110, CH = 50, PX = 139, PY = 78, X0 = 6, Y0 = 50;   /* card size, grid pitch, origin (design px = css px at the panel's width) */
+  var DANGER = '#ff5d6c', SECURE = '#3ddc97';
+
+  /* trust zones: each its own restrained hue; frames are computed from the systems they hold (two levels at most) */
+  var ZONES = [
+    { id: 'internet', label: 'INTERNET', hue: '#ff5d6c' },
+    { id: 'edge', label: 'EDGE', hue: '#8fa3c7' },
+    { id: 'vpc', label: 'NETWORK (VPC)', hue: '#4cc9f0', padB: 4 },
+    { id: 'public', label: 'PUBLIC TIER', hue: '#4cc9f0', parent: 'vpc' },
+    { id: 'cluster', label: 'CLUSTER', hue: '#4cc9f0', parent: 'vpc' },
+    { id: 'data', label: 'DATA TIER', hue: '#4cc9f0', parent: 'vpc' },
+    { id: 'services', label: 'ACCOUNT SERVICES', hue: '#a78bfa', labelEnd: true, padB: 10, alignRight: 'vpc' }
+  ];
+  /* col / row are grid cells; the layout turns them into pixels */
+  var SYSTEMS = [
+    { id: 'attacker', name: 'Attacker', role: 'outside party', zone: 'internet', col: 0, row: 1 },
+    { id: 'cdn', name: 'CDN / WAF', role: 'web firewall', zone: 'edge', col: 1, row: 1 },
+    { id: 'lb', name: 'Load balancer', role: 'spreads load', zone: 'public', col: 2, row: 1 },
+    { id: 'imds', name: 'IMDS', role: 'hands out keys', zone: 'cluster', col: 3, row: 0 },
+    { id: 'storefront', name: 'storefront', role: 'fetches URLs', zone: 'cluster', col: 3, row: 1 },
+    { id: 'payments', name: 'payments-api', role: 'takes payments', zone: 'cluster', col: 3, row: 2 },
+    { id: 'db', name: 'Orders DB', role: 'orders data', zone: 'data', col: 4, row: 2 },
+    { id: 'iam', name: 'IAM / STS', role: 'identity, keys', zone: 'services', col: 0, row: 4, below: 'vpc' },
+    { id: 's3', name: 'S3 bucket', role: 'customer files', zone: 'services', col: 1, row: 4, below: 'vpc' },
+    { id: 'secrets', name: 'Secrets', role: 'stored secrets', zone: 'services', col: 2, row: 4, below: 'vpc' },
+    { id: 'detect', name: 'GuardDuty', role: 'audit, alerts', zone: 'services', col: 4, row: 4, below: 'vpc' }
+  ];
+  /* mode: h = straight across, v = straight up/down, drop = down a lane between the tiers, sink = under the services row */
+  var LINKS = [
+    { id: 'att_cdn', a: 'attacker', b: 'cdn', mode: 'h' },
+    { id: 'cdn_lb', a: 'cdn', b: 'lb', mode: 'h' },
+    { id: 'lb_store', a: 'lb', b: 'storefront', mode: 'h' },
+    { id: 'store_imds', a: 'storefront', b: 'imds', mode: 'v', label: 'SSRF' },
+    { id: 'store_pay', a: 'storefront', b: 'payments', mode: 'v', label: 'sideways' },
+    { id: 'pay_db', a: 'payments', b: 'db', mode: 'h' },
+    { id: 'byp_iam', a: 'attacker', b: 'iam', mode: 'v', label: 'stolen keys' },
+    { id: 'byp_s3', a: 'attacker', b: 's3', mode: 'drop', label: 'direct from outside' },
+    { id: 'byp_sec', a: 'attacker', b: 'secrets', mode: 'drop' },
+    { id: 'log_iam', a: 'iam', b: 'detect', mode: 'sink', control: true },
+    { id: 'log_s3', a: 's3', b: 'detect', mode: 'sink', control: true },
+    { id: 'log_sec', a: 'secrets', b: 'detect', mode: 'sink', control: true }
+  ];
+  var BY = {}; SYSTEMS.forEach(function (s) { BY[s.id] = s; });
+
+  function layout() {
+    var S = {}, Z = {}, LK = {};
+    SYSTEMS.forEach(function (s) { var x = X0 + s.col * PX, y = Y0 + s.row * PY; S[s.id] = { sys: s, x: x, y: y, w: CW, h: CH, cx: x + CW / 2, cy: y + CH / 2 }; });
+    function frame(z) {
+      if (Z[z.id]) return Z[z.id];
+      var kids = ZONES.filter(function (k) { return k.parent === z.id; }), leaf = !kids.length;
+      var rs = SYSTEMS.filter(function (s) { return s.zone === z.id; }).map(function (s) { return S[s.id]; }).concat(kids.map(frame));
+      var x0 = Math.min.apply(null, rs.map(function (r) { return r.x; })), y0 = Math.min.apply(null, rs.map(function (r) { return r.y; }));
+      var x1 = Math.max.apply(null, rs.map(function (r) { return r.x + r.w; })), y1 = Math.max.apply(null, rs.map(function (r) { return r.y + r.h; }));
+      var px = leaf ? 6 : 8, pt = leaf ? 26 : 24, pb = (leaf ? 8 : 10) + (z.padB || 0);
+      return (Z[z.id] = { zone: z, x: x0 - px, y: y0 - pt, w: x1 - x0 + 2 * px, h: y1 - y0 + pt + pb, level: z.parent ? 2 : 1 });
+    }
+    var vf = frame(ZONES[2]);   /* systems marked below: sit one fixed gap under the network frame */
+    SYSTEMS.forEach(function (s) { if (s.below) { var n = S[s.id]; n.y = vf.y + vf.h + 62; n.cy = n.y + CH / 2; } });
+    ZONES.forEach(frame);
+    ZONES.forEach(function (z) { if (z.alignRight) { var t = Z[z.alignRight]; Z[z.id].w = t.x + t.w - Z[z.id].x; } });
+    var laneTop = (Z.vpc.y + Z.vpc.h + Z.services.y) / 2;
+    var laneBot = Math.max.apply(null, SYSTEMS.filter(function (s) { return s.zone === 'services'; }).map(function (s) { return S[s.id].y + CH; })) + 12;
+    LINKS.forEach(function (l) {
+      var A = S[l.a], B = S[l.b], pts, lab = null;
+      if (l.mode === 'h') pts = [[A.x + A.w, A.cy], [B.x, B.cy]];
+      else if (l.mode === 'v') {
+        pts = B.y > A.y ? [[A.cx, A.y + A.h], [B.cx, B.y]] : [[A.cx, A.y], [B.cx, B.y + B.h]];
+        lab = [(A.cx + B.cx) / 2, (pts[0][1] + pts[1][1]) / 2];
+        if (l.id === 'byp_iam') lab[1] = (A.y + A.h + 8 + laneTop) / 2;
+      } else if (l.mode === 'drop') { pts = [[A.cx, A.y + A.h], [A.cx, laneTop], [B.cx, laneTop], [B.cx, B.y]]; lab = [(A.cx + B.cx) / 2, laneTop]; }
+      else pts = [[A.cx, A.y + A.h], [A.cx, laneBot], [B.cx, laneBot], [B.cx, B.y + B.h]];
+      LK[l.id] = { link: l, pts: pts, d: 'M' + pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join('L'), lab: lab };
+    });
+    var all = Object.keys(Z).map(function (k) { return Z[k]; });
+    var W = Math.max.apply(null, all.map(function (f) { return f.x + f.w; })), H = Math.max.apply(null, all.map(function (f) { return f.y + f.h; }));
+    return { S: S, Z: Z, L: LK, W: Math.ceil(W) + 2, H: Math.ceil(H) + 2 };
+  }
+
+  function mk(tag, attrs, parent) { var e = document.createElementNS(NS, tag); for (var k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; }
+  function sysColor(id) { return id === 'detect' ? SECURE : DANGER; }
+
+  /* draw into an <svg>; returns handles for paint() */
+  function build(svg) {
+    var G = layout(), H = { G: G, nodes: {}, links: {}, labels: {}, cache: {} };
+    svg.setAttribute('viewBox', '-1 -1 ' + G.W + ' ' + G.H);
+    var defs = mk('defs', {}, svg), f = mk('filter', { id: 'glow', x: '-40%', y: '-60%', width: '180%', height: '220%' }, defs);
+    mk('feGaussianBlur', { stdDeviation: 6 }, f);
+    var key = mk('g', {}, svg);
+    mk('rect', { x: 0.5, y: 3.5, width: 14, height: 9, rx: 3, fill: '#1b2233', stroke: DANGER, 'stroke-width': 1.5 }, key);
+    mk('text', { x: 22, y: 12, class: 'gk' }, key).textContent = 'reached';
+    mk('rect', { x: 0.5, y: 21.5, width: 14, height: 9, rx: 3, fill: '#141c2b', stroke: '#2e3a52', 'stroke-width': 1.2 }, key);
+    mk('text', { x: 22, y: 30, class: 'gk' }, key).textContent = 'not reached yet';
+    mk('rect', { x: 0.5, y: 39.5, width: 14, height: 9, rx: 3, fill: 'none', stroke: '#fff', 'stroke-width': 1.5 }, key);
+    mk('text', { x: 22, y: 48, class: 'gk' }, key).textContent = 'event under the clock';
+    var gz = mk('g', {}, svg), gl = mk('g', {}, svg), gp = mk('g', {}, svg), gb = mk('g', {}, svg), gn = mk('g', {}, svg);
+    Object.keys(G.Z).forEach(function (k) {
+      var z = G.Z[k], hue = z.zone.hue;
+      mk('rect', { x: z.x, y: z.y, width: z.w, height: z.h, rx: z.level === 1 ? 12 : 9, fill: hue, 'fill-opacity': z.level === 1 ? 0.045 : 0.05, stroke: hue, 'stroke-opacity': z.level === 1 ? 0.34 : 0.24, 'stroke-width': 1, 'stroke-dasharray': z.level === 2 ? '4 3' : 'none' }, gz);
+      var t = mk('text', { x: z.zone.labelEnd ? z.x + z.w - 10 : z.x + 10, y: z.y + 16, 'text-anchor': z.zone.labelEnd ? 'end' : 'start', class: 'zl', fill: hue, 'data-zone': z.zone.id }, gz);
+      t.textContent = z.zone.label;
+    });
+    Object.keys(G.L).forEach(function (id) {
+      var L = G.L[id], col = L.link.control ? SECURE : DANGER;
+      var base = mk('path', { d: L.d, fill: 'none', stroke: '#3a4660', 'stroke-width': 1.5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, gl);
+      var lit = mk('path', { d: L.d, fill: 'none', stroke: col, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: 0 }, gl);
+      var pulse = mk('path', { d: L.d, fill: 'none', stroke: col, 'stroke-width': 5, 'stroke-linejoin': 'round', 'stroke-linecap': 'round', opacity: 0 }, gp);
+      H.links[id] = { base: base, lit: lit, pulse: pulse, id: id };
+      if (L.lab && L.link.label) {
+        var g = mk('g', { class: 'lp', opacity: 0, 'data-link': id }, gb), w = Math.round(L.link.label.length * 6.1 + 14);
+        mk('rect', { x: L.lab[0] - w / 2, y: L.lab[1] - 8, width: w, height: 16, rx: 8, fill: '#121826', stroke: col, 'stroke-opacity': 0.7 }, g);
+        var tx = mk('text', { x: L.lab[0], y: L.lab[1] + 4, 'text-anchor': 'middle', class: 'lt', fill: '#e6edf7' }, g); tx.textContent = L.link.label;
+        H.labels[id] = g;
+      }
+    });
+    Object.keys(G.S).forEach(function (id) {
+      var n = G.S[id], s = n.sys, col = sysColor(id);
+      var g = mk('g', { class: 'node', tabindex: 0, role: 'button', 'data-id': id, 'aria-label': s.name + ', ' + s.role + '. Not reached yet. Show details and filter the stream.' }, gn);
+      var glow = mk('rect', { x: n.x, y: n.y, width: n.w, height: n.h, rx: 9, fill: col, filter: 'url(#glow)', opacity: 0 }, g);
+      mk('rect', { class: 'hit', x: n.x - 3, y: n.y - 3, width: n.w + 6, height: n.h + 6, fill: 'transparent' }, g);
+      var body = mk('rect', { class: 'body', x: n.x, y: n.y, width: n.w, height: n.h, rx: 9 }, g);
+      var nm = mk('text', { x: n.x + 10, y: n.y + 22, class: 'nn' }, g); nm.textContent = s.name;
+      var rl = mk('text', { x: n.x + 10, y: n.y + 39, class: 'nr' }, g); rl.textContent = s.role;
+      var sel = mk('rect', { x: n.x - 4, y: n.y - 4, width: n.w + 8, height: n.h + 8, rx: 12, fill: 'none', stroke: '#4cc9f0', 'stroke-width': 2, 'stroke-dasharray': '5 3', opacity: 0, 'pointer-events': 'none' }, g);
+      var ring = mk('rect', { x: n.x - 4, y: n.y - 4, width: n.w + 8, height: n.h + 8, rx: 12, fill: 'none', stroke: '#fff', 'stroke-width': 2, opacity: 0, 'pointer-events': 'none' }, g);
+      H.nodes[id] = { g: g, body: body, glow: glow, ring: ring, sel: sel, col: col, n: n };
+    });
+    return H;
+  }
+
+  /* pure: what is lit at the clock. events carry nodes (the route), edges (link ids), to, r, attack. */
+  function light(events, ci, clock) {
+    var nodes = {}, links = {}, now = null;
+    for (var i = 0; i <= ci; i++) { events[i].nodes.forEach(function (n) { nodes[n] = 1; }); events[i].edges.forEach(function (l) { links[l] = 1; }); }
+    if (ci >= 0) { var e = events[ci]; now = { to: e.to, edges: e.edges, attack: e.attack, amp: Math.max(0, 1 - (clock - e.r) / 2.4) }; }
+    return { nodes: nodes, links: links, now: now };
+  }
+
+  function paint(H, L) {
+    var c = H.cache;
+    Object.keys(H.nodes).forEach(function (id) {
+      var o = H.nodes[id], on = !!L.nodes[id], cur = !!(L.now && L.now.to === id);
+      if (c['n' + id] !== on) { c['n' + id] = on; o.g.classList.toggle('lit', on); o.g.setAttribute('data-lit', on ? '1' : '0'); o.glow.setAttribute('opacity', on ? 0.42 : 0); o.body.style.stroke = on ? o.col : ''; }
+      o.ring.setAttribute('opacity', cur ? (0.45 + 0.55 * L.now.amp).toFixed(2) : 0);
+      o.g.setAttribute('data-now', cur ? '1' : '0');
+    });
+    var nowEdges = L.now ? L.now.edges : [];
+    Object.keys(H.links).forEach(function (id) {
+      var o = H.links[id], on = !!L.links[id];
+      if (c['l' + id] !== on) { c['l' + id] = on; o.lit.setAttribute('opacity', on ? 0.6 : 0); o.base.setAttribute('data-lit', on ? '1' : '0'); if (H.labels[id]) H.labels[id].setAttribute('opacity', on ? 1 : 0); }
+      o.pulse.setAttribute('opacity', nowEdges.indexOf(id) >= 0 ? (0.85 * L.now.amp).toFixed(2) : 0);
+    });
+  }
+  function setSelected(H, id) { Object.keys(H.nodes).forEach(function (k) { H.nodes[k].sel.setAttribute('opacity', k === id ? 1 : 0); }); }
+
+  return { ZONES: ZONES, SYSTEMS: SYSTEMS, LINKS: LINKS, BY: BY, layout: layout, build: build, light: light, paint: paint, setSelected: setSelected };
+})();
+
+/* what the "what would have stopped it" panel says about each control; edge = the graph link the control would break */
+var CONTROL_WHY = {
+  att_cdn: 'A firewall rule that refuses web addresses pointing at internal ranges.',
+  store_imds: 'Metadata version 2 asks for a session token that a plain URL fetch cannot supply.',
+  byp_sec: 'The node role is not allowed to list or read secrets it never uses.',
+  byp_s3: 'A bucket policy and a private endpoint let only the internal network read the bucket.',
+  store_pay: 'A network policy stops the storefront calling the payments service.'
+};
+var SHIELDS = [
+  { n: '2', edge: 'att_cdn', label: 'WAF rule' },
+  { n: '2/3', edge: 'store_imds', label: 'IMDSv2 hop limit' },
+  { n: '5', edge: 'byp_sec', label: 'Least-privilege role' },
+  { n: '6', edge: 'byp_s3', label: 'Bucket policy + endpoint' },
+  { n: '8', edge: 'store_pay', label: 'Network policy' }
+];
+/* how far into the estate a system sits, in words (higher = further) */
+var BOUNDARY = {
+  cdn: [1, 'the edge'], lb: [2, 'the public tier'], storefront: [3, 'the cluster'], imds: [4, 'node identity'],
+  iam: [5, 'account services'], s3: [5, 'account services'], secrets: [5, 'account services'], payments: [6, 'a second namespace'], db: [7, 'the data tier']
+};
+var PHASES = [
+  { id: 'initial', title: 'Initial access', tag: 'Initial', hue: '#6db3f2', desc: 'ordinary requests, then a crafted URL' },
+  { id: 'cred', title: 'Credential access', tag: 'Credential', hue: '#e0b252', desc: 'metadata keys, first calls with them' },
+  { id: 'disc', title: 'Discovery & exfiltration', tag: 'Discovery', hue: '#b99cf5', desc: 'listing, then bulk downloads' },
+  { id: 'lateral', title: 'Lateral movement', tag: 'Lateral', hue: '#5fcfc0', desc: 'storefront to payments to the orders' },
+  { id: 'detect', title: 'Detection & controls', tag: 'Detection', hue: '#3ddc97', desc: 'late alert, response, review' }
+];
+
+/* the replay: one clock, a log of events, and views that are pure functions of the clock */
+var CLOCK = {
+  RATE: 1 / 12,     /* replay seconds per incident second while the incident is active */
+  GAP_MIN: 1800,    /* a silence longer than this (incident seconds) is compressed ... */
+  BREAK_S: 8,       /* ... to this many replay seconds, drawn as a break on every time axis */
+  LEAD_S: 1.2,      /* replay seconds before the first action */
+  TAIL_S: 3,        /* the last event stays current this long */
+  END_S: 1          /* hold at the end */
+};
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function $(id) { return document.getElementById(id); }
+function h(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+(function () {
+'use strict';
+var reduceMq = window.matchMedia('(prefers-reduced-motion: reduce)');
+function reduced() { return reduceMq.matches; }
+
+/* ======== derive everything from EVENTS ======== */
+var EV = EVENTS.slice().sort(function (a, b) { return a.t - b.t; });
+var NSTEP = STEPS.length;
+var VIS = ['blind', 'logged', 'alerted'];
+var VLAB = { blind: 'Blind', logged: 'Logged', alerted: 'Alerted' };
+function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
+function pad2(n) { return (n < 10 ? '0' : '') + n; }
+function fmtT(t) { t = Math.max(0, Math.floor(t + 1e-6)); var d = Math.floor(t / DAY), r = t % DAY; return 'T+' + (d ? d + 'd ' : '') + pad2(Math.floor(r / 3600)) + ':' + pad2(Math.floor(r % 3600 / 60)) + ':' + pad2(r % 60); }
+function plural(n, w) { return n + ' ' + w + (n === 1 ? '' : 's'); }
+function fmtLong(s) {
+  var d = Math.floor(s / DAY), hh = Math.floor(s % DAY / 3600), m = Math.floor(s % 3600 / 60);
+  if (d) return plural(d, 'day') + (hh ? ' ' + plural(hh, 'hour') : '');
+  if (hh) return plural(hh, 'hour') + (m ? ' ' + plural(m, 'minute') : '');
+  return m >= 1 ? plural(m, 'minute') : plural(Math.round(s), 'second');
+}
+function fmtShort(s) {
+  var d = Math.floor(s / DAY), hh = Math.floor(s % DAY / 3600), m = Math.floor(s % 3600 / 60);
+  if (d) return d + 'd ' + hh + 'h';
+  if (hh) return hh + 'h ' + m + 'm';
+  return m >= 1 ? m + ' min' : Math.round(s) + ' s';
+}
+function fmtAxis(t) {
+  if (t < 3600) return t === 0 ? 'T+0' : 'T+' + Math.round(t / 60) + 'm';
+  var d = Math.floor(t / DAY), hh = Math.floor(t % DAY / 3600), m = Math.floor(t % 3600 / 60);
+  return 'T+' + (d ? d + 'd ' : '') + hh + 'h ' + m + 'm';
+}
+var NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six'];
+
+/* routes through the graph, so an event between two systems lights every link on the way */
+var ADJ = {};
+Graph.LINKS.forEach(function (e) {
+  (ADJ[e.a] = ADJ[e.a] || []).push([e.b, e.id]); (ADJ[e.b] = ADJ[e.b] || []).push([e.a, e.id]);
+});
+function route(a, b) {
+  var prev = {}, q = [a]; prev[a] = null;
+  while (q.length) {
+    var n = q.shift(); if (n === b) break;
+    (ADJ[n] || []).forEach(function (p) { if (!(p[0] in prev)) { prev[p[0]] = [n, p[1]]; q.push(p[0]); } });
+  }
+  var nodes = [b], edges = [], c = b;
+  while (prev[c]) { edges.unshift(prev[c][1]); c = prev[c][0]; nodes.unshift(c); }
+  return { nodes: nodes, edges: edges };
+}
+function takesPart(e, id) { return e.nodes.indexOf(id) >= 0; }
+function nameOf(id) { return Graph.BY[id].name; }
+
+var PHASE_OF = {}; STEPS.forEach(function (s, i) { PHASE_OF[i + 1] = s.phase; });
+var PHI = {}; PHASES.forEach(function (p, i) { PHI[p.id] = i; });
+var N_TOTAL = 0, ATT_TOTAL = 0;
+var SYSTEMS = Graph.SYSTEMS.map(function (s) { return s.id; }).filter(function (id) { return id !== 'attacker'; });
+EV.forEach(function (e, i) {
+  e.i = i;
+  var p = route(e.from, e.to); e.nodes = p.nodes; e.edges = p.edges;
+  e.phase = PHASE_OF[e.step]; e.pi = PHI[e.phase];
+  e.attack = e.phase !== 'detect';
+  e.c0 = N_TOTAL; N_TOTAL += e.count; e.c1 = N_TOTAL;
+  e.a0 = ATT_TOTAL; if (e.attack) ATT_TOTAL += e.count; e.a1 = ATT_TOTAL;
+});
+var T_FIRST = EV[0].t, T_LAST = EV[EV.length - 1].t;
+var T_ATTACK_END = Math.max.apply(null, EV.filter(function (e) { return e.attack; }).map(function (e) { return e.t; }));
+var FIRST_ALERT = EV.filter(function (e) { return e.visibility === 'alerted'; })[0];
+
+/* incident time -> replay time: piecewise. Active stretches run at a steady rate; a long silence collapses to BREAK_S. */
+var SEG = [], BREAKS = [], r = CLOCK.LEAD_S;
+EV[0].r = r;
+for (var i = 1; i < EV.length; i++) {
+  var gap = EV[i].t - EV[i - 1].t, r0 = r, brk = gap > CLOCK.GAP_MIN;
+  r += brk ? CLOCK.BREAK_S : gap * CLOCK.RATE;
+  EV[i].r = r;
+  var sg = { r0: r0, r1: r, t0: EV[i - 1].t, t1: EV[i].t, brk: brk };
+  SEG.push(sg); if (brk) BREAKS.push(sg);
+}
+var duration = Math.round((EV[EV.length - 1].r + CLOCK.TAIL_S + CLOCK.END_S) * 10) / 10;
+function rToT(x) {
+  if (x <= EV[0].r) return EV[0].t;
+  for (var k = 0; k < SEG.length; k++) if (x <= SEG[k].r1) return SEG[k].t0 + (SEG[k].t1 - SEG[k].t0) * (x - SEG[k].r0) / (SEG[k].r1 - SEG[k].r0);
+  return T_LAST;
+}
+function rOfT(t) {
+  if (t <= EV[0].t) return EV[0].r;
+  for (var k = 0; k < SEG.length; k++) if (t <= SEG[k].t1) return SEG[k].brk ? (t <= SEG[k].t0 ? SEG[k].r0 : SEG[k].r1) : SEG[k].r0 + (t - SEG[k].t0) * CLOCK.RATE;
+  return EV[EV.length - 1].r;
+}
+function idxAt(x) { var k = -1; for (var j = 0; j < EV.length; j++) { if (EV[j].r <= x + 1e-9) k = j; else break; } return k; }
+
+/* running figures, one entry per event */
+var PRE = [], reachedSet = {}, rank = 0, rankWords = '', nb = 0, nl = 0, na = 0, att = 0;
+EV.forEach(function (e) {
+  if (e.visibility === 'blind') nb += e.count; else if (e.visibility === 'logged') nl += e.count; else na += e.count;
+  if (e.attack) att += e.count;
+  if (e.attack) e.nodes.forEach(function (n) {
+    if (n === 'attacker') return;
+    reachedSet[n] = 1;
+    if (BOUNDARY[n] && BOUNDARY[n][0] > rank) { rank = BOUNDARY[n][0]; rankWords = BOUNDARY[n][1]; }
+  });
+  PRE.push({ n: e.c1, att: att, vis: [nb, nl, na], reached: Object.keys(reachedSet).length, boundary: rankWords });
+});
+var REACHED_TOTAL = PRE[PRE.length - 1].reached, VIS_TOTAL = PRE[PRE.length - 1].vis;
+var PH = PHASES.map(function (p, j) {
+  var es = EV.filter(function (e) { return e.pi === j; });
+  return { id: p.id, title: p.title, tag: p.tag, hue: p.hue, desc: p.desc, first: es[0].r, last: es[es.length - 1].r, firstEv: es[0].i, n: es.length, events: es,
+           total: es.reduce(function (a, e) { return a + e.count; }, 0) };
+});
+
+/* controls: where each shield would have cut the chain, from the events */
+var CUTS = SHIELDS.map(function (s) {
+  var from = parseInt(s.n, 10);
+  var e = EV.filter(function (x) { return x.attack && x.step >= from && x.edges.indexOf(s.edge) >= 0; })[0];
+  return { n: s.n, edge: s.edge, label: s.label, ev: e, at: e.a0 + 1, prevented: ATT_TOTAL - e.a0 };
+}).sort(function (a, b) { return a.ev.i - b.ev.i; });
+
+var DERIVED = { totalActions: N_TOTAL, attackActions: ATT_TOTAL, lines: EV.length, spanSeconds: T_LAST - T_FIRST, attackSpanSeconds: T_ATTACK_END - T_FIRST,
+  phases: PHASES.length, steps: NSTEP, systemsReached: REACHED_TOTAL, systemsTotal: SYSTEMS.length, firstAlertSeconds: FIRST_ALERT.t - T_FIRST,
+  visibility: { blind: VIS_TOTAL[0], logged: VIS_TOTAL[1], alerted: VIS_TOTAL[2] }, breaks: BREAKS.map(function (b) { return { r0: b.r0, r1: b.r1, gap: b.t1 - b.t0 }; }),
+  cuts: CUTS.map(function (c) { return { edge: c.edge, at: c.at, prevented: c.prevented }; }) };
+
+/* ======== the clock ======== */
+var clock = 0, playing = false, speed = 1, lastTs = 0, raf = 0, rmTimer = 0, ci = -2;
+var openEv = -1, filterVis = 'all', nodeFilter = null, cardId = null, opener = null;
+
+function setClock(x) { clock = clamp(x, 0, duration); render(); }
+function frame(ts) {
+  if (!playing) return;
+  var dt = Math.min(0.1, Math.max(0, (ts - lastTs) / 1000)); lastTs = ts;
+  setClock(clock + dt * speed);
+  if (clock >= duration - 1e-6) { pause(); return; }
+  raf = requestAnimationFrame(frame);
+}
+function writeHash() {
+  var hs = '#t=' + clock.toFixed(1);
+  try { history.replaceState(null, '', location.pathname + location.search + hs); } catch (e) { location.hash = hs; }
+}
+function play() {
+  if (playing) return;
+  if (clock >= duration - 1e-6) setClock(0);
+  playing = true; syncPlay();
+  if (reduced()) { rmStep(); return; }
+  lastTs = performance.now(); raf = requestAnimationFrame(frame);
+}
+function pause() { playing = false; cancelAnimationFrame(raf); clearTimeout(rmTimer); syncPlay(); writeHash(); }
+function rmStep() {   /* reduced motion: one event at a time, no in-between animation */
+  if (!playing) return;
+  var nx = nextEvent();
+  if (!nx) { setClock(duration); pause(); return; }
+  setClock(nx.r);
+  rmTimer = setTimeout(rmStep, 1500 / speed);
+}
+function jumpTo(x) { setClock(x); writeHash(); }
+function nextEvent() { for (var j = 0; j < EV.length; j++) if (EV[j].r > clock + 1e-6) return EV[j]; return null; }
+function prevEvent() { for (var j = EV.length - 1; j >= 0; j--) if (EV[j].r < clock - 1e-6) return EV[j]; return null; }
+function stepEvent(d) {
+  var e = d > 0 ? nextEvent() : prevEvent();
+  if (e) jumpTo(e.r); else if (d < 0) jumpTo(0); else jumpTo(duration);
+}
+function phaseIdxNow() { var k = -1; PH.forEach(function (p, j) { if (p.first <= clock + 1e-6) k = j; }); return k; }
+function stepPhase(d) {
+  var k = phaseIdxNow();
+  if (d > 0) { if (k + 1 < PH.length) jumpTo(PH[k + 1].first); else jumpTo(duration); }
+  else { if (k >= 0 && clock > PH[k].first + 0.05) jumpTo(PH[k].first); else if (k > 0) jumpTo(PH[k - 1].first); else jumpTo(0); }
+}
+function restart() { pause(); setClock(0); writeHash(); }
+
+/* ======== static page parts ======== */
+$('kick').textContent = 'Incident replay · ' + INCIDENT.id + ' · reconstructed from ' + fmt(N_TOTAL) + ' actions';
+(function () {
+  var t = $('ttl'), i = INCIDENT.title.indexOf(INCIDENT.accent);
+  if (i < 0) t.textContent = INCIDENT.title;
+  else { t.appendChild(document.createTextNode(INCIDENT.title.slice(0, i))); t.appendChild(h('em', null, INCIDENT.accent)); t.appendChild(document.createTextNode(INCIDENT.title.slice(i + INCIDENT.accent.length))); }
+  document.title = 'Incident replay: ' + INCIDENT.title + ' (illustrative)';
+})();
+$('tag').textContent = INCIDENT.tagline;
+[['span', fmtShort(T_LAST - T_FIRST)], ['actions', fmt(N_TOTAL)], ['systems reached', REACHED_TOTAL + ' of ' + SYSTEMS.length], ['to first alert', fmtShort(FIRST_ALERT.t - T_FIRST)]].forEach(function (c) {
+  var s = h('span', 'sc'); s.appendChild(h('b', null, c[1])); s.appendChild(document.createTextNode(c[0])); $('chips').appendChild(s);
+});
+var speedEls = [];
+[0.5, 1, 2, 4].forEach(function (s) {
+  var b = h('button', null, s + 'x'); b.type = 'button'; b.setAttribute('aria-label', 'Speed ' + s + ' times'); b.setAttribute('aria-pressed', s === 1 ? 'true' : 'false');
+  b.addEventListener('click', function () { speed = s; speedEls.forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); });
+  $('speeds').appendChild(b); speedEls.push(b);
+});
+function vmark(v) { return h('i', 'vg ' + v); }
+(function legend() {
+  var l = $('legend');
+  VIS.forEach(function (v) { var s = h('span'); s.appendChild(vmark(v)); s.appendChild(document.createTextNode(v === 'blind' ? 'blind: nothing recorded' : v === 'logged' ? 'logged: nobody looked' : 'alerted')); l.appendChild(s); });
+})();
+$('stopl').textContent = 'cut points computed from the events';
+(function foot() {
+  var f = $('foot');
+  f.appendChild(h('p', null, 'Illustrative data. This record is invented to explain how an incident of this kind unfolds; no real organisation, system, address or time is shown. Redacted: ' + INCIDENT.redaction));
+  f.appendChild(h('p', null, 'Marks: a hollow circle is an action nothing recorded, a half circle one that was logged but not looked at, a solid circle one that raised an alert. The hatched break is a long silence compressed on screen; the clock runs through it at speed.'));
+})();
+
+/* ---- scrubbers: the player card and the sticky bar are two views of the same clock ---- */
+var PADX = 10, SCR = [];
+function makeScrub(host, id, label) {
+  var o = { host: host };
+  var tr = h('div', 'track'), rl = h('div', 'rail'), fl = h('div', 'fill'), hd = h('div', 'shead');
+  hd.id = id; hd.tabIndex = 0; hd.setAttribute('role', 'slider'); hd.setAttribute('aria-label', label); hd.setAttribute('aria-orientation', 'horizontal');
+  hd.setAttribute('aria-valuemin', '0'); hd.setAttribute('aria-valuemax', String(Math.round(duration)));
+  tr.appendChild(rl); tr.appendChild(fl); tr.appendChild(hd); host.appendChild(tr);
+  o.track = tr; o.rail = rl; o.fill = fl; o.head = hd; SCR.push(o);
+  tr.addEventListener('pointerdown', function (e) { startDrag(o, e); });
+  tr.addEventListener('pointermove', function (e) { moveDrag(o, e); });
+  tr.addEventListener('pointerup', function (e) { endDrag(o, e); });
+  tr.addEventListener('pointercancel', function (e) { endDrag(o, e); });
+  hd.addEventListener('keydown', headKey);
+  return o;
+}
+function wOf(o) { return Math.max(1, o.host.clientWidth - 2 * PADX); }
+function xIn(o, x) { return PADX + x / duration * wOf(o); }
+function rIn(o, clientX) { return clamp((clientX - o.host.getBoundingClientRect().left - PADX) / wOf(o) * duration, 0, duration); }
+
+var scrubEl = $('scrub'), miniEl = $('smini');
+var bandEls = PH.map(function (p) {
+  var b = h('div', 'band'); b.style.background = p.hue + '24'; b.style.borderLeftColor = p.hue; b.style.color = p.hue;
+  b.title = p.title; b.appendChild(h('span', null, p.title)); scrubEl.appendChild(b); return b;
+});
+var brkEls = BREAKS.map(function (bk) { var d = h('div', 'brk'); scrubEl.appendChild(d); var l = h('div', 'brkl', fmtLong(bk.t1 - bk.t0) + ' later'); scrubEl.appendChild(l); return { el: d, lab: l, bk: bk }; });
+var mkEls = EV.map(function (e) { var m = h('div', 'mk ' + e.visibility); m.style.display = 'none'; scrubEl.appendChild(m); return m; });
+var axEls = [];
+(function buildAxis() {
+  var list = [], starts = [EV[0].t];
+  BREAKS.forEach(function (b) { starts.push(b.t1); });
+  starts.forEach(function (st, j) {
+    var end = j < BREAKS.length ? BREAKS[j].t0 : T_LAST, step = (end - st) > 600 ? 300 : 60;
+    for (var t = st; t <= end + 1e-6; t += step) list.push({ t: t, label: (j === 0 || t === st) ? fmtAxis(t) : '+' + Math.round((t - st) / 60) + 'm' });
+  });
+  list.forEach(function (a) { var d = h('div', 'ax', a.label); d.setAttribute('aria-hidden', 'true'); scrubEl.appendChild(d); axEls.push({ el: d, a: a }); });
+})();
+var mainS = makeScrub(scrubEl, 'head', 'Replay clock');
+var pl = h('div'); pl.id = 'pl'; scrubEl.appendChild(pl);
+var miniS = makeScrub(miniEl, 'mhead', 'Replay clock, compact player');
+var mBrk = BREAKS.map(function () { var b = h('div', 'brk'); miniEl.insertBefore(b, miniS.track); return b; });
+function layoutScrub() {
+  var w = scrubEl.clientWidth; if (!w) return;
+  bandEls.forEach(function (b, j) {
+    var p = PH[j], l = Math.round(xIn(mainS, p.first)), r2 = Math.round(xIn(mainS, p.last));
+    b.style.left = l + 'px'; b.style.width = Math.max(8, r2 - l) + 'px';
+    var sp = b.firstChild; sp.textContent = p.title; if (sp.offsetWidth + 2 > b.offsetWidth) sp.textContent = p.tag; sp.style.display = ''; if (sp.offsetWidth + 2 > b.offsetWidth) sp.style.display = 'none';
+  });
+  var obst = [];
+  brkEls.forEach(function (o) {
+    var l = Math.round(xIn(mainS, o.bk.r0)), r2 = Math.round(xIn(mainS, o.bk.r1));
+    o.el.style.left = l + 'px'; o.el.style.width = (r2 - l) + 'px';
+    o.lab.style.left = Math.round((l + r2) / 2) + 'px';
+    var wd = o.lab.offsetWidth, cx = (l + r2) / 2; obst.push([cx - wd / 2 - 8, cx + wd / 2 + 8]);
+  });
+  var axEnd = -1e9;
+  axEls.forEach(function (o) {
+    var x = Math.round(xIn(mainS, rOfT(o.a.t))), wd = o.el.offsetWidth;
+    var ok = x > axEnd + 8 && x + wd < w && !obst.some(function (b) { return x < b[1] && x + wd > b[0]; });
+    o.el.style.display = ok ? '' : 'none';
+    if (ok) axEnd = x + wd;
+    o.el.style.left = x + 'px';
+  });
+  EV.forEach(function (e, i) { mkEls[i].style.left = Math.round(xIn(mainS, e.r)) + 'px'; });
+  mainS.rail.style.left = PADX + 'px'; mainS.rail.style.width = wOf(mainS) + 'px'; mainS.fill.style.left = PADX + 'px';
+  miniS.rail.style.left = PADX + 'px'; miniS.rail.style.width = wOf(miniS) + 'px'; miniS.fill.style.left = PADX + 'px';
+  mBrk.forEach(function (b, j) { var l = Math.round(xIn(miniS, BREAKS[j].r0)), r2 = Math.round(xIn(miniS, BREAKS[j].r1)); b.style.left = l + 'px'; b.style.width = (r2 - l) + 'px'; });
+  placeHead();
+}
+function placeHead() {
+  SCR.forEach(function (o) {
+    var x = xIn(o, clock);
+    o.head.style.transform = 'translateX(' + (x - 7).toFixed(1) + 'px)';
+    o.fill.style.width = Math.max(0, x - PADX).toFixed(1) + 'px';
+  });
+  pl.style.left = (xIn(mainS, clock) - 1).toFixed(1) + 'px';
+}
+
+/* drag a playhead: every pointer move sets the clock (at most once per animation frame) */
+var dragging = null, pendR = null, dragRaf = 0, grab = 0;
+function flushDrag() { dragRaf = 0; if (pendR == null) return; var x = pendR; pendR = null; setClock(x); }
+function startDrag(o, e) {
+  if (e.button != null && e.button > 0) return;
+  e.preventDefault();
+  if (playing) pause();
+  closeCard(false);
+  dragging = o; o.track.classList.add('drag');
+  try { o.track.setPointerCapture(e.pointerId); } catch (x) { /* moves are still seen while over the track */ }
+  var hr = o.head.getBoundingClientRect();
+  grab = e.target === o.head ? (hr.left + hr.width / 2) - e.clientX : 0;
+  o.head.focus({ preventScroll: true });
+  pendR = rIn(o, e.clientX + grab); flushDrag();
+}
+function moveDrag(o, e) {
+  if (dragging !== o) return;
+  pendR = rIn(o, e.clientX + grab);
+  if (!dragRaf) dragRaf = requestAnimationFrame(flushDrag);
+}
+function endDrag(o, e) {
+  if (dragging !== o) return;
+  if (dragRaf) { cancelAnimationFrame(dragRaf); dragRaf = 0; }
+  if (e && e.type === 'pointerup') pendR = rIn(o, e.clientX + grab);
+  flushDrag();
+  dragging = null; o.track.classList.remove('drag');
+  try { o.track.releasePointerCapture(e.pointerId); } catch (x) { /* already released */ }
+  writeHash();
+}
+function headKey(e) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  var c = e.code, used = true;
+  if (c === 'ArrowRight' || c === 'ArrowUp') { if (e.shiftKey) stepPhase(1); else { pause(); jumpTo(clock + 1); } }
+  else if (c === 'ArrowLeft' || c === 'ArrowDown') { if (e.shiftKey) stepPhase(-1); else { pause(); jumpTo(clock - 1); } }
+  else if (c === 'PageDown') stepEvent(1);
+  else if (c === 'PageUp') stepEvent(-1);
+  else if (c === 'Home') restart();
+  else if (c === 'End') { pause(); jumpTo(duration); }
+  else if (c === 'Space' || c === 'Enter') { if (playing) pause(); else play(); }
+  else used = false;
+  if (used) { e.preventDefault(); e.stopPropagation(); }
+}
+
+/* ---- the graph ---- */
+var gH = Graph.build($('gsvg')), lastLight = null;
+
+/* ---- stat cards, narrative, phase rows, stream, activity chart, controls ---- */
+function setStat(id, label, val, sub, cls) {
+  var c = $(id); c.innerHTML = '';
+  c.appendChild(h('div', 'meta', label));
+  var v = h('div', 'val' + (cls ? ' ' + cls : ''), val); c.appendChild(v);
+  c.appendChild(h('div', 'sub', sub));
+}
+function renderStats() {
+  var p = ci >= 0 ? PRE[ci] : { n: 0, att: 0, vis: [0, 0, 0], reached: 0, boundary: '' };
+  setStat('sAct', 'Attacker actions replayed', fmt(p.att), 'of ' + fmt(ATT_TOTAL) + ' total · ' + (ci + 1) + ' of ' + EV.length + ' log lines', p.att ? '' : 'zero');
+  var ph = ci >= 0 ? PH[EV[ci].pi] : null;
+  setStat('sPhase', 'Active phase', ph ? ph.title : 'Not started', ph ? ph.desc : 'press Play to start the clock');
+  setStat('sBlast', 'Blast radius', p.reached ? p.boundary : 'nothing yet', p.reached + ' of ' + SYSTEMS.length + ' systems reached');
+}
+function renderNarr() {
+  var n = $('narr'); n.innerHTML = '';
+  var st = ci >= 0 ? EV[ci].step : 0;
+  if (!st) {
+    n.appendChild(h('div', 'meta ey', 'The incident'));
+    var p0 = h('p'); p0.appendChild(h('b', null, INCIDENT.title)); p0.appendChild(document.createTextNode('An attacker abuses a flaw in a public web page to fetch an internal address, and leaves with the cloud keys stored on the host.')); n.appendChild(p0);
+    return;
+  }
+  n.appendChild(h('div', 'meta ey', 'Step ' + st + ' of ' + NSTEP + ' · ' + PH[PHI[STEPS[st - 1].phase]].title));
+  var p = h('p'); p.appendChild(h('b', null, STEPS[st - 1].title)); p.appendChild(document.createTextNode(STEPS[st - 1].body)); n.appendChild(p);
+}
+/* phase rows */
+var prowEls = PH.map(function (p, j) {
+  var b = h('button', 'prow2'); b.type = 'button'; b.style.setProperty('--h', p.hue);
+  b.setAttribute('aria-label', 'Phase ' + (j + 1) + ': ' + p.title + '. Jump to its start.');
+  var r1 = h('span', 'pr1'); r1.appendChild(h('span', 'pn', p.title)); var pc = h('span', 'pc num', '0'); r1.appendChild(pc);
+  b.appendChild(r1); b.appendChild(h('span', 'pd', p.desc));
+  var tr = h('span', 'tr'), fi = h('i'); tr.appendChild(fi); b.appendChild(tr);
+  var t2 = h('span', 'tr2'), marks = p.events.map(function (e) { var m = h('b', e.visibility); m.style.left = (e.r / duration * 100).toFixed(2) + '%'; t2.appendChild(m); return m; });
+  b.appendChild(t2);
+  b.addEventListener('click', function () { jumpTo(p.first); });
+  $('phases').appendChild(b);
+  return { el: b, pc: pc, fill: fi, marks: marks };
+});
+function renderPhases() {
+  PH.forEach(function (p, j) {
+    var o = prowEls[j], cnt = 0;
+    p.events.forEach(function (e, k) { var on = e.i <= ci; if (on) cnt += e.count; if (o.marks[k].classList.contains('on') !== on) o.marks[k].classList.toggle('on', on); });
+    o.pc.textContent = fmt(cnt);
+    o.el.classList.toggle('dim', clock < p.first - 1e-9);
+    var a = p.first / duration * 100, e2 = clamp(Math.min(clock, p.last), p.first, p.last) / duration * 100;
+    o.fill.style.left = a.toFixed(2) + '%'; o.fill.style.width = (clock < p.first ? 0 : Math.max(0.4, e2 - a)).toFixed(2) + '%';
+  });
+}
+function visible(e) { return (filterVis === 'all' || e.visibility === filterVis) && (!nodeFilter || takesPart(e, nodeFilter)); }
+var lastStreamKey = '';
+function renderStream(force) {
+  var key = ci + '|' + filterVis + '|' + nodeFilter + '|' + openEv;
+  if (!force && key === lastStreamKey) return;
+  lastStreamKey = key;
+  var ol = $('stream'), keepTop = ol.scrollTop; ol.innerHTML = '';
+  var shown = 0;
+  for (var j = ci; j >= 0; j--) {
+    var e = EV[j]; if (!visible(e)) continue;
+    shown++;
+    var li = h('li', j === ci ? 'cur' : ''), b = h('button', 'ln'); b.type = 'button';
+    b.setAttribute('aria-label', 'Jump to ' + fmtT(e.t) + ', ' + VLAB[e.visibility] + ', ' + nameOf(e.from) + ' to ' + nameOf(e.to) + ': ' + e.action + '. ' + e.note);
+    var r1 = h('span', 'r1'); r1.appendChild(h('span', 'when', fmtT(e.t)));
+    var tg = h('span', 'ptag', PH[e.pi].tag); tg.style.setProperty('--h', PH[e.pi].hue); r1.appendChild(tg);
+    r1.appendChild(h('span', 'act', e.action));
+    if (e.count > 1) r1.appendChild(h('span', 'cnt', '×' + fmt(e.count)));
+    var vm = h('span', 'vm'); vm.appendChild(vmark(e.visibility)); vm.appendChild(document.createTextNode(e.visibility === 'alerted' ? 'alert' : e.visibility)); r1.appendChild(vm);
+    b.appendChild(r1); b.appendChild(h('span', 'r2', '↳ ' + e.note));
+    (function (ee) { b.addEventListener('click', function () { openEv = ee.i; jumpTo(ee.r); }); })(e);
+    li.appendChild(b); ol.appendChild(li);
+  }
+  if (!shown) ol.appendChild(h('li', 'empty', ci < 0 ? 'Nothing yet. Actions appear here as the clock reaches them, newest at the top.' : 'No actions so far match this filter.'));
+  ol.scrollTop = keepTop;
+  $('smeta').textContent = ci < 0 ? 'representative actions, as recorded' : shown + ' shown · ' + (ci + 1) + ' of ' + EV.length + ' so far';
+}
+function renderFilters() {
+  var f = $('filters'); f.innerHTML = '';
+  [['all', 'All'], ['blind', 'Blind'], ['logged', 'Logged'], ['alerted', 'Alerted']].forEach(function (o) {
+    var b = h('button', 'f'); b.type = 'button'; b.setAttribute('aria-pressed', filterVis === o[0] ? 'true' : 'false');
+    if (o[0] !== 'all') b.appendChild(vmark(o[0]));
+    b.appendChild(document.createTextNode(o[1]));
+    b.addEventListener('click', function () { filterVis = o[0]; renderFilters(); renderStream(); });
+    f.appendChild(b);
+  });
+  var chip = h('span'); chip.id = 'nodechip'; chip.hidden = !nodeFilter;
+  if (nodeFilter) {
+    chip.appendChild(document.createTextNode('System: ' + nameOf(nodeFilter)));
+    var x = h('button', null, '×'); x.type = 'button'; x.setAttribute('aria-label', 'Remove the system filter: ' + nameOf(nodeFilter));
+    x.addEventListener('click', function () { setNodeFilter(null); }); chip.appendChild(x);
+  }
+  f.appendChild(chip);
+}
+function setNodeFilter(id) { nodeFilter = id; renderFilters(); renderStream(true); }
+
+/* activity chart: actions per bucket of replay time, stacked by visibility, with the break drawn where the silence is */
+var BUCKET = 2, chartEl = $('chart'), barEls = [];
+(function buildChart() {
+  var nB = Math.ceil(duration / BUCKET), data = [];
+  for (var b = 0; b < nB; b++) data.push([0, 0, 0]);
+  EV.forEach(function (e) { data[Math.min(nB - 1, Math.floor(e.r / BUCKET))][VIS.indexOf(e.visibility)] += e.count; });
+  var tot = data.map(function (d) { return d[0] + d[1] + d[2]; }), mx = Math.max.apply(null, tot), H = 120;
+  BREAKS.forEach(function (bk) {
+    var g = h('div', 'gap'); g.style.left = (bk.r0 / duration * 100) + '%'; g.style.width = ((bk.r1 - bk.r0) / duration * 100) + '%';
+    g.appendChild(h('span', null, fmtLong(bk.t1 - bk.t0) + ' later')); chartEl.appendChild(g);
+  });
+  data.forEach(function (d, b) {
+    if (!tot[b]) return;
+    var bar = h('div', 'bar'), ht = Math.max(3, Math.sqrt(tot[b] / mx) * H);
+    bar.style.left = (b * BUCKET / duration * 100) + '%'; bar.style.width = 'calc(' + (BUCKET / duration * 100) + '% - 2px)'; bar.style.height = ht.toFixed(1) + 'px';
+    VIS.forEach(function (v, k) { if (d[k]) { var s = h('i', v); s.style.height = (d[k] / tot[b] * 100).toFixed(2) + '%'; bar.appendChild(s); } });
+    bar.title = fmt(tot[b]) + ' actions';
+    chartEl.appendChild(bar); barEls.push({ el: bar, r0: b * BUCKET, on: false });
+  });
+  var ph = h('div', 'phl'); chartEl.appendChild(ph); barEls.line = ph;
+  $('acap').textContent = NUMW[BREAKS.length + 1] + ' bursts; ' + fmt(VIS_TOTAL[0]) + ' actions unrecorded';
+  var cax = $('cax');
+  [0, 20, 40, 60, 80].forEach(function (s) { var sp = h('span', null, s + 's'); sp.style.left = (s / duration * 100) + '%'; cax.appendChild(sp); });
+})();
+
+/* controls panel */
+var ctlEls = [];
+(function buildControls() {
+  var ul = $('ctls');
+  CUTS.forEach(function (c) {
+    var li = h('li'), b = h('button', 'cc'); b.type = 'button';
+    var nm = h('span', 'nm'); nm.appendChild(h('span', 'sh', c.n)); nm.appendChild(document.createTextNode(c.label)); b.appendChild(nm);
+    b.appendChild(h('span', 'why', CONTROL_WHY[c.edge] || ''));
+    var at = h('span', 'at'); at.appendChild(document.createTextNode('stops it at attacker action ')); at.appendChild(h('b', 'num', fmt(c.at))); at.appendChild(document.createTextNode(' of ' + fmt(ATT_TOTAL))); b.appendChild(at);
+    var pr = h('span', 'pr'); var pi = h('i'); pi.style.width = (c.prevented / ATT_TOTAL * 100).toFixed(1) + '%'; pr.appendChild(pi); b.appendChild(pr);
+    b.appendChild(h('span', 'pl2', fmt(c.prevented - 1) + ' later actions prevented'));
+    b.addEventListener('click', function () { openEv = c.ev.i; jumpTo(c.ev.r); });
+    li.appendChild(b); ul.appendChild(li); ctlEls.push({ li: li, btn: b, cut: c });
+  });
+})();
+
+/* ======== render: every view is a function of the clock ======== */
+var lastPhase = -2;
+function render() {
+  var nci = idxAt(clock), changed = nci !== ci;
+  ci = nci;
+  var t = rToT(clock), day = Math.floor(t / DAY) + 1, days = Math.floor(T_LAST / DAY) + 1;
+  $('clock').textContent = fmtT(t); $('sclock').textContent = fmtT(t);
+  $('day').textContent = 'Day ' + day + ' of ' + days;
+  placeHead();
+  SCR.forEach(function (o) { o.head.setAttribute('aria-valuenow', String(Math.round(clock * 10) / 10));
+    o.head.setAttribute('aria-valuetext', fmtT(t) + ', day ' + day + ' of ' + days + (ci >= 0 ? ', event ' + (ci + 1) + ' of ' + EV.length : ', before the first event')); });
+  barEls.forEach(function (b) { var on = b.r0 <= clock + 1e-9; if (on !== b.on) { b.on = on; b.el.classList.toggle('past', on); } });
+  barEls.line.style.left = 'calc(' + (clock / duration * 100) + '% - 1px)';
+  renderPhases();
+  lastLight = Graph.light(EV, ci, clock);
+  Graph.paint(gH, lastLight);
+  if (changed) {
+    renderStats(); renderNarr();
+    ctlEls.forEach(function (c) {
+      var lit = c.cut.ev.i <= ci; c.li.classList.toggle('lit', lit);
+      c.btn.setAttribute('aria-label', c.cut.label + '. Stops it at attacker action ' + c.cut.at + ' of ' + ATT_TOTAL + (lit ? '. Reached.' : '. Not reached yet.'));
+    });
+    var st = ci >= 0 ? EV[ci].step : 0;
+    if (st !== lastPhase) { lastPhase = st; if (st) $('live').textContent = 'Step ' + st + ' of ' + NSTEP + ': ' + STEPS[st - 1].title; }
+    Object.keys(gH.nodes).forEach(function (id) {
+      var on = !!lastLight.nodes[id], s = Graph.BY[id];
+      gH.nodes[id].g.setAttribute('aria-label', s.name + ', ' + s.role + (on ? '. Reached.' : '. Not reached yet.') + ' Show details and filter the stream.');
+    });
+  }
+  renderStream();
+}
+function syncPlay() {
+  var ic = playing ? '&#10074;&#10074;' : '&#9654;';
+  $('playic').innerHTML = ic; $('splay').firstChild.innerHTML = ic;
+  var lab = playing ? 'Pause' : (clock >= duration - 1e-6 ? 'Replay from the start' : 'Play');
+  $('play').setAttribute('aria-label', lab); $('splay').setAttribute('aria-label', lab);
+}
+$('play').addEventListener('click', function () { if (playing) pause(); else play(); });
+$('splay').addEventListener('click', function () { if (playing) pause(); else play(); });
+$('restart').addEventListener('click', restart);
+
+/* sticky mini bar: shown when the player card has scrolled out of view */
+function syncSticky() { $('sbar').classList.toggle('on', $('player').getBoundingClientRect().bottom < 0); }
+window.addEventListener('scroll', syncSticky, { passive: true });
+
+/* ======== system card: a popover anchored to the node clicked ======== */
+var pop = $('pop');
+function eventsFor(id) { return EV.filter(function (e) { return takesPart(e, id); }); }
+function positionPop() {
+  if (!cardId) return;
+  var wr = $('chain').getBoundingClientRect(), r2 = gH.nodes[cardId].g.getBoundingClientRect();
+  var W = wr.width, H = wr.height, M = 4, G = 12;
+  var R = { l: r2.left - wr.left, t: r2.top - wr.top, r: r2.right - wr.left, b: r2.bottom - wr.top };
+  var pw = pop.offsetWidth, ph = pop.offsetHeight, cx = (R.l + R.r) / 2, cy = (R.t + R.b) / 2;
+  var cands = [[R.r + G, cy - ph / 2], [R.l - G - pw, cy - ph / 2], [cx - pw / 2, R.b + G], [cx - pw / 2, R.t - G - ph]];
+  var best = null, bestOv = Infinity;
+  cands.forEach(function (c) {
+    var l = clamp(c[0], M, W - pw - M), t = clamp(c[1], M, H - ph - M);
+    var ox = Math.max(0, Math.min(l + pw, R.r + 4) - Math.max(l, R.l - 4)), oy = Math.max(0, Math.min(t + ph, R.b + 4) - Math.max(t, R.t - 4));
+    var ov = ox * oy;
+    if (ov < bestOv) { bestOv = ov; best = [l, t]; }
+  });
+  pop.style.left = Math.round(best[0]) + 'px'; pop.style.top = Math.round(best[1]) + 'px';
+}
+function markEvents() {
+  var set = {}; if (cardId) eventsFor(cardId).forEach(function (e) { set[e.i] = 1; });
+  EV.forEach(function (e, i) { mkEls[i].style.display = set[i] ? '' : 'none'; });
+}
+function renderCard() {
+  pop.innerHTML = '';
+  pop.classList.toggle('on', !!cardId);
+  Graph.setSelected(gH, cardId);
+  markEvents();
+  if (!cardId) return;
+  var id = cardId, s = Graph.BY[id], d = CARDS[id];
+  var ch = h('div', 'ch');
+  ch.appendChild(h('span', 'meta', 'System'));
+  var x = h('button', 'x', '×'); x.type = 'button'; x.setAttribute('aria-label', 'Close details');
+  x.addEventListener('click', function () { closeCard(true); });
+  ch.appendChild(x); pop.appendChild(ch);
+  var t = h('h3', null, s.name); t.tabIndex = -1; t.id = 'cardTitle'; pop.appendChild(t);
+  pop.setAttribute('aria-labelledby', 'cardTitle');
+  pop.appendChild(h('p', null, d.what + ' ' + d.did));
+  var es = eventsFor(id);
+  pop.appendChild(h('p', 'meta', es.length ? 'In ' + es.length + ' of ' + EV.length + ' events (marked on the scrubber)' : 'In no events'));
+}
+function showNode(id, op) {
+  if (!gH.nodes[id] || !CARDS[id]) return;
+  cardId = id; opener = op || gH.nodes[id].g;
+  setNodeFilter(id);
+  renderCard(); positionPop();
+  pop.querySelector('h3').focus({ preventScroll: true });
+}
+function closeCard(restoreFocus) {
+  if (!cardId) return;
+  cardId = null; renderCard();
+  if (restoreFocus && opener && document.body.contains(opener)) opener.focus();
+  opener = null;
+}
+pop.addEventListener('click', function (e) { e.stopPropagation(); });
+document.addEventListener('pointerdown', function (e) {
+  if (cardId && !(e.target.closest && e.target.closest('#pop, .node'))) closeCard(false);
+}, true);
+window.addEventListener('resize', positionPop);
+Object.keys(gH.nodes).forEach(function (id) {
+  var g = gH.nodes[id].g;
+  g.addEventListener('click', function (e) { e.stopPropagation(); showNode(id, g); });
+  g.addEventListener('keydown', function (e) { if (e.code === 'Enter' || e.code === 'Space') { e.preventDefault(); e.stopPropagation(); showNode(id, g); } });
+});
+
+/* ======== keyboard ======== */
+function onButton(t) { return t && t.closest && t.closest('button, a, [role="button"], [role="slider"], input, select, textarea'); }
+document.addEventListener('keydown', function (e) {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.code === 'ArrowRight') { e.preventDefault(); if (e.shiftKey) stepPhase(1); else stepEvent(1); }
+  else if (e.code === 'ArrowLeft') { e.preventDefault(); if (e.shiftKey) stepPhase(-1); else stepEvent(-1); }
+  else if (e.code === 'Home') { e.preventDefault(); restart(); }
+  else if (e.code === 'Escape') { if (cardId) { e.preventDefault(); closeCard(true); } }
+  else if (e.code === 'Space' && !onButton(e.target)) { e.preventDefault(); if (playing) pause(); else play(); }
+});
+function hashClock() { var m = /#t=([\d.]+)/.exec(location.hash); return m ? parseFloat(m[1]) : null; }
+window.addEventListener('hashchange', function () { var x = hashClock(); if (x != null && Math.abs(x - clock) > 0.06) setClock(x); });
+
+window.replay = {
+  duration: duration, events: EV, derived: DERIVED,
+  seek: function (x) { if (playing) pause(); setClock(x); writeHash(); },
+  play: play, pause: pause,
+  state: function () {
+    var p = ci >= 0 ? PRE[ci] : { n: 0, att: 0, vis: [0, 0, 0], reached: 0, boundary: '' };
+    return { clock: clock, playing: playing, speed: speed, index: ci, actions: p.n, attackActions: p.att, vis: p.vis, reached: p.reached, boundary: p.boundary,
+             step: ci >= 0 ? EV[ci].step : 0, phase: ci >= 0 ? EV[ci].phase : null, incidentTime: rToT(clock),
+             filter: filterVis, nodeFilter: nodeFilter, card: cardId, openEvent: openEv, hash: location.hash,
+             lit: Object.keys(lastLight.nodes), litLinks: Object.keys(lastLight.links), now: lastLight.now };
+  }
+};
+
+renderFilters();
+layoutScrub();
+if (window.ResizeObserver) new ResizeObserver(function () { layoutScrub(); syncSticky(); }).observe(document.body);
+window.addEventListener('resize', layoutScrub);
+var h0 = hashClock();
+setClock(h0 != null ? h0 : 0);
+syncPlay(); syncSticky();
+})();
+</script>
+</body>
+</html>

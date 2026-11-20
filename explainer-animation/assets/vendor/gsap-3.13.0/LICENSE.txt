@@ -1,0 +1,8 @@
+GSAP 3.13.0 (gsap.min.js, MotionPathPlugin.min.js, DrawSVGPlugin.min.js)
+Copyright GreenSock. Used under the GSAP standard "no charge" licence:
+https://gsap.com/standard-license
+
+The files are the unmodified 3.13.0 builds from
+https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/ with their licence header comments intact.
+They are not covered by this repository's licence. If the licence stops fitting, anime.js v4 is
+the intended swap.

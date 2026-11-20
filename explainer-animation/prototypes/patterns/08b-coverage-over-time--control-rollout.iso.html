@@ -1,0 +1,720 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Three controls rolling out across the estate, quarter by quarter (pattern 8b: coverage over time; isometric)</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #121826; --panel-2: #18202f; --line: #2a3447;
+    --text: #e6edf7; --muted: #8b98ad; --accent: #4cc9f0; --token: #f5b941;
+    --identity: #a78bfa; --secure: #3ddc97; --danger: #ff5d6c;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #stagewrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: var(--bg); transform-origin: 0 0; overflow: hidden; }
+  #scene { position: absolute; left: 0; top: 112px; width: 1920px; height: 772px; display: block; overflow: hidden; }   /* the diagram area: nothing draws under the rail or the band */
+  .edge { position: absolute; pointer-events: none; }
+  #e-t { left: 0; top: 112px; width: 1920px; height: 56px; background: linear-gradient(to bottom, var(--bg), rgba(11,15,23,0)); }
+  #e-b { left: 0; top: 828px; width: 1920px; height: 56px; background: linear-gradient(to top, var(--bg), rgba(11,15,23,0)); }
+  #e-l { left: 0; top: 112px; width: 56px; height: 772px; background: linear-gradient(to right, var(--bg), rgba(11,15,23,0)); }
+  #e-r { left: 1864px; top: 112px; width: 56px; height: 772px; background: linear-gradient(to left, var(--bg), rgba(11,15,23,0)); }
+  .sans { font-family: var(--sans); }
+  .mono { font-family: var(--mono); }
+
+  /* fixed HUD (diagram area, left edge and top-right corner): quarter ticker, meters panel, illustrative-figures chip. All driven by the timeline. */
+  #ticker { position: absolute; left: 48px; top: 126px; width: 520px; height: 112px; padding: 10px 20px 0; border: 2px solid var(--line); border-radius: 14px; background: rgba(14,20,32,0.95); opacity: 0; }
+  #qtext { font: 700 44px/50px var(--sans); white-space: nowrap; }
+  #pips { display: flex; gap: 12px; margin-top: 12px; }
+  .pip { flex: 1; height: 12px; border-radius: 6px; background: var(--line); }
+  .pip.on { background: var(--text); }
+  #meters { position: absolute; left: 48px; top: 256px; width: 520px; padding: 12px 20px 14px; border: 2px solid var(--line); border-radius: 14px; background: rgba(14,20,32,0.95); opacity: 0; }
+  #mhead { font: 600 20px var(--sans); color: var(--muted); height: 28px; white-space: nowrap; }
+  .mrow { height: 112px; padding-top: 6px; border-top: 1px solid var(--line); }
+  .mrow .top { display: flex; align-items: center; gap: 12px; height: 36px; white-space: nowrap; }
+  .mrow .ml { font: 700 26px var(--sans); }
+  .mrow .mc { margin-left: auto; font: 500 22px var(--mono); color: var(--muted); }
+  .mrow .bd { display: flex; align-items: center; gap: 16px; height: 62px; }
+  .bar { position: relative; flex: 1; height: 22px; border-radius: 11px; background: #0b111c; border: 2px solid var(--line); }
+  .fill { position: absolute; left: 0; top: 0; bottom: 0; width: 0; border-radius: 9px; }
+  .t0 { position: absolute; top: -8px; bottom: -8px; width: 3px; margin-left: -1px; background: var(--text); opacity: 0; border-radius: 2px; }
+  .pct { width: 132px; text-align: right; font: 700 54px/62px var(--sans); font-variant-numeric: tabular-nums; }
+  #mfoot { font: 500 18px var(--sans); color: var(--muted); padding-top: 8px; border-top: 1px solid var(--line); white-space: nowrap; }
+  #chip { position: absolute; right: 48px; top: 126px; height: 44px; padding: 0 20px; border: 2px solid var(--token); border-radius: 22px; background: rgba(14,20,32,0.95); color: var(--token); font: 700 24px/40px var(--sans); white-space: nowrap; opacity: 0; }
+  /* narration modes: visibility only */
+  .nar-caption #body, .nar-caption #L-callouts { display: none; }
+  .nar-off #rail, .nar-off #band, .nar-off #L-callouts { display: none; }
+
+  /* narrative UI: fixed to the stage, never moves */
+  #rail { position: absolute; left: 100px; right: 100px; top: 20px; height: 88px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .ph { flex: 0 0 auto; padding: 0 4px; }
+  .ph .nm { font: 600 24px/1.2 var(--sans); color: var(--muted); padding-bottom: 8px; border-bottom: 4px solid var(--line); white-space: nowrap; }
+  .ph.cur .nm { color: var(--text); border-bottom-color: var(--accent); }
+  .ph.done .nm { color: #b4bfd1; border-bottom-color: #4a5870; }
+  .ph .dots { display: flex; gap: 12px; margin-top: 12px; }
+  .dot { width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--line); background: transparent; }
+  .dot.done { background: var(--muted); border-color: var(--muted); }
+  .dot.cur { background: var(--accent); border-color: var(--accent); transform: scale(1.3); }
+  #band { position: absolute; left: 100px; right: 100px; top: 894px; height: 170px; border-top: 2px solid var(--line); padding-top: 12px; }
+  #bandhead { display: flex; align-items: center; gap: 22px; height: 54px; }
+  #count { font: 700 28px var(--mono); color: var(--text); border: 2px solid var(--line); background: var(--panel); border-radius: 12px; padding: 4px 16px; white-space: nowrap; }
+  #title { font: 700 40px/1.1 var(--sans); color: var(--text); white-space: nowrap; }
+  #stepid { font: 600 24px var(--mono); color: var(--muted); margin-left: auto; }
+  #body { margin-top: 8px; font: 500 30px/1.28 var(--sans); color: #c5cfdf; max-width: 1640px; }
+
+  #controls { flex: none; height: 76px; display: flex; align-items: center; gap: 12px; padding: 0 20px; background: #0e1420; border-top: 1px solid var(--line); font: 500 15px var(--sans); }
+  #controls button, #controls select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; height: 38px; padding: 0 14px; font: 600 15px var(--sans); cursor: pointer; }
+  #controls button:hover, #controls select:hover { border-color: var(--accent); }
+  #controls button.on { border-color: var(--secure); color: var(--secure); }
+  #play { min-width: 80px; }
+  #track { position: relative; flex: 1; height: 50px; }
+  #scrub { position: absolute; left: 0; right: 0; top: 4px; width: 100%; margin: 0; accent-color: var(--accent); height: 22px; }
+  .tick { position: absolute; top: 28px; transform: translateX(-50%); font: 600 12px var(--mono); color: var(--muted); text-align: center; pointer-events: none; white-space: nowrap; }
+  .tick::before { content: ""; display: block; width: 2px; height: 8px; margin: -4px auto 1px; background: var(--muted); }
+  #clock { font: 500 14px var(--mono); color: var(--muted); min-width: 108px; text-align: right; }
+  .capture #controls { display: none !important; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
+</head>
+<body>
+<div id="stagewrap">
+  <div id="stage" class="nar-full">
+    <svg id="scene" viewBox="0 112 1920 772" width="1920" height="772" xmlns="http://www.w3.org/2000/svg"></svg>
+    <div id="e-t" class="edge"></div><div id="e-b" class="edge"></div><div id="e-l" class="edge"></div><div id="e-r" class="edge"></div>
+    <div id="ticker" data-ov="ticker"><div id="qtext"></div><div id="pips"></div></div>
+    <div id="meters" data-ov="meters"></div>
+    <div id="chip" data-ov="chip">Illustrative figures</div>
+    <div id="rail"></div>
+    <div id="band">
+      <div id="bandhead"><div id="count"></div><div id="title"></div><div id="stepid"></div></div>
+      <div id="body"></div>
+    </div>
+  </div>
+</div>
+<div id="controls">
+  <button id="prev" title="Previous step (Left)">Prev</button>
+  <button id="play" title="Play / pause (Space)">Play</button>
+  <button id="next" title="Next step (Right)">Next</button>
+  <div id="track"><input id="scrub" type="range" min="0" max="1" step="0.01" value="0"></div>
+  <span id="clock">0.0 / 0.0 s</span>
+  <button id="narr" title="Narration mode (N)">Narration: full</button>
+  <button id="pres" title="Presenter mode (P)">Presenter: off</button>
+  <select id="speed" title="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   PATTERN 8b: COVERAGE OVER TIME (a control roll-out)
+   The estate is a fixed map; what changes is how much of it each control covers. The audience watches coloured bands land on
+   blocks quarter by quarter, watches one meter per control climb, and ends on what is still uncovered and where it sits.
+
+   Data fields that drive it (scenario data, section 1):
+     FIGURES         every number on the stage: { value, unit, label, source }. Counts that come from the scene are computed.
+     ZONES[]         { id, label, systems[], top, at:[screenX, screenY] }   slabs left to right; systems are unlabelled blocks
+     CONTROLS[]      { id, label, colour }   array position is the band's fixed slot on every block (0 top, 1 middle, 2 bottom)
+     COVERAGE[q]     { controlId: [system ids] }   q = 0 is today, q = 1..6 are the quarters; ids are added in that quarter
+     STEPS[]         { id, phase, title, body(), quarters[], focus }   which quarters a step plays, which control it is about
+   Helpers that implement it (section 3):
+     landBand(sys, c, t)     one band appears on one block (slot recess fills, brief flash); records the landing time in LAND[c]
+     quarter(q, t)           advances the ticker, lands that quarter's bands one by one, sweeping left to right across the zones
+     meterValue(c, t)        the meter's count: the sum, over bands of control c, of how far each has landed at time t. Pure function of
+                             time, so seeking shows the right number. quarterAt(t) does the same for the ticker.
+     focus(c, t)             emphasis: bands and meter rows of the controls the step is not about dim to 45% (never hidden)
+     gapStep(t)              systems still missing a control are outlined, their empty slots marked, the worst zone is called out
+     assertSchedule()        build-time checks that the schedule tells the story (ordering of the three meters, where the gaps are)
+   ===================================================================== */
+
+//#region pure
+/* =====================================================================
+   1. PURE DATA + LAYOUT  (no DOM, no gsap)
+   Ground units are pixels on the isometric ground plane: +x runs down-right, +y runs down-left, +z is up.
+   ===================================================================== */
+const COL = { bg: '#0b0f17', panel: '#121826', panel2: '#18202f', line: '#2a3447', text: '#e6edf7',
+              muted: '#8b98ad', accent: '#4cc9f0', token: '#f5b941', identity: '#a78bfa', secure: '#3ddc97', danger: '#ff5d6c' };
+const COS30 = Math.cos(Math.PI / 6);
+function iso(x, y, z = 0) { return { x: (x - y) * COS30, y: (x + y) * 0.5 - z }; }
+const f1 = (n) => n.toFixed(1);
+const P = (x, y, z = 0) => { const q = iso(x, y, z); return f1(q.x) + ',' + f1(q.y); };
+const poly = (pts) => pts.map((p) => P(p[0], p[1], p[2] || 0)).join(' ');
+const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+const textW = (str, fs) => str.length * fs * 0.62;
+
+const HALF = 22, PITCH = 84, ZSIZE = 256, BH = 52, TH = 14, Z0 = TH;       // block half-width, grid pitch, slab size, block height, slab thickness
+const BAND_H = 9, BAND_GAP = 5, BAND_TOP = 6;                               // band thickness, gap between slots, space left above the top slot
+const TAG_PX = 22, CALL_PX = 26, TAG_H = 34;
+const tagW = (label) => textW(label, TAG_PX) + 28;
+
+// ---- scenario data: the one place to change for another topic ----
+// Every number on the stage comes from here. The schedule is the illustrative input; everything counted from it is computed.
+const CONTROLS = [
+  { id: 'signin',  label: 'Strong sign-in',  colour: COL.identity },     // slot 0: top band
+  { id: 'logging', label: 'Central logging', colour: COL.token },        // slot 1: middle band
+  { id: 'segment', label: 'Segmentation',    colour: COL.accent },       // slot 2: bottom band
+];
+const ZONES = [
+  { id: 'work',   label: 'Workforce',      systems: ['wf1', 'wf2', 'wf3', 'wf4'],                      top: '#1b2c47', at: [830, 372] },
+  { id: 'cloud',  label: 'Cloud platform', systems: ['cp1', 'cp2', 'cp3', 'cp4', 'cp5', 'cp6'],        top: '#1d2a44', at: [1098, 632] },
+  { id: 'data',   label: 'Data',           systems: ['da1', 'da2', 'da3', 'da4', 'da5'],               top: '#1c2f3d', at: [1366, 372] },
+  { id: 'legacy', label: 'Legacy',         systems: ['lg1', 'lg2', 'lg3', 'lg4', 'lg5'],               top: '#2a2236', at: [1634, 632] },
+];
+// coverage[q][control] = system ids the control reaches in that quarter (q 0 = where we start today)
+const COVERAGE = [
+  { signin: ['wf1', 'wf2', 'cp1'], logging: ['cp1', 'cp2'], segment: ['cp1'] },
+  { signin: ['wf3', 'wf4', 'cp2', 'cp3', 'cp4'], logging: [], segment: [] },
+  { signin: ['cp5', 'cp6', 'da1', 'da2', 'da3', 'da4', 'da5', 'lg1', 'lg2', 'lg3'], logging: [], segment: [] },
+  { signin: [], logging: ['cp3', 'cp4', 'cp5', 'cp6', 'wf1', 'wf2'], segment: [] },
+  { signin: [], logging: ['wf3', 'wf4', 'da1', 'da2', 'da3', 'da4', 'da5', 'lg1'], segment: [] },
+  { signin: [], logging: [], segment: ['cp2', 'cp3', 'cp4', 'cp5', 'cp6', 'wf1', 'wf2'] },
+  { signin: [], logging: [], segment: ['wf3', 'wf4', 'da1', 'da2', 'da3', 'da4'] },
+];
+
+// ---- derived from the data (never typed) ----
+const SYSTEM_IDS = ZONES.flatMap((z) => z.systems);
+const N = SYSTEM_IDS.length, QN = COVERAGE.length - 1;
+const ZONE_OF = {}; ZONES.forEach((z) => z.systems.forEach((s) => { ZONE_OF[s] = z.id; }));
+const FINAL = {};      // control id -> Set of system ids covered at the end
+const START = {};      // control id -> number covered today
+CONTROLS.forEach((c) => { FINAL[c.id] = new Set(); COVERAGE.forEach((q) => (q[c.id] || []).forEach((s) => FINAL[c.id].add(s))); START[c.id] = COVERAGE[0][c.id].length; });
+const GAPS = SYSTEM_IDS.filter((s) => CONTROLS.some((c) => !FINAL[c.id].has(s)));     // systems still missing at least one control at the end
+const GAP_BY_ZONE = {}; ZONES.forEach((z) => { GAP_BY_ZONE[z.id] = GAPS.filter((s) => ZONE_OF[s] === z.id).length; });
+const WORST = ZONES.slice().sort((a, b) => GAP_BY_ZONE[b.id] - GAP_BY_ZONE[a.id])[0];
+const pctOf = (n) => Math.round(100 * n / N);
+const FIGURES = {
+  estate:   { value: N,  unit: 'systems', label: 'Systems in the estate', source: 'illustrative' },
+  quarters: { value: QN, unit: 'quarters', label: 'Length of the roll-out', source: 'illustrative' },
+  zones:    { value: ZONES.length, unit: 'zones', label: 'Zones in the estate', source: 'illustrative' },
+  gaps:     { value: GAPS.length, unit: 'systems', label: 'Systems still missing a control at the end', source: 'illustrative' },
+  worstGaps:{ value: GAP_BY_ZONE[WORST.id], unit: 'systems', label: 'Of those, in the worst zone', source: 'illustrative' },
+};
+CONTROLS.forEach((c) => {
+  FIGURES['end_' + c.id] = { value: pctOf(FINAL[c.id].size), unit: '%', label: c.label + ': share of systems covered at the end', source: 'illustrative' };
+  FIGURES['start_' + c.id] = { value: pctOf(START[c.id]), unit: '%', label: c.label + ': share of systems covered today', source: 'illustrative' };
+});
+const FV = (k) => FIGURES[k].value;
+
+// the schedule must tell the story; this runs at build time and throws if the data stops doing so
+function assertSchedule() {
+  const fail = (m) => { throw new Error('schedule: ' + m); };
+  const seen = {};
+  COVERAGE.forEach((q, qi) => CONTROLS.forEach((c) => (q[c.id] || []).forEach((s) => {
+    if (!ZONE_OF[s]) fail('unknown system ' + s);
+    if (seen[c.id + s]) fail(c.id + ' lands twice on ' + s);
+    seen[c.id + s] = qi;
+  })));
+  if (new Set(SYSTEM_IDS).size !== N) fail('duplicate system ids');
+  const [a, b, c] = CONTROLS.map((k) => FV('end_' + k.id));
+  if (!(a >= 85)) fail('strong sign-in should end high (>= 85), got ' + a);
+  if (!(a > b && b > c)) fail('order at the end should be sign-in > logging > segmentation, got ' + [a, b, c]);
+  if (!(a - b >= 5 && b - c >= 5)) fail('meters should be at least 5 points apart, got ' + [a, b, c]);
+  if (!(c <= 75)) fail('segmentation should end lowest and well short of full, got ' + c);
+  CONTROLS.forEach((k) => { if (!(FV('start_' + k.id) <= 15)) fail('today should be sparse for ' + k.id); });
+  if (WORST.id !== 'legacy') fail('the zone with most gaps should be Legacy, got ' + WORST.id);
+  if (!(FV('worstGaps') / FV('gaps') >= 0.75)) fail('nearly every gap should be in the worst zone, got ' + FV('worstGaps') + ' of ' + FV('gaps'));
+  const legacyHeld = ZONES.find((z) => z.id === 'legacy').systems.reduce((n, s) => n + CONTROLS.filter((k) => FINAL[k.id].has(s)).length, 0);
+  if (legacyHeld > 5) fail('legacy should gain almost nothing, got ' + legacyHeld + ' bands');
+  CONTROLS.forEach((k) => { const sw = COVERAGE.slice(1).map((q) => q[k.id].length); if (sw.every((n) => n === 0)) fail(k.id + ' never rolls out'); });
+}
+assertSchedule();
+
+// ---- layout: zone slabs in a row left to right (zig-zag so the diamonds interleave), blocks on a 3-wide grid inside each ----
+const ZB = {};          // zone id -> { cx, cy, x0, x1, y0, y1 } in ground units
+ZONES.forEach((z) => {
+  const sx = z.at[0], sy = z.at[1], u = sx / COS30, v = 2 * (sy + Z0), cx = (u + v) / 2, cy = (v - u) / 2, h = ZSIZE / 2;
+  ZB[z.id] = { cx, cy, x0: cx - h, x1: cx + h, y0: cy - h, y1: cy + h };
+});
+const SYS = {};         // system id -> { id, zone, x, y }
+ZONES.forEach((z) => z.systems.forEach((id, i) => {
+  const n = z.systems.length, rows = Math.ceil(n / 3), row = Math.floor(i / 3), inRow = Math.min(3, n - 3 * row), col = i % 3;
+  SYS[id] = { id, zone: z.id, x: ZB[z.id].cx + (col - (inRow - 1) / 2) * PITCH, y: ZB[z.id].cy + (row - (rows - 1) / 2) * PITCH };
+}));
+const scr = (id) => iso(SYS[id].x, SYS[id].y, Z0);
+const bandZ = (slot) => { const zt = BH - BAND_TOP - slot * (BAND_H + BAND_GAP); return [Z0 + zt - BAND_H, Z0 + zt]; };
+
+// ---- copy ----
+const PHASES = [
+  { id: 'today',  title: 'Today' },
+  { id: 'roll',   title: 'The roll-out' },
+  { id: 'left',   title: 'What is left' },
+];
+const [C_SIGN, C_LOG, C_SEG] = CONTROLS.map((c) => c.id);
+const STEPS = [
+  { id: 'today', phase: 'today', title: 'Where we start today', focus: null, quarters: [],
+    body: `${FV('estate')} systems in ${FV('zones')} zones. Each coloured band is one control, and today they reach only a few systems.` },
+  { id: 'signin', phase: 'roll', title: 'Strong sign-in goes first', focus: C_SIGN, quarters: [1, 2],
+    body: `Strong sign-in sweeps Workforce and Cloud platform, then Data. By quarter 2 it covers ${FV('end_signin')}% of systems.` },
+  { id: 'logging', phase: 'roll', title: 'Logging follows', focus: C_LOG, quarters: [3, 4],
+    body: `Central logging follows, Cloud platform first, then Workforce and Data. Attacks get seen sooner, and it reaches ${FV('end_logging')}%.` },
+  { id: 'segment', phase: 'roll', title: 'Segmentation comes last', focus: C_SEG, quarters: [5, 6],
+    body: `Segmentation is the hardest to roll out, so it lands last and reaches ${FV('end_segment')}%. It limits how far an attacker can move.` },
+  { id: 'gap', phase: 'left', title: 'What is still uncovered', focus: null, quarters: [],
+    body: `${FV('gaps')} of ${FV('estate')} systems still miss a control. ${FV('worstGaps')} of them sit in ${WORST.label}, which cannot take these controls.` },
+  { id: 'ask', phase: 'left', title: 'Retire Legacy, do not patch it', focus: null, quarters: [],
+    body: `More controls will not close the ${WORST.label} gap. Funding its retirement closes it by removal, not by patching.` },
+];
+STEPS.forEach((s) => {
+  const w = s.body.trim().split(/\s+/).length, tw = s.title.trim().split(/\s+/).length;
+  if (w > 24) throw new Error('body too long (' + w + '): ' + s.id);
+  if (tw > 6) throw new Error('title too long (' + tw + '): ' + s.id);
+});
+const AREA_Y0 = 112, AREA_Y1 = 884;
+//#endregion
+
+/* =====================================================================
+   2. SVG BUILDING BLOCKS (generic)
+   ===================================================================== */
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function text(parent, str, attrs) { const e = el('text', attrs, parent); e.textContent = str; return e; }
+function mixHex(hex, k) { const n = parseInt(hex.slice(1), 16); const c = (s) => Math.round(((n >> s) & 255) * k); return '#' + [16, 8, 0].map((s) => c(s).toString(16).padStart(2, '0')).join(''); }
+
+/* =====================================================================
+   3. SCENE + TIMELINE
+   ===================================================================== */
+const params = new URLSearchParams(location.search);
+const CAPTURE = params.get('capture') === '1';
+if (CAPTURE) document.documentElement.classList.add('capture');
+let NARR = ['full', 'caption', 'off'].includes(params.get('narration')) ? params.get('narration') : 'full';
+let PRESENT = params.get('present') === '1';
+const $ = (s) => document.querySelector(s);
+
+const svg = document.getElementById('scene');
+const L = {};   // layers, bottom to top. Each zone is one group (slab, rings, plates, blocks) so depth order is by zone then by block.
+L.zones = el('g', { id: 'L-zones' }, svg);
+['tags', 'callouts'].forEach((n) => { L[n] = el('g', { id: 'L-' + n }, svg); });
+
+const tl = gsap.timeline({ paused: true, defaults: { overwrite: false } });
+const PAUSE_AFTER_MOTION = 2.0, BODY_WORDS_PER_S = 3.5, FINAL_HOLD = 3.0, EMDIM = 0.45;
+const STAGGER = 0.24, RAMP = 0.7;           // bands land 0.24 s apart; each takes 0.7 s to land; a quarter of 5 or more bands therefore takes over 1.4 s
+const state = new Map();
+function fade(e, to, t, dur = 0.8, ease = 'power2.inOut') {
+  const from = state.has(e) ? state.get(e) : 1;
+  if (from === to) return;
+  tl.fromTo(e, { opacity: from }, { opacity: to, duration: dur, ease, immediateRender: false }, t);
+  state.set(e, to);
+}
+function annG(parent, a, opacity) { return el('g', Object.assign({ transform: `translate(${f1(a.x)} ${f1(a.y)})` }, opacity == null ? { opacity: 0 } : {}), parent); }
+const nearIn = (r, p) => ({ x: clamp(p.x, r.x0, r.x1), y: clamp(p.y, r.y0, r.y1) });
+function leader(g, rect, color) {
+  const n = nearIn(rect, { x: 0, y: 0 });
+  el('line', { 'data-ld': 1, x1: 0, y1: 0, x2: f1(n.x), y2: f1(n.y), stroke: color, 'stroke-width': 2.5, 'stroke-opacity': 0.85 }, g);
+  el('circle', { cx: 0, cy: 0, r: 6, fill: color }, g);
+}
+function pillBox(g, rect, key, stroke, fill, sw = 2.5) {
+  const b = el('g', { 'data-ov': key }, g);
+  el('rect', { x: f1(rect.x0), y: f1(rect.y0), width: f1(rect.x1 - rect.x0), height: f1(rect.y1 - rect.y0), rx: Math.min(18, (rect.y1 - rect.y0) / 2.4), fill, stroke, 'stroke-width': sw }, b);
+  return b;
+}
+
+/* ---------- the estate: zone slabs, rings, gap plates, blocks with three fixed band slots ---------- */
+const SHADE = { top: '#2a3855', left: '#18213a', right: '#101728', edge: '#8493ad' };
+const zoneEls = {}, sysEls = {};
+const bandsOf = {};                            // control id -> [{ id, outer, inner, flash }]  (outer = emphasis, inner = landing)
+CONTROLS.forEach((c) => { bandsOf[c.id] = []; });
+function boxFaces(g, b, z0, z1, top, edge, sw) {
+  el('polygon', { points: poly([[b.x0, b.y1, z0], [b.x1, b.y1, z0], [b.x1, b.y1, z1], [b.x0, b.y1, z1]]), fill: mixHex(top, 0.7), stroke: '#0b0f17', 'stroke-width': 1.5 }, g);
+  el('polygon', { points: poly([[b.x1, b.y0, z0], [b.x1, b.y1, z0], [b.x1, b.y1, z1], [b.x1, b.y0, z1]]), fill: mixHex(top, 0.5), stroke: '#0b0f17', 'stroke-width': 1.5 }, g);
+  el('polygon', { points: poly([[b.x0, b.y0, z1], [b.x1, b.y0, z1], [b.x1, b.y1, z1], [b.x0, b.y1, z1]]), fill: top, stroke: edge, 'stroke-width': sw, 'stroke-linejoin': 'round' }, g);
+}
+const ringPoly = (b, e, z) => poly([[b.x0 - e, b.y0 - e, z], [b.x1 + e, b.y0 - e, z], [b.x1 + e, b.y1 + e, z], [b.x0 - e, b.y1 + e, z]]);
+// the two visible side faces of a block between heights za and zb
+const faceL = (s, za, zb, e = 0) => poly([[s.x - HALF, s.y + HALF + e, za], [s.x + HALF, s.y + HALF + e, za], [s.x + HALF, s.y + HALF + e, zb], [s.x - HALF, s.y + HALF + e, zb]]);
+const faceR = (s, za, zb, e = 0) => poly([[s.x + HALF + e, s.y - HALF, za], [s.x + HALF + e, s.y + HALF, za], [s.x + HALF + e, s.y + HALF, zb], [s.x + HALF + e, s.y - HALF, zb]]);
+const missEls = {};                              // system id -> group of red slot outlines for the controls it is missing at the end
+function buildEstate() {
+  const order = ZONES.slice().sort((a, b) => a.at[1] - b.at[1] || a.at[0] - b.at[0]);
+  order.forEach((z) => {
+    const b = ZB[z.id], zg = el('g', { id: 'Z-' + z.id }, L.zones);
+    boxFaces(zg, b, 0, Z0, z.top, '#4a5a79', 3);
+    const ringGap = el('polygon', { points: ringPoly(b, -6, Z0 + 0.8), fill: COL.danger, 'fill-opacity': 0.06, stroke: COL.danger, 'stroke-width': 5, 'stroke-dasharray': '16 10', opacity: 0, 'stroke-linejoin': 'round' }, zg);
+    const ringRetire = el('polygon', { points: ringPoly(b, -6, Z0 + 0.8), fill: COL.token, 'fill-opacity': 0.07, stroke: COL.token, 'stroke-width': 5, 'stroke-dasharray': '16 10', opacity: 0, 'stroke-linejoin': 'round' }, zg);
+    zoneEls[z.id] = { g: zg, ringGap, ringRetire };
+    const plates = el('g', {}, zg), blocks = z.systems.slice().sort((p, q) => (SYS[p].x + SYS[p].y) - (SYS[q].x + SYS[q].y));
+    blocks.forEach((id) => {
+      const s = SYS[id], x = s.x, y = s.y, a = HALF, z1 = Z0 + BH;
+      const plate = el('polygon', { points: poly([[x - a - 9, y - a - 9, Z0 + 0.8], [x + a + 9, y - a - 9, Z0 + 0.8], [x + a + 9, y + a + 9, Z0 + 0.8], [x - a - 9, y + a + 9, Z0 + 0.8]]), fill: COL.danger, 'fill-opacity': 0.2, stroke: COL.danger, 'stroke-width': 4, opacity: 0, 'stroke-linejoin': 'round' }, plates);
+      const g = el('g', { class: 'node', 'data-id': id }, zg);
+      el('polygon', { points: faceL(s, Z0, z1), fill: SHADE.left, stroke: '#0b0f17', 'stroke-width': 1.5 }, g);
+      el('polygon', { points: faceR(s, Z0, z1), fill: SHADE.right, stroke: '#0b0f17', 'stroke-width': 1.5 }, g);
+      CONTROLS.forEach((c, slot) => {                      // the three slots: empty recesses, always visible, filled when the control lands
+        const [za, zb] = bandZ(slot);
+        el('polygon', { points: faceL(s, za, zb), fill: '#ffffff', 'fill-opacity': 0.07 }, g);
+        el('polygon', { points: faceR(s, za, zb), fill: '#ffffff', 'fill-opacity': 0.05 }, g);
+      });
+      const miss = el('g', { opacity: 0 }, g);            // red outlines on the slots this system never gets
+      CONTROLS.forEach((c, slot) => {
+        if (FINAL[c.id].has(id)) return;
+        const [za, zb] = bandZ(slot);
+        el('polygon', { points: faceL(s, za, zb), fill: COL.danger, 'fill-opacity': 0.28, stroke: COL.danger, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, miss);
+        el('polygon', { points: faceR(s, za, zb), fill: COL.danger, 'fill-opacity': 0.2, stroke: COL.danger, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, miss);
+      });
+      missEls[id] = miss;
+      CONTROLS.forEach((c, slot) => {
+        const [za, zb] = bandZ(slot), outer = el('g', {}, g), inner = el('g', { opacity: 0 }, outer);
+        el('polygon', { points: faceL(s, za, zb), fill: c.colour }, inner);
+        el('polygon', { points: faceR(s, za, zb), fill: mixHex(c.colour, 0.62) }, inner);
+        const flash = el('g', { opacity: 0 }, outer);
+        el('polygon', { points: faceL(s, za, zb), fill: '#ffffff', 'fill-opacity': 0.85 }, flash);
+        el('polygon', { points: faceR(s, za, zb), fill: '#ffffff', 'fill-opacity': 0.6 }, flash);
+        bandsOf[c.id].push({ id, outer, inner, flash });
+      });
+      el('polygon', { points: poly([[x - a, y - a, z1], [x + a, y - a, z1], [x + a, y + a, z1], [x - a, y + a, z1]]), fill: SHADE.top, stroke: SHADE.edge, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, g);
+      sysEls[id] = { g, plate };
+    });
+  });
+}
+
+/* ---------- zone name tags, callouts ---------- */
+const tagEls = {};
+function buildTags() {
+  ZONES.forEach((z) => {
+    const b = ZB[z.id], v = iso(b.x1, b.y1, 0), w = tagW(z.label), rect = { x0: -w / 2, x1: w / 2, y0: 8, y1: 8 + TAG_H };
+    const g = annG(L.tags, v), box = pillBox(g, rect, 'tag:' + z.id, '#5d6c88', '#0e1420', 2);
+    text(box, z.label, { x: 0, y: f1(8 + TAG_H / 2 + TAG_PX * 0.35), 'text-anchor': 'middle', fill: '#c0cbdd', 'font-size': TAG_PX, 'font-weight': 600, class: 'sans' });
+    g._box = box; g._rect = { x0: v.x + rect.x0, x1: v.x + rect.x1, y0: v.y + rect.y0, y1: v.y + rect.y1 }; tagEls[z.id] = g;
+  });
+}
+// a callout is anchored to a point on the estate and placed at a fixed offset chosen for free space; __overlaps() checks the result
+function buildCallout(co) {
+  const w = textW(co.text, CALL_PX) + 32, h = 44, A = co.anchor(), dx = co.off[0], dy = co.off[1];
+  const g = annG(L.callouts, A), rect = { x0: dx - w / 2, x1: dx + w / 2, y0: dy - h / 2, y1: dy + h / 2 };
+  leader(g, rect, co.colour || COL.text);
+  const box = pillBox(g, rect, 'callout:' + co.key, co.colour || COL.text, '#1b2436', 2);
+  text(box, co.text, { x: f1(dx), y: f1(dy + CALL_PX * 0.34), 'text-anchor': 'middle', fill: COL.text, 'font-size': CALL_PX, 'font-weight': 600, class: 'sans' });
+  g._box = box;
+  return g;
+}
+const zoneTip = (id) => iso(ZB[id].x0, ZB[id].y0, Z0);               // the back tip of a slab: a clean anchor above the zone
+const sysFront = (id) => iso(SYS[id].x + HALF, SYS[id].y + HALF, Z0);          // the block's front bottom corner
+const sysTop = (id) => iso(SYS[id].x, SYS[id].y, Z0 + BH);
+
+/* ---------- HUD: quarter ticker, meters (all pure functions of timeline time), illustrative chip ---------- */
+const LAND = {};  CONTROLS.forEach((c) => { LAND[c.id] = []; });     // landing start times, per control, recorded as bands are scheduled
+const QT = [];                                                       // quarter start times (QT[q-1])
+const emph = {};  CONTROLS.forEach((c) => { emph[c.id] = 1; });      // emphasis proxies, tweened
+const emphPrev = Object.assign({}, emph);
+const meterValue = (cid, t) => LAND[cid].reduce((n, tb) => n + clamp((t - tb) / RAMP, 0, 1), 0);   // count of bands landed at time t (fractional while one is landing)
+const quarterAt = (t) => QT.filter((q) => t >= q - 1e-6).length;
+const M = {};
+function buildHud() {
+  const pips = $('#pips');
+  for (let q = 0; q < QN; q++) { const d = document.createElement('div'); d.className = 'pip'; pips.appendChild(d); }
+  const host = $('#meters');
+  host.innerHTML = '<div id="mhead">Systems covered, out of ' + FV('estate') + '</div>';
+  CONTROLS.forEach((c) => {
+    const row = document.createElement('div'); row.className = 'mrow'; row.setAttribute('data-c', c.id);
+    // the swatch is the band as it appears on a block: same shape (the slanted face band) and colour
+    row.innerHTML = '<div class="top"><svg width="44" height="36" viewBox="0 0 44 36"><polygon points="0,0 44,25.4 44,34.4 0,9" fill="' + c.colour + '"/></svg><span class="ml" style="color:' + c.colour + '">' + c.label + '</span><span class="mc"></span></div>' +
+      '<div class="bd"><div class="bar"><div class="fill" style="background:' + c.colour + '"></div><div class="t0" style="left:' + (100 * START[c.id] / N) + '%"></div></div><div class="pct"></div></div>';
+    host.appendChild(row);
+    M[c.id] = { row, fill: row.querySelector('.fill'), pct: row.querySelector('.pct'), mc: row.querySelector('.mc'), t0: row.querySelector('.t0'), last: '' };
+  });
+  const foot = document.createElement('div'); foot.id = 'mfoot'; foot.textContent = 'White tick: where each control started'; host.appendChild(foot);
+  state.set($('#ticker'), 0); state.set(host, 0); state.set($('#chip'), 0);
+  CONTROLS.forEach((c) => { state.set(M[c.id].t0, 0); });
+}
+function paintHud(t) {
+  const q = quarterAt(t), qs = q === 0 ? 'Today' : 'Quarter ' + q + ' of ' + QN;
+  if ($('#qtext').textContent !== qs) $('#qtext').textContent = qs;
+  Array.from($('#pips').children).forEach((p, i) => { const on = i < q; if (p.classList.contains('on') !== on) p.classList.toggle('on', on); });
+  CONTROLS.forEach((c) => {
+    const m = M[c.id], v = meterValue(c.id, t), pc = Math.round(100 * v / N), key = pc + '|' + Math.round(v);
+    m.fill.style.width = f1(100 * v / N) + '%';
+    if (m.last !== key) { m.last = key; m.pct.textContent = pc + '%'; m.mc.textContent = Math.round(v) + ' of ' + N; }
+    m.row.style.opacity = emph[c.id];
+    bandsOf[c.id].forEach((b) => { if (b.eo !== emph[c.id]) { b.eo = emph[c.id]; b.outer.setAttribute('opacity', emph[c.id]); } });
+  });
+}
+
+/* ---------- timeline helpers: the pattern mechanism ---------- */
+function landBand(id, cid, t) {
+  const b = bandsOf[cid].find((q) => q.id === id);
+  tl.fromTo(b.inner, { opacity: 0 }, { opacity: 1, duration: RAMP, ease: 'power2.out', immediateRender: false }, t);
+  tl.fromTo(b.flash, { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, t);
+  tl.fromTo(b.flash, { opacity: 1 }, { opacity: 0, duration: 0.8, ease: 'power1.out', immediateRender: false }, t + 0.15);
+  LAND[cid].push(t);
+}
+const screenX = (id) => scr(id).x, screenY = (id) => scr(id).y;
+// Lands every band of one quarter, one by one, sweeping left to right across the zones (ties by height on the screen).
+function quarter(q, t) {
+  QT[q - 1] = t;
+  const list = [];
+  CONTROLS.forEach((c) => (COVERAGE[q][c.id] || []).forEach((id) => list.push({ id, c: c.id })));
+  list.sort((a, b) => screenX(a.id) - screenX(b.id) || screenY(a.id) - screenY(b.id));
+  const t0 = t + 0.7;
+  list.forEach((it, i) => landBand(it.id, it.c, t0 + i * STAGGER));
+  return t0 + (list.length - 1) * STAGGER + RAMP;
+}
+function today(t) {                                    // the starting position lands band by band as well, in the same sweep order
+  const list = [];
+  CONTROLS.forEach((c) => COVERAGE[0][c.id].forEach((id) => list.push({ id, c: c.id })));
+  list.sort((a, b) => screenX(a.id) - screenX(b.id) || screenY(a.id) - screenY(b.id));
+  list.forEach((it, i) => landBand(it.id, it.c, t + i * 0.3));
+  return t + (list.length - 1) * 0.3 + RAMP;
+}
+// emphasis: controls the step is not about dim to EMDIM (bands and meter rows); null brings everything back to full
+function focus(cid, t) {
+  CONTROLS.forEach((c) => {
+    const to = cid == null || c.id === cid ? 1 : EMDIM;
+    if (emphPrev[c.id] === to) return;
+    tl.fromTo(emph, { [c.id]: emphPrev[c.id] }, { [c.id]: to, duration: 0.4, ease: 'power2.inOut', immediateRender: false }, t);
+    emphPrev[c.id] = to;
+  });
+}
+function tagFocus(active, t) { ZONES.forEach((z) => fade(tagEls[z.id]._box, active == null || active.has(z.id) ? 1 : EMDIM, t, 0.4)); }
+function blockFocus(keep, t, dim = 0.4) { SYSTEM_IDS.forEach((id) => fade(sysEls[id].g, keep == null || keep.has(id) ? 1 : dim, t, 0.9)); }
+
+/* ---------- the story ---------- */
+let CALLS = [];                       // callouts of the step being built: [{ g, t }]
+function callout(co, t) { const g = buildCallout(co); CALLS.push({ g, t }); return g; }
+const stepBuilders = {
+  today(ts) {
+    focus(null, ts);
+    const e = today(ts + 1.2);
+    CONTROLS.forEach((c) => { tl.fromTo(M[c.id].t0, { opacity: 0 }, { opacity: 0.75, duration: 0.6, immediateRender: false }, e); state.set(M[c.id].t0, 0.75); });   // the faint start tick
+    return { end: e + 0.6 };
+  },
+  signin(ts) { focus(C_SIGN, ts + 0.2); return rollout(this.def, ts); },
+  logging(ts) { focus(C_LOG, ts + 0.2); return rollout(this.def, ts); },
+  segment(ts) { focus(C_SEG, ts + 0.2); return rollout(this.def, ts); },
+  gap(ts) {
+    focus(null, ts + 0.2);
+    const gz = new Set(GAPS.map((s) => ZONE_OF[s]));
+    blockFocus(new Set(GAPS), ts + 0.3); tagFocus(gz, ts + 0.3);
+    const order = GAPS.slice().sort((a, b) => screenX(a) - screenX(b));
+    let t = ts + 1.4;
+    order.forEach((id, i) => {
+      const at = t + i * 0.3;
+      tl.fromTo(sysEls[id].plate, { opacity: 0 }, { opacity: 1, duration: 0.5, immediateRender: false }, at);
+      tl.fromTo(missEls[id], { opacity: 0 }, { opacity: 1, duration: 0.5, immediateRender: false }, at + 0.1);
+    });
+    const e = t + (order.length - 1) * 0.3 + 0.6;
+    tl.fromTo(zoneEls[WORST.id].ringGap, { opacity: 0 }, { opacity: 1, duration: 0.8, immediateRender: false }, e);
+    const lone = GAPS.filter((s) => ZONE_OF[s] !== WORST.id);
+    callout({ key: 'worst', text: `${WORST.label} holds ${FV('worstGaps')} of ${FV('gaps')}`, colour: COL.danger, anchor: () => zoneTip(WORST.id), off: [40, -44] }, e + 0.4);
+    lone.slice(0, 1).forEach((id) => callout({ key: 'lone', text: 'One more gap', colour: COL.danger, anchor: () => sysFront(id), off: [0, 42] }, e + 1.2));
+    return { end: e + 1.9 };
+  },
+  ask(ts) {
+    blockFocus(null, ts + 0.3); tagFocus(null, ts + 0.3);
+    const z = zoneEls[WORST.id];
+    tl.fromTo(z.ringGap, { opacity: 1 }, { opacity: 0, duration: 0.8, immediateRender: false }, ts + 0.5);
+    tl.fromTo(z.ringRetire, { opacity: 0 }, { opacity: 1, duration: 0.8, immediateRender: false }, ts + 0.8);
+    callout({ key: 'retire', text: `Retire ${WORST.label}`, colour: COL.token, anchor: () => zoneTip(WORST.id), off: [60, -44] }, ts + 1.6);
+    tl.fromTo($('#meters'), { borderColor: COL.line }, { borderColor: COL.text, duration: 0.8, immediateRender: false }, ts + 1.2);
+    return { end: ts + 2.8 };
+  },
+};
+function rollout(def, ts) {
+  let t = ts + 1.0, end = t;
+  def.quarters.forEach((q, i) => { end = quarter(q, t); t = end + 1.2; });
+  return { end };
+}
+
+function words(s) { return s.trim().split(/\s+/).length; }
+function buildTimeline() {
+  buildEstate(); buildTags(); buildHud();
+  const blocks = SYSTEM_IDS.slice().sort((a, b) => (SYS[a].x + SYS[a].y) - (SYS[b].x + SYS[b].y));
+  gsap.set(SYSTEM_IDS.map((id) => sysEls[id].g), { opacity: 0, y: -26 });
+  gsap.set(ZONES.map((z) => zoneEls[z.id].g), { opacity: 0 });
+  gsap.set(ZONES.map((z) => tagEls[z.id]), { opacity: 0 });
+  ZONES.forEach((z, i) => { tl.fromTo(zoneEls[z.id].g, { opacity: 0 }, { opacity: 1, duration: 0.7, ease: 'power2.out', immediateRender: false }, 0.1 + i * 0.15); });
+  ZONES.forEach((z) => z.systems.forEach((id, i) => tl.fromTo(sysEls[id].g, { opacity: 0, y: -26 }, { opacity: 1, y: 0, duration: 0.45, ease: 'power3.out', immediateRender: false }, 0.7 + ZONES.indexOf(z) * 0.2 + i * 0.07)));
+  ZONES.forEach((z) => tl.fromTo(tagEls[z.id], { opacity: 0 }, { opacity: 1, duration: 0.5, immediateRender: false }, 1.8));
+  tl.fromTo($('#ticker'), { opacity: 0 }, { opacity: 1, duration: 0.6, immediateRender: false }, 1.9); state.set($('#ticker'), 1);
+  tl.fromTo($('#meters'), { opacity: 0 }, { opacity: 1, duration: 0.6, immediateRender: false }, 2.0); state.set($('#meters'), 1);
+  tl.fromTo($('#chip'), { opacity: 0 }, { opacity: 1, duration: 0.6, immediateRender: false }, 2.0); state.set($('#chip'), 1);
+
+  let ts = 2.8;
+  STEPS.forEach((S, i) => {
+    S.time = ts; tl.addLabel(S.id, ts);
+    CALLS = [];
+    const B = Object.assign({ def: S }, stepBuilders);
+    const r = B[S.id](ts);
+    CALLS.forEach((c) => tl.fromTo(c.g, { opacity: 0 }, { opacity: 1, duration: 0.45, ease: 'power2.out', immediateRender: false }, c.t));
+    const lastCall = CALLS.reduce((m, c) => Math.max(m, c.t + 0.45), 0);
+    S.end = Math.max(r.end, lastCall);
+    S.rest = Math.max(S.end, ts + 1.5);                 // body fully shown at ts + 1.4; every figure of the step has stopped moving
+    const last = i === STEPS.length - 1;
+    ts = last ? S.rest + FINAL_HOLD : Math.max(S.rest + PAUSE_AFTER_MOTION, ts + 1.4 + words(S.body) / BODY_WORDS_PER_S);
+    S.next = ts;
+    CALLS.forEach((c) => tl.fromTo(c.g, { opacity: 1 }, { opacity: 0, duration: 0.45, immediateRender: false }, last ? ts + 0.5 : ts - 0.5));
+  });
+  DURATION = ts;
+  tl.set({}, {}, DURATION);
+}
+let DURATION = 0;
+
+/* =====================================================================
+   4. SCAFFOLDING: stage fit, narrative UI, controls, timeline contract
+   ===================================================================== */
+const stage = $('#stage'), wrap = $('#stagewrap');
+let scale = 1;
+function fit() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  scale = Math.min(w / 1920, h / 1080);
+  stage.style.transform = `translate(${(w - 1920 * scale) / 2}px, ${(h - 1080 * scale) / 2}px) scale(${scale})`;
+}
+window.addEventListener('resize', fit);
+
+const railEls = [], dotEls = [];
+function buildRail() {
+  const rail = $('#rail');
+  PHASES.forEach((p) => {
+    const d = document.createElement('div'); d.className = 'ph';
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = p.title; d.appendChild(nm);
+    const dots = document.createElement('div'); dots.className = 'dots'; d.appendChild(dots);
+    STEPS.forEach((s, i) => { if (s.phase === p.id) { const x = document.createElement('div'); x.className = 'dot'; dots.appendChild(x); dotEls[i] = x; if (p.firstStep == null) p.firstStep = i; } });
+    rail.appendChild(d); railEls.push(d);
+  });
+}
+
+let lastIdx = -2, lastT = 0;
+function stepIndexAt(t) { let idx = -1; STEPS.forEach((s, i) => { if (t >= s.time - 1e-6) idx = i; }); return idx; }
+function isPlaying() { return !tl.paused() && tl.progress() < 1; }
+const capCount = $('#count'), capTitle = $('#title'), capBody = $('#body'), capId = $('#stepid');
+const scrub = $('#scrub'), playBtn = $('#play'), clock = $('#clock');
+function sync() {
+  const t = tl.time(), idx = stepIndexAt(t);
+  if (idx !== lastIdx) {
+    lastIdx = idx;
+    capTitle.textContent = idx >= 0 ? STEPS[idx].title : '';
+    capBody.textContent = idx >= 0 ? STEPS[idx].body : '';
+    capCount.textContent = (idx < 0 ? 0 : idx + 1) + ' / ' + STEPS.length;
+    capId.textContent = idx >= 0 ? STEPS[idx].id : '';
+    const ph = idx >= 0 ? STEPS[idx].phase : null;
+    PHASES.forEach((p, pi) => { const cur = p.id === ph, done = idx >= 0 && STEPS[idx].phase !== p.id && PHASES.findIndex((q) => q.id === ph) > pi; railEls[pi].className = 'ph' + (cur ? ' cur' : done ? ' done' : ''); });
+    dotEls.forEach((d, i) => { d.className = 'dot' + (i < idx ? ' done' : i === idx ? ' cur' : ''); });
+  }
+  const ts = idx >= 0 ? STEPS[idx].time : 0;
+  capTitle.style.opacity = idx < 0 ? 0 : clamp((t - ts) / 0.5, 0, 1);
+  capBody.style.opacity = idx < 0 ? 0 : clamp((t - ts - 0.8) / 0.6, 0, 1);
+  paintHud(t);
+  scrub.value = t;
+  clock.textContent = t.toFixed(1) + ' / ' + DURATION.toFixed(1) + ' s';
+  playBtn.textContent = isPlaying() ? 'Pause' : 'Play';
+  lastT = t;
+}
+function tick() {
+  if (PRESENT && !tl.paused()) {
+    const t = tl.time();
+    for (let i = 1; i < STEPS.length; i++) {
+      const stop = STEPS[i].time - 0.02;
+      if (lastT < stop - 1e-6 && t >= stop - 1e-6) { tl.pause(); tl.time(stop, true); sync(); return; }
+    }
+  }
+  sync();
+}
+function setNarr(m) { NARR = m; stage.className = 'nar-' + m; $('#narr').textContent = 'Narration: ' + m; }
+function setPresent(on) { PRESENT = on; $('#pres').textContent = 'Presenter: ' + (on ? 'on' : 'off'); $('#pres').classList.toggle('on', on); }
+const cycleNarr = () => setNarr(NARR === 'full' ? 'caption' : NARR === 'caption' ? 'off' : 'full');
+
+function setupControls() {
+  const bar = $('#track');
+  STEPS.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'tick'; d.style.left = (s.time / DURATION * 100) + '%';
+    d.textContent = (i + 1) + ' ' + s.id;
+    bar.appendChild(d);
+  });
+  scrub.max = DURATION;
+  scrub.addEventListener('input', () => { api.pause(); tl.time(+scrub.value); sync(); });
+  playBtn.addEventListener('click', toggle);
+  $('#prev').addEventListener('click', () => goStep(-1));
+  $('#next').addEventListener('click', () => goStep(1));
+  $('#narr').addEventListener('click', cycleNarr);
+  $('#pres').addEventListener('click', () => setPresent(!PRESENT));
+  $('#speed').addEventListener('change', (e) => tl.timeScale(+e.target.value));
+  document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.tagName === 'SELECT') return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.code === 'ArrowLeft') { e.preventDefault(); goStep(-1); }
+    else if (e.code === 'ArrowRight') { e.preventDefault(); goStep(1); }
+    else if (e.code === 'Home') { e.preventDefault(); api.seek(0); api.play(); }
+    else if (e.code === 'KeyN') { cycleNarr(); }
+    else if (e.code === 'KeyP') { setPresent(!PRESENT); }
+  });
+}
+function toggle() { if (isPlaying()) api.pause(); else api.play(); }
+function goStep(dir) {
+  const t = tl.time(), idx = stepIndexAt(t), was = isPlaying();
+  let target;
+  if (dir > 0) target = idx + 1 < STEPS.length ? STEPS[idx + 1].time : DURATION;
+  else target = (idx >= 0 && t - STEPS[idx].time > 0.6) ? STEPS[idx].time : (idx > 0 ? STEPS[idx - 1].time : 0);
+  tl.pause(); tl.time(target); sync();
+  if ((was || (PRESENT && dir > 0)) && target < DURATION) api.play();
+}
+
+const api = {
+  duration: 0, fps: 30, steps: [], phases: [],
+  seek(t) { tl.pause(); tl.time(Math.max(0, Math.min(DURATION, t)), false); sync(); },
+  play() { if (tl.progress() >= 1) tl.restart(); else tl.play(); sync(); },
+  pause() { tl.pause(); sync(); },
+};
+window.anim = api;
+window.__figures = () => FIGURES;
+window.__coverage = (t) => { const tt = t == null ? tl.time() : t; return { t: tt, quarter: quarterAt(tt), meters: CONTROLS.map((c) => ({ id: c.id, count: meterValue(c.id, tt), pct: Math.round(100 * meterValue(c.id, tt) / N) })), gaps: GAPS, gapByZone: GAP_BY_ZONE }; };
+window.__overlaps = () => {
+  const items = [];
+  document.querySelectorAll('[data-ov]').forEach((e) => {
+    let op = 1, n = e;
+    while (n && n.nodeType === 1) { op *= parseFloat(getComputedStyle(n).opacity); n = n.parentElement; if (n === document.body) break; }
+    if (op < 0.05) return;
+    const r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return;
+    items.push({ k: e.getAttribute('data-ov'), el: e, r });
+  });
+  let out = [];
+  const blocks = Array.from(document.querySelectorAll('#scene .node')).map((e) => e.getBoundingClientRect());
+  items.forEach((it) => { if (it.el.closest('#scene')) blocks.forEach((r, bi) => { if (it.r.left < r.right && r.left < it.r.right && it.r.top < r.bottom && r.top < it.r.bottom) out.push([it.k, 'block' + bi]); }); });
+  document.querySelectorAll('line[data-ld]').forEach((ln) => {
+    let op = 1, n = ln;
+    while (n && n.nodeType === 1) { op *= parseFloat(getComputedStyle(n).opacity); n = n.parentElement; if (n === document.body) break; }
+    if (op < 0.05) return;
+    const m = ln.getScreenCTM(), pt = (x, y) => ({ x: m.a * x + m.c * y + m.e, y: m.b * x + m.d * y + m.f });
+    const a = pt(+ln.getAttribute('x1'), +ln.getAttribute('y1')), b = pt(+ln.getAttribute('x2'), +ln.getAttribute('y2'));
+    const own = ln.parentElement.querySelector('[data-ov]'), len = Math.hypot(b.x - a.x, b.y - a.y);
+    const inside = (p, r, g) => p.x > r.left + g && p.x < r.right - g && p.y > r.top + g && p.y < r.bottom - g;
+    for (let k = 1; k <= 24; k++) {
+      const f = k / 25, p = { x: a.x + (b.x - a.x) * f, y: a.y + (b.y - a.y) * f };
+      if (f * len < 10) continue;
+      items.forEach((it) => { if (it.el !== own && inside(p, it.r, -1)) out.push(['leader:' + (own && own.getAttribute('data-ov')), it.k]); });
+      blocks.forEach((r, bi) => { if (!(a.x > r.left - 10 && a.x < r.right + 10 && a.y > r.top - 10 && a.y < r.bottom + 10) && inside(p, r, 4)) out.push(['leader:' + (own && own.getAttribute('data-ov')), 'block' + bi]); });
+    }
+  });
+  out = out.filter((q, i) => out.findIndex((w) => w[0] === q[0] && w[1] === q[1]) === i);
+  for (let i = 0; i < items.length; i++) for (let j = i + 1; j < items.length; j++) {
+    const a = items[i].r, b = items[j].r;
+    if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) out.push([items[i].k, items[j].k]);
+  }
+  return out;
+};
+
+buildTimeline();
+api.duration = DURATION;
+api.steps = STEPS.map((s) => ({ id: s.id, time: s.time, rest: s.rest, caption: s.title, title: s.title, body: s.body }));
+buildRail();
+api.phases = PHASES.map((p) => ({ id: p.id, title: p.title, firstStep: p.firstStep }));
+setNarr(NARR); setPresent(PRESENT);
+tl.eventCallback('onUpdate', tick);
+tl.eventCallback('onComplete', sync);
+fit();
+setupControls();
+api.seek(0);
+if (!CAPTURE) api.play();
+})();
+</script>
+</body>
+</html>

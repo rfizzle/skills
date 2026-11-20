@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype C: token-authenticated request (Three.js 3D)</title>
+<style>
+  :root {
+    --bg:#0b0f17; --panel:#121826; --panel-2:#18202f; --line:#2a3447; --text:#e6edf7; --muted:#8b98ad;
+    --accent:#4cc9f0; --token:#f5b941; --identity:#a78bfa; --secure:#3ddc97; --danger:#ff5d6c;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--text); font-family:var(--sans); overflow:hidden; }
+  #app { display:flex; flex-direction:column; height:100vh; }
+  #viewport { position:relative; flex:1 1 auto; min-height:0; overflow:hidden; background:var(--bg); }
+  #stage { position:absolute; left:0; top:0; width:1920px; height:1080px; transform-origin:0 0; background:var(--bg); overflow:hidden; }
+  #stage canvas { position:absolute; left:0; top:0; display:block; }
+  #labels { position:absolute; left:0; top:0; width:1920px; height:1080px; pointer-events:none; overflow:hidden; }
+
+  /* ---- 3D labels (CSS2D). Never set transform on these roots: CSS2DRenderer owns it. ---- */
+  .nlabel { font:700 28px/1 var(--sans); color:var(--text); padding:6px 14px; background:rgba(11,15,23,.72); border-radius:10px; white-space:nowrap; pointer-events:auto; }
+  .zlabel { font:600 24px/1 var(--sans); letter-spacing:.14em; color:var(--muted); white-space:nowrap; }
+  .plabel { display:grid; white-space:nowrap; }
+  .pill { grid-area:1/1; font:600 24px/1 var(--mono); padding:7px 13px; border-radius:10px; background:rgba(11,15,23,.9); border:2px solid; text-align:center; }
+  .pill.acc { color:var(--accent); border-color:var(--accent); }
+  .pill.tok { color:var(--token); border-color:var(--token); }
+  .pill.sec { color:var(--secure); border-color:var(--secure); }
+  .pill.idn { color:var(--identity); border-color:var(--identity); }
+  .badge3d { font:700 28px/1 var(--sans); padding:8px 16px; border-radius:12px; background:rgba(11,15,23,.92); border:2px solid var(--secure); color:var(--secure); white-space:nowrap; }
+  .badge3d > span { display:inline-block; transform-origin:50% 50%; }
+
+  /* ---- JWT explainer overlay ---- */
+  #jwt { position:absolute; left:0; top:20px; width:1920px; display:flex; justify-content:center; pointer-events:none; }
+  #jwtCard { display:flex; align-items:flex-end; gap:12px; opacity:0; padding:14px 22px 16px; background:rgba(18,24,38,.94); border:2px solid var(--line); border-radius:18px; }
+  .seg .cap { font:700 22px/1 var(--sans); letter-spacing:.12em; margin:0 0 8px 4px; white-space:nowrap; }
+  .seg .box { font:600 24px/32px var(--mono); padding:12px 16px; border:2px solid; border-radius:12px; white-space:nowrap; }
+  .seg.h { color:var(--accent); }  .seg.h .box { border-color:var(--accent); background:rgba(76,201,240,.10); }
+  .seg.p { color:var(--token); }   .seg.p .box { border-color:var(--token);  background:rgba(245,185,65,.10); }
+  .seg.s { color:var(--identity);} .seg.s .box { border-color:var(--identity); background:rgba(167,139,250,.12); }
+  .seg .box .k { color:var(--muted); margin-right:8px; }
+  .seg .box .v { color:var(--text); }
+  .seg .sc { display:inline-block; overflow:hidden; white-space:nowrap; vertical-align:bottom; max-width:190px; padding-right:14px; }
+  .seg .tick { display:inline-block; color:var(--secure); font-weight:800; margin-left:10px; }
+  .dotsep { font:700 40px/1 var(--mono); color:var(--muted); padding-bottom:18px; }
+
+  /* ---- caption band ---- */
+  #capBand { position:absolute; left:0; top:864px; width:1920px; height:216px; background:rgba(18,24,38,.92); border-top:2px solid var(--line); }
+  #capNum { position:absolute; left:80px; top:34px; width:170px; }
+  #capNum .n { font:800 64px/1 var(--sans); color:var(--text); }
+  #capNum .id { font:600 26px/1 var(--mono); color:var(--accent); margin-top:12px; letter-spacing:.04em; }
+  #capText { position:absolute; left:290px; top:34px; width:1550px; font:600 40px/1.28 var(--sans); color:var(--text); }
+  #tip { position:absolute; display:none; max-width:520px; padding:12px 16px; font:500 24px/1.3 var(--sans); color:var(--text); background:var(--panel-2); border:2px solid var(--line); border-radius:12px; pointer-events:none; z-index:5; }
+  body.capture #tip { display:none !important; }
+
+  /* ---- controls bar (outside the 16:9 stage) ---- */
+  #controls { flex:0 0 auto; display:flex; align-items:center; gap:12px; padding:10px 16px; background:var(--panel); border-top:1px solid var(--line); font:500 15px var(--sans); }
+  body.capture #controls { display:none; }
+  #controls button, #controls select { font:600 15px var(--sans); color:var(--text); background:var(--panel-2); border:1px solid var(--line); border-radius:8px; padding:8px 14px; cursor:pointer; }
+  #controls button:hover, #controls select:hover { border-color:var(--accent); }
+  #bPlay { min-width:84px; }
+  #scrubWrap { position:relative; flex:1 1 auto; height:32px; }
+  #scrub { -webkit-appearance:none; appearance:none; position:absolute; left:0; top:0; width:100%; height:32px; margin:0; background:transparent; cursor:pointer; }
+  #scrub::-webkit-slider-runnable-track { height:6px; background:var(--line); border-radius:3px; }
+  #scrub::-moz-range-track { height:6px; background:var(--line); border-radius:3px; }
+  #scrub::-webkit-slider-thumb { -webkit-appearance:none; width:16px; height:16px; margin-top:-5px; border-radius:50%; background:var(--accent); border:0; }
+  #scrub::-moz-range-thumb { width:16px; height:16px; border-radius:50%; background:var(--accent); border:0; }
+  #ticks { position:absolute; left:0; top:0; width:100%; height:32px; pointer-events:none; }
+  #ticks i { position:absolute; top:6px; width:2px; height:20px; background:var(--muted); border-radius:1px; }
+  #ticks b { position:absolute; top:-8px; font:600 12px var(--mono); color:var(--muted); transform:translateX(-50%); }
+  #time { font:500 14px var(--mono); color:var(--muted); min-width:110px; text-align:right; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+} }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+</head>
+<body>
+<div id="app">
+  <div id="viewport">
+    <div id="stage">
+      <div id="labels"></div>
+      <div id="jwt"><div id="jwtCard">
+        <div class="seg h"><div class="cap">HEADER</div><div class="box">{"alg":"RS256"}</div></div>
+        <div class="dotsep">.</div>
+        <div class="seg p" id="segP"><div class="cap" id="capP">PAYLOAD</div><div class="box">
+          <div><span class="k">sub</span><span class="v">user-42</span> &nbsp; <span class="k">aud</span><span class="v" id="aud">orders-api</span></div>
+          <div><span class="k">exp</span><span class="v">+15 min</span></div>
+          <div><span class="k">scope</span><span class="v"><span class="sc" id="scA">orders:read</span><span id="scB">payments:read</span></span></div>
+        </div></div>
+        <div class="dotsep">.</div>
+        <div class="seg s" id="segS"><div class="cap">SIGNATURE</div><div class="box">9f3a&middot;c71e<span class="tick" id="sigTick">&#10003;</span></div></div>
+      </div></div>
+      <div id="capBand">
+        <div id="capNum"><div class="n" id="capN">0 / 7</div><div class="id" id="capId">intro</div></div>
+        <div id="capText"></div>
+      </div>
+      <div id="tip"></div>
+    </div>
+  </div>
+  <div id="controls">
+    <button id="bPlay">Play</button>
+    <button id="bPrev" title="Previous step (Left)">&#9664; Step</button>
+    <button id="bNext" title="Next step (Right)">Step &#9654;</button>
+    <div id="scrubWrap"><input id="scrub" type="range" min="0" max="1000" value="0"><div id="ticks"></div></div>
+    <span id="time">0.0 / 0.0 s</span>
+    <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { CSS2DRenderer, CSS2DObject } from 'three/addons/renderers/CSS2DRenderer.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+/* =====================================================================================
+   1. SCENARIO DATA  (swap this block, plus section 4, to reuse the scaffolding)
+   World units: x right, z toward viewer, y up. Zones are slabs on the y=0 plane.
+   ===================================================================================== */
+const TITLE = 'A token-authenticated request through a service mesh';
+const DURATION = 23.8;
+const COLORS = { bg:0x0b0f17, panel2:0x18202f, line:0x2a3447, text:0xe6edf7, muted:0x8b98ad,
+                 accent:0x4cc9f0, token:0xf5b941, identity:0xa78bfa, secure:0x3ddc97 };
+
+const STEPS = [
+  { id:'login',    time: 1.0, caption:'Browser sends the user’s credentials to the Identity Provider.' },
+  { id:'token',    time: 4.0, caption:'The IdP returns a signed JWT: header, payload and signature.' },
+  { id:'request',  time: 7.0, caption:'Browser calls GET /orders/42 with the token, crossing into the Edge zone.' },
+  { id:'verify',   time:10.0, caption:'Gateway verifies the signature against the IdP’s public key (JWKS).' },
+  { id:'mtls',     time:13.0, caption:'Gateway forwards to Orders over mTLS: an encrypted, mutually authenticated channel.' },
+  { id:'exchange', time:16.0, caption:'Orders swaps the token for a down-scoped one before calling Payments.' },
+  { id:'data',     time:19.0, caption:'Orders reads its database; the response returns through the Gateway to the Browser.' }
+];
+
+const ZONES = [
+  { id:'internet', name:'INTERNET',      x0:-17,  x1:-8,   alpha:.55 },
+  { id:'edge',     name:'EDGE / DMZ',    x0:-7,   x1:1.5,  alpha:.75 },
+  { id:'mesh',     name:'INTERNAL MESH', x0:2.5,  x1:17,   alpha:.90 }
+];
+const GATES = [ { id:'g1', x:-7.5 }, { id:'g2', x:2.0 } ];   // trust boundaries (gaps between zone slabs)
+const ZONE_Z = 8;   // slabs span z in [-8, 8]
+
+// kind 'box' | 'db'; lab 'front' | 'back' = where the name plate sits relative to the node
+const NODES = [
+  { id:'browser',  name:'Browser',     x:-12.5, z: 1.0, kind:'box', color:COLORS.muted,    lab:'front', tip:'The user’s client. Holds the token and attaches it to every call.' },
+  { id:'idp',      name:'IdP',         x: -3.0, z:-4.0, kind:'box', color:COLORS.identity, lab:'back',  tip:'Identity Provider. Authenticates users, signs JWTs, publishes its public keys (JWKS).' },
+  { id:'gateway',  name:'API Gateway', x: -3.0, z: 3.5, kind:'box', color:COLORS.accent,   lab:'front', tip:'Edge entry point. Verifies the token signature, then forwards over mTLS.' },
+  { id:'orders',   name:'Orders',      x:  6.0, z: 3.5, kind:'box', color:0xc8d3e6,        lab:'front', tip:'Orders service. Serves order data and exchanges tokens for narrower scopes.' },
+  { id:'payments', name:'Payments',    x: 13.5, z: 3.5, kind:'box', color:0xc8d3e6,        lab:'front', tip:'Payments service. Accepts only tokens scoped to payments:read.' },
+  { id:'db',       name:'Orders DB',   x: 10.0, z:-4.0, kind:'db',  color:COLORS.muted,    lab:'back',  tip:'Datastore for orders. Reachable only from inside the mesh.' }
+];
+const EDGES = [
+  { id:'login', a:'browser', b:'idp' },
+  { id:'req',   a:'browser', b:'gateway' },
+  { id:'jwks',  a:'idp',     b:'gateway' },
+  { id:'fwd',   a:'gateway', b:'orders' },
+  { id:'exch',  a:'orders',  b:'payments' },
+  { id:'db',    a:'orders',  b:'db' }
+];
+// packets: travel along an edge; labels = one or two pills (second one is shown as `mix` goes 0 -> 1)
+// fade: 'ends' label fades near both ends, 'end' only near the end, 'none' always shown
+const PACKETS = [
+  { id:'creds', edge:'login', color:COLORS.accent,   fade:'ends', labels:[['acc','credentials']] },
+  { id:'jwt',   edge:'login', color:COLORS.token,    fade:'ends', labels:[['tok','JWT']] },
+  { id:'req',   edge:'req',   color:COLORS.accent,   fade:'ends', labels:[['acc','GET /orders/42 + JWT']] },
+  { id:'key',   edge:'jwks',  kind:'key', color:COLORS.identity, fade:'none', labels:[['idn','JWKS public key']] },
+  { id:'fwd',   edge:'fwd',   color:COLORS.accent, alt:COLORS.secure, fade:'end', labels:[['acc','GET /orders/42'],['sec','ciphertext 9f3a·c71e']] },
+  { id:'tok2',  edge:'exch',  color:COLORS.token,    fade:'ends', labels:[['tok','payments:read']] },
+  { id:'query', edge:'db',    color:COLORS.accent,   fade:'ends', labels:[['acc','SELECT id=42']] },
+  { id:'rows',  edge:'db',    color:COLORS.accent,   fade:'ends', labels:[['acc','row: order 42']] },
+  { id:'resp1', edge:'fwd',   color:COLORS.secure,   fade:'ends', labels:[['sec','ciphertext 4be0·a2d7']] },
+  { id:'resp2', edge:'req',   color:COLORS.accent,   fade:'ends', labels:[['acc','200 OK · order 42']] }
+];
+// camera shots: target (tx, tz), distance d, azimuth az (deg). Elevation is fixed.
+const ELEV = 40 * Math.PI / 180;
+const SHOT = {
+  wide:    { tx:  0.0, tz: 2.0, d:34, az:  0 },
+  login:   { tx: -8.5, tz: 2.0, d:28, az:  7 },
+  token:   { tx: -8.0, tz: 2.0, d:27.5, az: 6 },
+  request: { tx: -7.5, tz: 4.0, d:28, az:  5 },
+  verify:  { tx: -3.5, tz: 3.0, d:27, az:  0 },
+  mtls:    { tx:  0.5, tz: 4.5, d:27, az: -4 },
+  exch:    { tx:  9.0, tz: 4.0, d:27, az: -5 },
+  data:    { tx:  8.0, tz: 2.5, d:29, az: -3 },
+  back:    { tx: -3.0, tz: 4.0, d:31, az:  0 }
+};
+
+/* =====================================================================================
+   2. STAGE, CONTROLS, TIMELINE CONTRACT  (scenario independent)
+   ===================================================================================== */
+const STAGE_W = 1920, STAGE_H = 1080;
+const CAPTURE = new URLSearchParams(location.search).get('capture') === '1';
+if (CAPTURE) document.body.classList.add('capture');
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const stage = $('stage'), viewport = $('viewport');
+let stageScale = 1;
+function fitStage() {
+  const vw = viewport.clientWidth, vh = viewport.clientHeight;
+  stageScale = Math.min(vw / STAGE_W, vh / STAGE_H);
+  stage.style.transform = `translate(${(vw - STAGE_W * stageScale) / 2}px, ${(vh - STAGE_H * stageScale) / 2}px) scale(${stageScale})`;
+}
+
+let tl = null;                       // master timeline (built in section 4)
+let uiHook = () => {};               // set by controls below
+function stepIndexAt(t) { for (let i = STEPS.length - 1; i >= 0; i--) if (t >= STEPS[i].time - 1e-6) return i; return -1; }
+
+function applyCaption(t) {
+  const i = stepIndexAt(t);
+  $('capN').textContent = i < 0 ? `0 / ${STEPS.length}` : `${i + 1} / ${STEPS.length}`;
+  $('capId').textContent = i < 0 ? 'intro' : STEPS[i].id;
+  $('capText').textContent = i < 0 ? TITLE : STEPS[i].caption;
+  const k = i < 0 ? 1 : clamp((t - STEPS[i].time) / 0.45);
+  const e = 1 - Math.pow(1 - k, 3);
+  $('capText').style.opacity = String(e);
+  $('capText').style.transform = `translateY(${((1 - e) * 12).toFixed(2)}px)`;
+}
+
+/* =====================================================================================
+   3. THREE.JS SCENE (renders the state object S; nothing here advances on its own)
+   ===================================================================================== */
+const gl = new THREE.WebGLRenderer({ antialias: true });
+gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+gl.setSize(STAGE_W, STAGE_H);
+stage.insertBefore(gl.domElement, $('labels'));
+const css = new CSS2DRenderer({ element: $('labels') });
+css.setSize(STAGE_W, STAGE_H);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(COLORS.bg);
+const camera = new THREE.PerspectiveCamera(40, STAGE_W / STAGE_H, 0.1, 300);
+scene.add(new THREE.AmbientLight(0xffffff, 1.0));
+const sun = new THREE.DirectionalLight(0xffffff, 1.6);
+sun.position.set(-12, 24, 14);
+scene.add(sun);
+
+const col = (h) => new THREE.Color(h);
+const C = { line: col(COLORS.line), accent: col(COLORS.accent), token: col(COLORS.token), identity: col(COLORS.identity), secure: col(COLORS.secure) };
+const el = (tag, cls, html) => { const d = document.createElement(tag); d.className = cls; if (html != null) d.innerHTML = html; return d; };
+
+// ---- animated state: the ONLY thing the timeline tweens (plus a few DOM elements) ----
+const S = {
+  cam: { ...SHOT.wide },
+  node: {}, edge: {}, pk: {},
+  gate: {}, mtls: { prog: 0, op: 0, lab: 0 }, tick: { sc: 0 }
+};
+NODES.forEach(n => S.node[n.id] = { act: 0, ver: 0 });
+EDGES.forEach(e => S.edge[e.id] = { act: 0, tk: 0, sec: 0, idn: 0 });
+GATES.forEach(g => S.gate[g.id] = { op: 0.08 });
+PACKETS.forEach(p => S.pk[p.id] = { p: 0, sc: 0, mix: 0 });
+
+// ---- ground, grid, zones, gates ----
+const ground = new THREE.Mesh(new THREE.PlaneGeometry(120, 80), new THREE.MeshBasicMaterial({ color: COLORS.bg }));
+ground.rotation.x = -Math.PI / 2; ground.position.y = -0.34; scene.add(ground);
+const grid = new THREE.GridHelper(90, 45, 0x1a2233, 0x141b29);
+grid.position.y = -0.33; grid.material.transparent = true; grid.material.opacity = 0.7; scene.add(grid);
+
+ZONES.forEach(z => {
+  const w = z.x1 - z.x0, g = new THREE.BoxGeometry(w, 0.3, ZONE_Z * 2);
+  const slab = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: COLORS.panel2, roughness: .9, transparent: true, opacity: z.alpha }));
+  slab.position.set((z.x0 + z.x1) / 2, -0.15, 0); scene.add(slab);
+  const ln = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: 0x3a4a66 }));
+  ln.position.copy(slab.position); scene.add(ln);
+  const lab = new CSS2DObject(el('div', 'zlabel', z.name));
+  lab.position.set(z.x0 + 2.8, 0.05, ZONE_Z - 0.5); scene.add(lab);
+});
+const gateMats = {};
+GATES.forEach(gt => {
+  const geo = new THREE.PlaneGeometry(ZONE_Z * 2, 3);
+  const m = new THREE.MeshBasicMaterial({ color: COLORS.accent, transparent: true, opacity: .08, side: THREE.DoubleSide, depthWrite: false });
+  const wall = new THREE.Mesh(geo, m); wall.rotation.y = Math.PI / 2; wall.position.set(gt.x, 1.5, 0); scene.add(wall);
+  const ln = new THREE.LineSegments(new THREE.EdgesGeometry(geo), new THREE.LineBasicMaterial({ color: 0x3a4a66 }));
+  ln.rotation.y = Math.PI / 2; ln.position.copy(wall.position); scene.add(ln);
+  gateMats[gt.id] = m;
+});
+
+// ---- nodes ----
+const NODE_BODY = 0x1b2538;
+const tip = $('tip');
+const nodeObj = {};
+NODES.forEach(n => {
+  n.hx = n.kind === 'db' ? 1.55 : 2.1; n.hz = n.kind === 'db' ? 1.55 : 1.5;
+  const base = col(n.color), grp = new THREE.Group(); grp.position.set(n.x, 0, n.z);
+  let bodyGeo, plinthGeo, topGeo;
+  if (n.kind === 'db') {
+    bodyGeo = new THREE.CylinderGeometry(1.4, 1.4, 1.5, 48); plinthGeo = new THREE.CylinderGeometry(1.65, 1.65, 0.12, 48);
+    topGeo = new THREE.TorusGeometry(1.05, 0.05, 8, 48);
+  } else {
+    bodyGeo = new RoundedBoxGeometry(3.8, 1.5, 2.6, 4, 0.18); plinthGeo = new THREE.BoxGeometry(4.3, 0.12, 3.1);
+    topGeo = new THREE.BoxGeometry(2.8, 0.05, 1.6);
+  }
+  const body = new THREE.Mesh(bodyGeo, new THREE.MeshStandardMaterial({ color: NODE_BODY, roughness: .55, metalness: .1 }));
+  body.position.y = 0.75;
+  const plinth = new THREE.Mesh(plinthGeo, new THREE.MeshBasicMaterial({ color: base.clone() })); plinth.position.y = 0.06;
+  const top = new THREE.Mesh(topGeo, new THREE.MeshBasicMaterial({ color: base.clone() })); top.position.y = 1.52;
+  if (n.kind === 'db') top.rotation.x = Math.PI / 2;
+  const edges = new THREE.LineSegments(new THREE.EdgesGeometry(bodyGeo, 35), new THREE.LineBasicMaterial({ color: base.clone().multiplyScalar(.8) }));
+  edges.position.y = 0.75;
+  grp.add(body, plinth, top, edges); scene.add(grp);
+  const lz = n.lab === 'front' ? n.hz + 0.55 : -(n.hz + 0.65);
+  const ld = el('div', 'nlabel', n.name);
+  const lab = new CSS2DObject(ld); lab.position.set(0, 0.1, lz); grp.add(lab);
+  if (!CAPTURE) {
+    ld.addEventListener('mouseenter', () => { tip.textContent = n.tip; tip.style.display = 'block'; });
+    ld.addEventListener('mousemove', (ev) => {
+      const r = stage.getBoundingClientRect();
+      const x = (ev.clientX - r.left) / stageScale, y = (ev.clientY - r.top) / stageScale;
+      tip.style.left = clamp(x + 18, 0, STAGE_W - 540) + 'px'; tip.style.top = clamp(y - 90, 0, STAGE_H - 120) + 'px';
+    });
+    ld.addEventListener('mouseleave', () => { tip.style.display = 'none'; });
+  }
+  nodeObj[n.id] = { n, base, body, plinth, top, edges };
+});
+const nodeById = Object.fromEntries(NODES.map(n => [n.id, n]));
+
+// ---- edges ----
+function facePoint(n, ux, uz) {
+  const t = Math.min(n.hx / Math.max(Math.abs(ux), 1e-6), n.hz / Math.max(Math.abs(uz), 1e-6)) + 0.1;
+  return new THREE.Vector3(n.x + ux * t, 0.75, n.z + uz * t);
+}
+const edgeObj = {};
+EDGES.forEach(e => {
+  const a = nodeById[e.a], b = nodeById[e.b];
+  let dx = b.x - a.x, dz = b.z - a.z; const L = Math.hypot(dx, dz); dx /= L; dz /= L;
+  const A = facePoint(a, dx, dz), B = facePoint(b, -dx, -dz);
+  const M = A.clone().add(B).multiplyScalar(.5); M.y += 1.0;
+  const curve = new THREE.CatmullRomCurve3([A, M, B], false, 'centripetal');
+  const mat = new THREE.MeshBasicMaterial({ color: COLORS.line });
+  const mesh = new THREE.Mesh(new THREE.TubeGeometry(curve, 64, 0.1, 8, false), mat);
+  scene.add(mesh);
+  edgeObj[e.id] = { curve, mat };
+});
+
+// ---- mTLS wrap on the gateway -> orders edge (tube grows along the edge, plus rings) ----
+const MT_SEG = 64, MT_RAD = 20;
+const mtCurve = edgeObj.fwd.curve;
+const mtGeo = new THREE.TubeGeometry(mtCurve, MT_SEG, 0.42, MT_RAD, false);
+const mtMat = new THREE.MeshBasicMaterial({ color: COLORS.secure, transparent: true, opacity: 0, side: THREE.DoubleSide, depthWrite: false });
+scene.add(new THREE.Mesh(mtGeo, mtMat));
+const mtRings = [];
+for (let i = 0; i < 10; i++) {
+  const f = (i + 0.5) / 10, r = new THREE.Mesh(new THREE.TorusGeometry(0.44, 0.035, 6, 24), new THREE.MeshBasicMaterial({ color: COLORS.secure, transparent: true, opacity: 0 }));
+  r.position.copy(mtCurve.getPointAt(f));
+  r.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), mtCurve.getTangentAt(f).normalize());
+  r.userData.f = f; scene.add(r); mtRings.push(r);
+}
+const mtLabel = new CSS2DObject(el('div', 'badge3d', '<span>mTLS: encrypted channel</span>'));
+mtLabel.position.copy(mtCurve.getPointAt(0.5)).add(new THREE.Vector3(0, 2.3, 0)); scene.add(mtLabel);
+const tickLabel = new CSS2DObject(el('div', 'badge3d', '<span>&#10003; signature valid</span>'));
+tickLabel.position.set(nodeById.gateway.x, 3.0, nodeById.gateway.z); scene.add(tickLabel);
+
+// ---- packets ----
+function makeKey() {
+  const g = new THREE.Group(), m = new THREE.MeshBasicMaterial({ color: COLORS.identity });
+  const ring = new THREE.Mesh(new THREE.TorusGeometry(0.3, 0.09, 8, 24), m); ring.position.x = -0.45;
+  const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.9, 8), m); shaft.rotation.z = Math.PI / 2; shaft.position.x = 0.3;
+  const t1 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.3, 0.12), m); t1.position.set(0.55, -0.17, 0);
+  const t2 = new THREE.Mesh(new THREE.BoxGeometry(0.14, 0.22, 0.12), m); t2.position.set(0.25, -0.13, 0);
+  g.add(ring, shaft, t1, t2); g.rotation.x = -Math.PI / 2.6; g.scale.setScalar(1.15);
+  const wrap = new THREE.Group(); wrap.add(g); return { obj: wrap, mats: [m] };
+}
+const pkObj = {};
+PACKETS.forEach(p => {
+  const grp = new THREE.Group(); let mats = [], halo = null;
+  if (p.kind === 'key') { const k = makeKey(); grp.add(k.obj); mats = k.mats; }
+  else {
+    const core = new THREE.Mesh(new THREE.SphereGeometry(0.34, 20, 14), new THREE.MeshBasicMaterial({ color: p.color }));
+    halo = new THREE.Mesh(new THREE.SphereGeometry(0.62, 20, 14), new THREE.MeshBasicMaterial({ color: p.color, transparent: true, opacity: .22, depthWrite: false }));
+    grp.add(core, halo); mats = [core.material, halo.material];
+  }
+  const wrap = el('div', 'plabel');
+  const pills = p.labels.map(([c, txt]) => { const d = el('div', 'pill ' + c, txt); wrap.appendChild(d); return d; });
+  const label = new CSS2DObject(wrap); label.position.set(0, 1.2, 0); grp.add(label);
+  grp.visible = false; scene.add(grp);
+  pkObj[p.id] = { def: p, grp, label, wrap, pills, mats, base: col(p.color), alt: p.alt ? col(p.alt) : null };
+});
+
+// ---- state -> scene ----
+const _c = new THREE.Color();
+function applyScene() {
+  // camera
+  const c = S.cam, az = c.az * Math.PI / 180;
+  camera.position.set(c.tx + c.d * Math.cos(ELEV) * Math.sin(az), c.d * Math.sin(ELEV), c.tz + c.d * Math.cos(ELEV) * Math.cos(az));
+  camera.lookAt(c.tx, 0, c.tz);
+  // nodes
+  for (const id in nodeObj) {
+    const o = nodeObj[id], s = S.node[id], k = Math.max(s.act, s.ver);
+    _c.copy(o.base).lerp(C.secure, s.ver);
+    o.body.material.emissive.copy(_c).multiplyScalar(0.3 * k);
+    const f = 0.5 + 0.5 * k;
+    o.plinth.material.color.copy(_c).multiplyScalar(f); o.top.material.color.copy(_c).multiplyScalar(f);
+    o.edges.material.color.copy(_c).multiplyScalar(0.7 + 0.3 * k);
+  }
+  // edges
+  for (const id in edgeObj) {
+    const m = S.edge[id];
+    edgeObj[id].mat.color.copy(C.line).lerp(C.accent, m.act).lerp(C.token, m.tk).lerp(C.identity, m.idn).lerp(C.secure, m.sec);
+  }
+  for (const id in gateMats) gateMats[id].opacity = S.gate[id].op;
+  // mTLS wrap
+  const mt = S.mtls;
+  mtMat.opacity = mt.op;
+  mtGeo.setDrawRange(0, Math.floor(mt.prog * MT_SEG) * MT_RAD * 6);
+  mtRings.forEach(r => { const on = r.userData.f <= mt.prog; r.material.opacity = on ? Math.min(1, mt.op * 3) : 0; r.visible = on && mt.op > 0.001; });
+  mtLabel.visible = mt.lab > 0.01; mtLabel.element.firstChild.style.transform = `scale(${mt.lab.toFixed(3)})`; mtLabel.element.style.opacity = String(clamp(mt.lab * 2));
+  tickLabel.visible = S.tick.sc > 0.01; tickLabel.element.firstChild.style.transform = `scale(${S.tick.sc.toFixed(3)})`; tickLabel.element.style.opacity = String(clamp(S.tick.sc * 2));
+  // packets
+  for (const id in pkObj) {
+    const o = pkObj[id], s = S.pk[id], vis = s.sc > 0.01;
+    o.grp.visible = vis; o.label.visible = vis;
+    if (!vis) continue;
+    const p = clamp(s.p);
+    o.grp.position.copy(edgeObj[o.def.edge].curve.getPointAt(p));
+    o.grp.scale.setScalar(s.sc);
+    if (o.alt) { _c.copy(o.base).lerp(o.alt, s.mix); o.mats.forEach(m => m.color.copy(_c)); }
+    let fa = 1;
+    if (o.def.fade === 'ends') fa = clamp(Math.min(p, 1 - p) / 0.14);
+    else if (o.def.fade === 'end') fa = clamp((1 - p) / 0.14);
+    o.wrap.style.opacity = String(clamp(s.sc * 1.5) * fa);
+    if (o.pills.length > 1) { o.pills[0].style.opacity = String(1 - s.mix); o.pills[1].style.opacity = String(s.mix); }
+  }
+}
+function render() { gl.render(scene, camera); css.render(scene, camera); }
+
+/* =====================================================================================
+   4. TIMELINE SCRIPT  (scenario specific: when things happen)
+   Every tween is an explicit fromTo with immediateRender:false so seek(t) is exact.
+   ===================================================================================== */
+const gsapRef = window.gsap;
+gsapRef.ticker.lagSmoothing(0);
+const D = { aud: $('aud'), capP: $('capP') };
+
+function applyScenarioText(t) {      // text that depends on time, derived from t (never from callbacks)
+  D.aud.textContent = t >= 17.0 ? 'payments-api' : 'orders-api';
+  D.capP.textContent = t >= 17.0 ? 'PAYLOAD · DOWN-SCOPED' : 'PAYLOAD';
+}
+
+function update() {
+  const t = tl.time();
+  applyCaption(t); applyScenarioText(t); applyScene(); render(); uiHook(t);
+}
+
+function buildTimeline() {
+  tl = gsapRef.timeline({ paused: true, onUpdate: update });
+  const TW = (target, from, to, at, dur, ease = 'power2.inOut') =>
+    tl.fromTo(target, from, { ...to, duration: dur, ease, immediateRender: false }, at);
+  const OUT = 'power2.in', POP = 'back.out(1.7)', SOFT = 'power3.out';
+
+  // -- camera: establishing wide shot, gentle push per step, back to wide at the end
+  let cur = SHOT.wide;
+  const cam = (name, at, dur = 1.6) => { TW(S.cam, { ...cur }, { ...SHOT[name] }, at, dur, 'sine.inOut'); cur = SHOT[name]; };
+  cam('login', 0.8, 1.8); cam('token', 3.8); cam('request', 6.8); cam('verify', 9.8); cam('mtls', 12.8);
+  cam('exch', 15.8); cam('data', 18.8); cam('back', 20.8, 1.4); cam('wide', 22.2, 1.5);
+
+  // -- highlight nodes/edges for the steps they take part in (contiguous steps merge into one run)
+  const LIGHT = [
+    { nodes: ['browser', 'idp'],            edges: [['login', 'act']] },
+    { nodes: ['idp', 'browser'],            edges: [['login', 'tk']] },
+    { nodes: ['browser', 'gateway'],        edges: [['req', 'act']] },
+    { nodes: ['gateway', 'idp'],            edges: [['jwks', 'idn']] },
+    { nodes: ['gateway', 'orders'],         edges: [['fwd', 'act']] },
+    { nodes: ['orders', 'payments'],        edges: [['exch', 'tk']] },
+    { nodes: ['orders', 'db'],              edges: [['db', 'act']] }
+  ];
+  const runs = new Map();   // key -> [{from, to}] in step indices
+  LIGHT.forEach((st, i) => {
+    st.nodes.forEach(n => addRun('n:' + n, i));
+    st.edges.forEach(([e, k]) => addRun('e:' + e + ':' + k, i));
+  });
+  function addRun(key, i) {
+    const a = runs.get(key) || []; const last = a[a.length - 1];
+    if (last && last.to === i - 1) last.to = i; else a.push({ from: i, to: i });
+    runs.set(key, a);
+  }
+  const stepEnd = (i) => (i + 1 < STEPS.length ? STEPS[i + 1].time : DURATION - 0.5);
+  runs.forEach((list, key) => list.forEach(r => {
+    const t0 = STEPS[r.from].time, t1 = stepEnd(r.to), [kind, id, prop] = key.split(':');
+    const target = kind === 'n' ? S.node[id] : S.edge[id], p = kind === 'n' ? 'act' : prop;
+    TW(target, { [p]: 0 }, { [p]: 1 }, t0, 0.4, SOFT);
+    TW(target, { [p]: 1 }, { [p]: 0 }, t1 - 0.3, 0.3, OUT);
+  }));
+
+  const pk = (id) => S.pk[id];
+  const appear = (id, at) => TW(pk(id), { sc: 0 }, { sc: 1 }, at, 0.3, POP);
+  const vanish = (id, at) => TW(pk(id), { sc: 1 }, { sc: 0 }, at, 0.25, OUT);
+  const gateFlash = (id, at) => { TW(S.gate[id], { op: 0.08 }, { op: 0.34 }, at, 0.25, SOFT); TW(S.gate[id], { op: 0.34 }, { op: 0.12 }, at + 0.25, 0.6, 'power2.inOut'); };
+  const flash = (elm, rgb, at) => {
+    TW(elm, { boxShadow: `0 0 0px 0px rgba(${rgb},0)` }, { boxShadow: `0 0 36px 8px rgba(${rgb},.85)` }, at, 0.25, SOFT);
+    TW(elm, { boxShadow: `0 0 36px 8px rgba(${rgb},.85)` }, { boxShadow: `0 0 0px 0px rgba(${rgb},0)` }, at + 0.25, 0.6);
+  };
+  const card = $('jwtCard'), boxP = document.querySelector('#segP .box'), boxS = document.querySelector('#segS .box'), boxH = document.querySelector('.seg.h .box');
+  gsapRef.set(card, { opacity: 0, y: -40 }); gsapRef.set($('sigTick'), { scale: 0 });
+
+  // step 1: login (1.0 - 4.0)
+  appear('creds', 1.2);
+  TW(pk('creds'), { p: 0 }, { p: 1 }, 1.4, 1.6);
+  gateFlash('g1', 2.0);
+  vanish('creds', 3.0);
+
+  // step 2: token (4.0 - 7.0)
+  TW(card, { opacity: 0, y: -40 }, { opacity: 1, y: 0 }, 4.1, 0.7, SOFT);
+  flash(boxH, '76,201,240', 4.9); flash(boxP, '245,185,65', 5.25); flash(boxS, '167,139,250', 5.6);
+  appear('jwt', 4.8);
+  TW(pk('jwt'), { p: 1 }, { p: 0 }, 5.1, 1.5);
+  gateFlash('g1', 5.7);
+  vanish('jwt', 6.6);
+
+  // step 3: request (7.0 - 10.0)
+  flash(boxP, '245,185,65', 7.2);
+  appear('req', 7.4);
+  TW(pk('req'), { p: 0 }, { p: 1 }, 7.6, 1.5);
+  gateFlash('g1', 8.2);
+  vanish('req', 9.1);
+
+  // step 4: verify (10.0 - 13.0)
+  appear('key', 10.3);
+  TW(pk('key'), { p: 0 }, { p: 1 }, 10.5, 1.4);
+  TW(boxS, { boxShadow: '0 0 0px 0px rgba(167,139,250,0)' }, { boxShadow: '0 0 40px 10px rgba(167,139,250,.9)' }, 11.9, 0.4, SOFT);
+  TW(boxS, { borderColor: '#a78bfa' }, { borderColor: '#3ddc97' }, 12.3, 0.4);
+  TW(boxS, { boxShadow: '0 0 40px 10px rgba(167,139,250,.9)' }, { boxShadow: '0 0 28px 6px rgba(61,220,151,.6)' }, 12.3, 0.4);
+  TW($('sigTick'), { scale: 0 }, { scale: 1 }, 12.35, 0.4, POP);
+  TW(S.tick, { sc: 0 }, { sc: 1 }, 12.35, 0.45, POP);
+  TW(S.node.gateway, { ver: 0 }, { ver: 1 }, 12.35, 0.4, SOFT);
+  vanish('key', 12.6);
+  TW(S.tick, { sc: 1 }, { sc: 0 }, 14.2, 0.3, OUT);
+  TW(boxS, { boxShadow: '0 0 28px 6px rgba(61,220,151,.6)' }, { boxShadow: '0 0 0px 0px rgba(61,220,151,0)' }, 13.4, 0.5);
+
+  // step 5: mTLS (13.0 - 16.0)
+  appear('fwd', 13.2);
+  TW(S.mtls, { prog: 0, op: 0 }, { prog: 1, op: 0.2 }, 13.35, 0.95, 'power2.inOut');
+  TW(S.mtls, { lab: 0 }, { lab: 1 }, 13.9, 0.4, POP);
+  TW(pk('fwd'), { mix: 0 }, { mix: 1 }, 14.1, 0.4, 'power1.inOut');
+  TW(S.edge.fwd, { sec: 0 }, { sec: 1 }, 14.1, 0.4, 'power1.inOut');
+  TW(pk('fwd'), { p: 0 }, { p: 1 }, 14.5, 1.1);
+  gateFlash('g2', 14.9);
+  vanish('fwd', 15.6);
+  TW(S.node.gateway, { ver: 1 }, { ver: 0 }, 15.7, 0.3, OUT);
+
+  // step 6: exchange (16.0 - 19.0)
+  TW($('scA'), { maxWidth: 190, opacity: 1 }, { maxWidth: 0, opacity: 0 }, 16.4, 0.9, 'power2.inOut');
+  TW(boxP, { borderColor: '#f5b941' }, { borderColor: '#3ddc97' }, 16.4, 0.6);
+  flash(boxP, '61,220,151', 17.0);
+  appear('tok2', 17.2);
+  TW(pk('tok2'), { p: 0 }, { p: 1 }, 17.4, 1.2);
+  vanish('tok2', 18.7);
+  TW(card, { opacity: 1, y: 0 }, { opacity: 0, y: -30 }, 18.9, 0.5, OUT);
+
+  // step 7: data (19.0 - 23.8)
+  appear('query', 19.2);
+  TW(pk('query'), { p: 0 }, { p: 1 }, 19.4, 0.8);
+  vanish('query', 20.2);
+  appear('rows', 20.2);
+  TW(pk('rows'), { p: 1 }, { p: 0 }, 20.4, 0.8);
+  vanish('rows', 21.2);
+  TW(S.node.gateway, { act: 0 }, { act: 1 }, 21.2, 0.4, SOFT);
+  appear('resp1', 21.3);
+  TW(pk('resp1'), { p: 1 }, { p: 0 }, 21.5, 0.8);
+  gateFlash('g2', 21.75);
+  vanish('resp1', 22.35);
+  TW(S.edge.req, { act: 0 }, { act: 1 }, 22.3, 0.4, SOFT);
+  appear('resp2', 22.45);
+  TW(pk('resp2'), { p: 1 }, { p: 0 }, 22.6, 0.8);
+  gateFlash('g1', 22.95);
+  vanish('resp2', 23.35);
+  TW(S.node.browser, { act: 0 }, { act: 1 }, 23.2, 0.3, SOFT);
+  TW(S.node.gateway, { act: 1 }, { act: 0 }, 22.4, 0.4, OUT);
+  TW(S.edge.req, { act: 1 }, { act: 0 }, 23.45, 0.3, OUT);
+
+  // labels + total length
+  STEPS.forEach(s => tl.addLabel(s.id, s.time));
+  tl.set({}, {}, DURATION);
+  tl.progress(1).progress(0);   // warm every tween so start values are all recorded
+}
+
+/* =====================================================================================
+   5. CONTROLS + PUBLIC CONTRACT  (scenario independent)
+   ===================================================================================== */
+buildTimeline();
+const bPlay = $('bPlay'), scrub = $('scrub'), speed = $('speed');
+STEPS.forEach((s, i) => {
+  const f = s.time / DURATION, tk = document.createElement('i');
+  tk.style.left = `calc(8px + (100% - 16px) * ${f})`; tk.title = s.id; $('ticks').appendChild(tk);
+  const nb = document.createElement('b'); nb.textContent = String(i + 1); nb.style.left = tk.style.left; $('ticks').appendChild(nb);
+});
+const isPlaying = () => !tl.paused() && tl.time() < DURATION - 1e-6;
+uiHook = (t) => {
+  scrub.value = String(Math.round(t / DURATION * 1000));
+  $('time').textContent = `${t.toFixed(1)} / ${DURATION.toFixed(1)} s`;
+  bPlay.textContent = isPlaying() ? 'Pause' : 'Play';
+};
+function play() { if (tl.time() >= DURATION - 1e-6) tl.time(0); tl.play(); update(); }
+function pause() { tl.pause(); update(); }
+function seek(t) { tl.pause(); tl.time(clamp(t, 0, DURATION)); update(); }
+function go(t) { tl.time(clamp(t, 0, DURATION)); update(); }   // UI jump that keeps the play state
+function prevStep() { const t = tl.time(), i = stepIndexAt(t); go(i < 0 ? 0 : (t - STEPS[i].time > 0.6 ? STEPS[i].time : (i > 0 ? STEPS[i - 1].time : 0))); }
+function nextStep() { const i = stepIndexAt(tl.time()); go(i + 1 < STEPS.length ? STEPS[i + 1].time : DURATION); }
+
+bPlay.addEventListener('click', () => { isPlaying() ? pause() : play(); bPlay.blur(); });
+$('bPrev').addEventListener('click', (e) => { prevStep(); e.target.blur(); });
+$('bNext').addEventListener('click', (e) => { nextStep(); e.target.blur(); });
+scrub.addEventListener('input', () => go(scrub.value / 1000 * DURATION));
+speed.addEventListener('change', () => { tl.timeScale(parseFloat(speed.value)); speed.blur(); });
+document.addEventListener('keydown', (e) => {
+  if (e.target === speed) return;
+  if (e.code === 'Space') { e.preventDefault(); isPlaying() ? pause() : play(); }
+  else if (e.code === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+  else if (e.code === 'ArrowRight') { e.preventDefault(); nextStep(); }
+  else if (e.code === 'Home') { e.preventDefault(); go(0); }
+});
+tl.eventCallback('onComplete', () => update());
+window.addEventListener('resize', () => { fitStage(); update(); });
+
+window.anim = { duration: DURATION, fps: 30, steps: STEPS.map(s => ({ id: s.id, time: s.time, caption: s.caption })), seek, play, pause };
+
+fitStage();
+update();
+if (!CAPTURE) play();
+</script>
+</body>
+</html>

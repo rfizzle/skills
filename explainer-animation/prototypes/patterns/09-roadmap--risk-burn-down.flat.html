@@ -1,0 +1,730 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pattern 9: roadmap with risk burn-down. A three-horizon security roadmap (flat 2D)</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #121826; --panel-2: #18202f; --line: #2a3447;
+    --text: #e6edf7; --muted: #8b98ad; --accent: #4cc9f0; --token: #f5b941;
+    --identity: #a78bfa; --secure: #3ddc97; --danger: #ff5d6c;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #viewport { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--bg); overflow: hidden; }
+  .sans { font-family: var(--sans); }
+  .mono { font-family: var(--mono); }
+  #rail { position: absolute; left: 60px; top: 14px; width: 1800px; height: 76px; display: flex; gap: 14px; }
+  .ph { flex: 1; box-sizing: border-box; padding-top: 4px; border-bottom: 4px solid var(--line); }
+  .ph .pn { font-size: 24px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+  .ph .pd { display: flex; gap: 12px; margin-top: 10px; }
+  .ph .pd i { display: block; width: 16px; height: 16px; border-radius: 8px; background: #2a3447; }
+  /* headline measure (fixed, above the risk panel) and the illustrative-figures chip (fixed, top-right of the diagram area) */
+  #measure { position: absolute; left: 1274px; top: 108px; width: 350px; height: 118px; box-sizing: border-box; padding: 10px 18px; opacity: 0;
+             background: var(--panel); border: 3px solid var(--line); border-radius: 18px; }
+  #measure .mh { font-size: 22px; font-weight: 600; color: var(--muted); white-space: nowrap; }
+  #measure .mv { position: relative; height: 64px; margin-top: 4px; }
+  #measure .mv span { position: absolute; left: 0; top: 0; font-size: 54px; line-height: 64px; font-weight: 750; color: var(--danger); white-space: nowrap; }
+  #chip { position: absolute; right: 28px; top: 108px; height: 40px; box-sizing: border-box; padding: 0 18px; display: flex; align-items: center; opacity: 0;
+          border-radius: 20px; border: 2.5px solid var(--token); background: var(--panel); color: var(--token); font-size: 22px; font-weight: 650; white-space: nowrap; }
+  #bandline { position: absolute; left: 0; top: 832px; width: 1920px; height: 2px; background: var(--line); }
+  #band { position: absolute; left: 60px; top: 846px; width: 1800px; height: 224px; }
+  #band .tt { position: absolute; left: 0; top: 0; width: 1800px; font-size: 46px; font-weight: 700; line-height: 56px; white-space: nowrap; opacity: 0; }
+  #band .tt b { color: var(--accent); font-size: 38px; margin-right: 22px; font-weight: 700; }
+  #band .bd { position: absolute; left: 0; top: 68px; width: 1500px; font-size: 32px; line-height: 43px; color: #c4cee0; opacity: 0; }
+  #pp { position: absolute; left: 1530px; top: 1010px; width: 340px; text-align: right; font-size: 24px; color: var(--muted); display: none; }
+  .nm-caption #band .bd { display: none; }
+  .nm-off #rail, .nm-off #band, .nm-off #bandline { display: none; }
+  #controls { flex: none; height: 76px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 22px;
+              background: #0e1320; border-top: 1px solid var(--line); font-size: 16px; color: var(--muted); }
+  #controls button, #controls select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+              padding: 9px 12px; font: inherit; font-size: 16px; cursor: pointer; }
+  #controls button:hover, #controls select:hover { border-color: var(--accent); }
+  #bPlay { min-width: 84px; }
+  #scrub { position: relative; flex: 1; height: 44px; }
+  #ticks { position: absolute; left: 0; right: 0; top: 0; height: 100%; pointer-events: none; }
+  #ticks i { position: absolute; top: 6px; width: 2px; height: 14px; margin-left: -1px; background: var(--muted); opacity: .8; }
+  #ticks u { position: absolute; top: 24px; transform: translateX(-50%); font-size: 12px; text-decoration: none; color: var(--muted); white-space: nowrap; }
+  #range { position: absolute; left: 0; right: 0; top: 8px; width: 100%; margin: 0; height: 28px; accent-color: var(--accent); }
+  #clock { min-width: 110px; text-align: right; font-family: var(--mono); font-size: 15px; }
+  body.capture #controls, body.capture #pp { display: none !important; }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+  <div id="rail"></div>
+  <div id="bandline"></div>
+  <div id="band"></div>
+  <div id="measure"><div class="mh" data-ov="measure-title">Risks above appetite</div><div class="mv"><span id="mvv" data-ov="mv">0 of 0</span></div></div>
+  <div id="chip" data-ov="chip">Illustrative figures</div>
+  <div id="pp">Presenter: press Right arrow</div>
+</div></div>
+<div id="controls">
+  <button id="bPlay" title="Space">Pause</button>
+  <button id="bPrev" title="Left arrow">&#9664; Step</button>
+  <button id="bNext" title="Right arrow">Step &#9654;</button>
+  <div id="scrub"><div id="ticks"></div><input id="range" type="range" min="0" max="1000" value="0" step="1" aria-label="Timeline"></div>
+  <span id="clock">0.0 / 0.0 s</span>
+  <button id="bNarr" title="N">Narration: full</button>
+  <button id="bPres" title="P">Present: off</button>
+  <label>Speed <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select></label>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
+<script>
+/* ============================================================================================================
+   PATTERN 9: ROADMAP WITH RISK BURN-DOWN
+
+   What it is: time is the scene. Initiatives sit in lanes on a time axis. A playhead sweeps the axis, one horizon
+   per step. A bar is outlined while planned, fills as the playhead crosses it and is marked done when the playhead
+   passes its end. When one lands, a thin link flashes from the bar to the risks it reduces, and those risk bars
+   shrink by that amount, leaving a faint ghost of where they started. A headline counts the risks still above
+   appetite. The audience sees the order of work, what depends on what, and what is still carried at the end.
+   To reuse it for another topic, replace the data in section 1 (FIGURES, HORIZONS, LANES, RISKS, INITS, DEPS and
+   the step copy). Nothing else holds a number or a name.
+
+   Data that drives the mechanism
+     FIGURES        every number on the stage: {value, unit, label, source}. Risk start values, appetites, each
+                    initiative's reduction, the horizon captions and the index scale.
+     HORIZONS       Now / Next / Later with a caption each (from FIGURES). Axis units: horizon k spans k to k+1.
+     LANES          workstreams (rows of the roadmap).
+     INITS          { id, name, lane, start, end, reduces: [{ risk, by }] }  start / end in horizon units.
+     DEPS           { from, to }. Asserted at build time: to.start >= from.end.
+     RISKS          { id, name, start, appetite } as FIGURES keys. Headline = count of risks above appetite.
+   Helpers
+     barGeo()            bar rectangle from { lane, start, end }.
+     routeDep()          dependency route: direct, under (round a bar in the way) or up/down between lanes.
+     runHorizon()        one step's playhead sweep: moves the playhead between landing points, fills the bars it
+                         crosses (sweepTo) and pauses at each landing (land) so landings are staggered.
+     land()              marks a bar done, flashes the thin links (linkTo) and shrinks the risks (shrinkRisk), and
+                         counts the headline down when risks cross their appetite.
+     setEmph()           text emphasis: what the step is about stays at full, the rest dims to 45%.
+   Everything is a fromTo on the master timeline, so seek(t) is exact in both directions.
+   ============================================================================================================ */
+(function () {
+'use strict';
+gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
+
+/* ==========================================================================
+   1. SCENARIO DATA + LAYOUT  (pure: no DOM, no gsap)
+   ========================================================================== */
+var C = { bg: '#0b0f17', panel: '#121826', panel2: '#18202f', line: '#2a3447', text: '#e6edf7', muted: '#8b98ad',
+          accent: '#4cc9f0', token: '#f5b941', identity: '#a78bfa', secure: '#3ddc97', danger: '#ff5d6c' };
+
+/* every number on the stage. source is 'provided' or 'illustrative'; here every figure is illustrative */
+function ill(value, unit, label) { return { value: value, unit: unit, label: label, source: 'illustrative' }; }
+var FIGURES = {
+  'scale':         ill(100, 'index', 'Top of the risk index'),
+  'h.now':         ill('0 to 6', 'months', 'Now horizon span'),
+  'h.next':        ill('6 to 12', 'months', 'Next horizon span'),
+  'h.later':       ill('12 to 24', 'months', 'Later horizon span'),
+  'risk.ato':      ill(70, 'index', 'Account takeover today'),
+  'risk.ransom':   ill(74, 'index', 'Ransomware spread today'),
+  'risk.undet':    ill(68, 'index', 'Undetected breach today'),
+  'risk.cust':     ill(78, 'index', 'Customer data exposure today'),
+  'risk.supp':     ill(64, 'index', 'Supplier compromise today'),
+  'app.ato':       ill(45, 'index', 'Account takeover appetite'),
+  'app.ransom':    ill(45, 'index', 'Ransomware spread appetite'),
+  'app.undet':     ill(35, 'index', 'Undetected breach appetite'),
+  'app.cust':      ill(40, 'index', 'Customer data exposure appetite'),
+  'app.supp':      ill(35, 'index', 'Supplier compromise appetite'),
+  'cut.signin.ato':     ill(26, 'index', 'Phishing-resistant sign-in cuts account takeover'),
+  'cut.logging.undet':  ill(22, 'index', 'Central logging cuts undetected breach'),
+  'cut.inventory.cust': ill(12, 'index', 'Data inventory cuts customer data exposure'),
+  'cut.seg.ransom':     ill(18, 'index', 'Segmentation cuts ransomware spread'),
+  'cut.detect.undet':   ill(16, 'index', 'Round-the-clock detection cuts undetected breach'),
+  'cut.detect.ransom':  ill(14, 'index', 'Round-the-clock detection cuts ransomware spread'),
+  'cut.priv.ato':       ill(8,  'index', 'Privileged access cuts account takeover'),
+  'cut.priv.ransom':    ill(6,  'index', 'Privileged access cuts ransomware spread'),
+  'cut.paved.cust':     ill(6,  'index', 'Paved-road pipelines cut customer data exposure'),
+  'cut.token.cust':     ill(28, 'index', 'Tokenising card data cuts customer data exposure'),
+  'cut.pwless.ato':     ill(10, 'index', 'Passwordless cuts account takeover')
+};
+function F(k) { if (!FIGURES[k]) throw new Error('missing figure ' + k); return FIGURES[k].value; }
+
+var HORIZONS = [
+  { id: 'now',   name: 'Now',   cap: F('h.now') + ' ' + FIGURES['h.now'].unit },
+  { id: 'next',  name: 'Next',  cap: F('h.next') + ' ' + FIGURES['h.next'].unit },
+  { id: 'later', name: 'Later', cap: F('h.later') + ' ' + FIGURES['h.later'].unit }
+];
+var LANES = [
+  { id: 'id',   name: ['Identity'] },
+  { id: 'plat', name: ['Platform'] },
+  { id: 'det',  name: ['Detection', 'and response'] },
+  { id: 'data', name: ['Data', 'protection'] }
+];
+var RISKS = [
+  { id: 'ato',    name: 'Account takeover',       start: 'risk.ato',    appetite: 'app.ato' },
+  { id: 'ransom', name: 'Ransomware spread',      start: 'risk.ransom', appetite: 'app.ransom' },
+  { id: 'undet',  name: 'Undetected breach',      start: 'risk.undet',  appetite: 'app.undet' },
+  { id: 'cust',   name: 'Customer data exposure', start: 'risk.cust',   appetite: 'app.cust' },
+  { id: 'supp',   name: 'Supplier compromise',    start: 'risk.supp',   appetite: 'app.supp' }
+];
+/* start / end in horizon units (Now 0..1, Next 1..2, Later 2..3). reduces[].by is a FIGURES key. */
+var INITS = [
+  { id: 'signin',    name: 'Phishing-resistant sign-in', lane: 'id',   start: 0.1, end: 1.0, reduces: [{ risk: 'ato', by: 'cut.signin.ato' }] },
+  { id: 'priv',      name: 'Privileged access',          lane: 'id',   start: 1.5, end: 2.0, reduces: [{ risk: 'ato', by: 'cut.priv.ato' }, { risk: 'ransom', by: 'cut.priv.ransom' }] },
+  { id: 'pwless',    name: 'Passwordless',               lane: 'id',   start: 2.3, end: 3.0, reduces: [{ risk: 'ato', by: 'cut.pwless.ato' }] },
+  { id: 'seg',       name: 'Network segmentation',       lane: 'plat', start: 0.3, end: 1.2, reduces: [{ risk: 'ransom', by: 'cut.seg.ransom' }] },
+  { id: 'paved',     name: 'Paved-road pipelines',       lane: 'plat', start: 1.7, end: 2.6, reduces: [{ risk: 'cust', by: 'cut.paved.cust' }] },
+  { id: 'logging',   name: 'Central logging',            lane: 'det',  start: 0.1, end: 0.7, reduces: [{ risk: 'undet', by: 'cut.logging.undet' }] },
+  { id: 'detect',    name: 'Round-the-clock detection',  lane: 'det',  start: 1.1, end: 1.9, reduces: [{ risk: 'undet', by: 'cut.detect.undet' }, { risk: 'ransom', by: 'cut.detect.ransom' }] },
+  { id: 'inventory', name: 'Data inventory',             lane: 'data', start: 0.2, end: 0.8, reduces: [{ risk: 'cust', by: 'cut.inventory.cust' }] },
+  { id: 'token',     name: 'Tokenise card data',         lane: 'data', start: 2.0, end: 2.8, reduces: [{ risk: 'cust', by: 'cut.token.cust' }] }
+];
+var DEPS = [
+  { from: 'logging',   to: 'detect' },
+  { from: 'inventory', to: 'token' },
+  { from: 'signin',    to: 'pwless' },
+  { from: 'seg',       to: 'priv' }
+];
+function byId(list) { var m = {}; list.forEach(function (x) { m[x.id] = x; }); return m; }
+var INIT = byId(INITS), RISK = byId(RISKS), LANE_IX = {};
+LANES.forEach(function (l, i) { LANE_IX[l.id] = i; });
+DEPS.forEach(function (d) {   /* a bar that depends on another may not start before it ends */
+  if (INIT[d.to].start < INIT[d.from].end - 1e-9) throw new Error('dependency violated: ' + d.to + ' starts before ' + d.from + ' ends');
+});
+
+/* layout (svg px, diagram area 1920x720) */
+var GX0 = 262, UNIT = 330, LANE_T0 = 112, LANE_P = 144, BAR_Y = 46, BAR_H = 40, DEP_GAP = 106, LINK_GAP = 122;
+var GUTTER_X = 1262, RP_X = 1274, RP_W = 626, RP_Y = 142, RP_H = 570, TRK_X = 1310, PX = 5.2, ROW0 = 196, ROW_P = 102;
+var NUMW = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven'];
+function cap1(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+function X(p) { return GX0 + p * UNIT; }
+function laneTop(lane) { return LANE_T0 + LANE_IX[lane] * LANE_P; }
+function barGeo(b) {
+  var T = laneTop(b.lane), y0 = T + BAR_Y;
+  return { x0: X(b.start), x1: X(b.end), y0: y0, y1: y0 + BAR_H, mid: y0 + BAR_H / 2, T: T };
+}
+function rowTop(riskId) { return ROW0 + RISKS.indexOf(RISK[riskId]) * ROW_P; }
+function trackMid(riskId) { return rowTop(riskId) + 57; }
+function roundedPath(pts, r) {
+  var d = 'M' + pts[0][0] + ',' + pts[0][1];
+  for (var i = 1; i < pts.length - 1; i++) {
+    var p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+    var l1 = Math.abs(p1[0] - p0[0]) + Math.abs(p1[1] - p0[1]), l2 = Math.abs(p2[0] - p1[0]) + Math.abs(p2[1] - p1[1]);
+    var rr = Math.min(r, l1 / 2, l2 / 2);
+    var ax = p1[0] - Math.sign(p1[0] - p0[0]) * rr, ay = p1[1] - Math.sign(p1[1] - p0[1]) * rr;
+    var bx = p1[0] + Math.sign(p2[0] - p1[0]) * rr, by = p1[1] + Math.sign(p2[1] - p1[1]) * rr;
+    d += ' L' + ax + ',' + ay + ' Q' + p1[0] + ',' + p1[1] + ' ' + bx + ',' + by;
+  }
+  var q = pts[pts.length - 1];
+  return d + ' L' + q[0] + ',' + q[1];
+}
+/* dependency route. direct: same lane, nothing between. under: same lane, a bar in the way, so go round below.
+   up / down: another lane; run along the source bar, then rise or drop into the target bar's near edge. */
+function routeDep(d) {
+  var a = INIT[d.from], b = INIT[d.to], ga = barGeo(a), gb = barGeo(b);
+  if (a.lane === b.lane) {
+    var blocked = INITS.some(function (o) { return o.lane === a.lane && o !== a && o !== b && o.start < b.start && o.end > a.end; });
+    if (!blocked) return { kind: 'direct', pts: [[ga.x1, ga.mid], [gb.x0 - 3, gb.mid]] };
+    var yy = ga.T + DEP_GAP;
+    return { kind: 'under', pts: [[ga.x1 - 28, ga.y1], [ga.x1 - 28, yy], [gb.x0 + 28, yy], [gb.x0 + 28, gb.y1 + 3]] };
+  }
+  var xv = gb.x0 + 28, below = LANE_IX[b.lane] > LANE_IX[a.lane];
+  return { kind: below ? 'down' : 'up', pts: [[ga.x1, ga.mid], [xv, ga.mid], [xv, below ? gb.y0 - 3 : gb.y1 + 3]] };
+}
+/* the story the numbers tell, computed once: landing order, values after each landing, headline counts */
+var LANDINGS = INITS.slice().sort(function (p, q) { return p.end - q.end; });
+function aboveCount(vals) { return RISKS.filter(function (r) { return vals[r.id] > F(r.appetite) + 1e-9; }).length; }
+var VAL0 = {}; RISKS.forEach(function (r) { VAL0[r.id] = F(r.start); });
+var VAL_END = Object.assign({}, VAL0);
+LANDINGS.forEach(function (i) { i.reduces.forEach(function (x) { VAL_END[x.risk] -= F(x.by); }); });
+var TOTAL = RISKS.length, ABOVE0 = aboveCount(VAL0), ABOVE_END = aboveCount(VAL_END);
+var REMAIN = RISKS.filter(function (r) { return VAL_END[r.id] > F(r.appetite); });
+
+var PHASES = [
+  { id: 'today',   title: 'Today' },
+  { id: 'plan',    title: 'The plan' },
+  { id: 'remains', title: 'What remains' }
+];
+var STEPS = [
+  { id: 'today', phase: 'today', color: C.danger, title: cap1(NUMW[ABOVE0]) + ' risks, all above appetite',
+    body: 'Today all ' + NUMW[TOTAL] + ' of our top risks sit above the level we are willing to carry. The tick on each bar marks that appetite.' },
+  { id: 'now', phase: 'plan', color: C.accent, h: [0, 1], title: 'Now: the first controls land',
+    body: 'In the first six months sign-in, logging and data inventory land. Account takeover drops below appetite.' },
+  { id: 'depends', phase: 'plan', color: C.identity, title: 'What has to come first',
+    body: 'Some work cannot start until other work ends. Logging comes before round-the-clock detection, and segmentation before the access overhaul.' },
+  { id: 'next', phase: 'plan', color: C.accent, h: [1, 2], title: 'Next: platform and detection',
+    body: 'Segmentation lands, then round-the-clock detection and the privileged access overhaul. Ransomware and undetected breaches fall below appetite.' },
+  { id: 'later', phase: 'plan', color: C.accent, h: [2, 3], title: 'Later: data and passwordless',
+    body: 'Paved-road pipelines, card tokenisation and passwordless sign-in land. Customer data exposure drops below appetite; only one risk remains above.' },
+  { id: 'left', phase: 'remains', color: C.danger,
+    title: cap1(NUMW[ABOVE_END]) + (ABOVE_END === 1 ? ' risk is' : ' risks are') + ' still above appetite',
+    body: REMAIN.map(function (r) { return r.name; }).join(', ') + ' stays at ' + Math.round(VAL_END[REMAIN[0].id]) + ', above its appetite. Nothing on this roadmap addresses it, so it needs its own plan and owner.' }
+];
+
+/* ==========================================================================
+   2. SCAFFOLDING  (stage, svg helpers, controls, timeline contract)
+   ========================================================================== */
+var NS = 'http://www.w3.org/2000/svg';
+var QS = new URLSearchParams(location.search);
+var CAPTURE = QS.get('capture') === '1';
+var NARR_MODES = ['full', 'caption', 'off'];
+var narr = NARR_MODES.indexOf(QS.get('narration')) >= 0 ? QS.get('narration') : 'full';
+var PRESENT = QS.get('present') === '1';
+var stage = document.getElementById('stage');
+var viewport = document.getElementById('viewport');
+if (CAPTURE) document.body.classList.add('capture');
+
+var END_AFTER_MOTION = 2.0, BODY_WPS = 3.5, FINAL_HOLD = 3.0, DIM_TEXT = 0.45, DIM_DUR = 0.4;
+var SWEEP = 3.0;          /* seconds the playhead takes per horizon unit (110 px/s on the stage) */
+var HOLD = 3.9;           /* from one landing to the next: link, 1.2s shrink, then the result holds about 2s */
+
+function el(tag, attrs, parent) {
+  var e = document.createElementNS(NS, tag);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, s, attrs) { var e = el('text', attrs, parent); e.textContent = s; return e; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function wordCount(s) { return s.trim().split(/\s+/).length; }
+
+function fit() {
+  var r = viewport.getBoundingClientRect();
+  var s = Math.min(r.width / 1920, r.height / 1080);
+  stage.style.transform = 'scale(' + s + ')';
+  stage.style.left = ((r.width - 1920 * s) / 2) + 'px';
+  stage.style.top = ((r.height - 1080 * s) / 2) + 'px';
+}
+window.addEventListener('resize', fit);
+fit();
+function applyNarr() { stage.className = 'nm-' + narr; }
+applyNarr();
+
+/* ---- world: lanes, horizons, bars, dependency arrows, playhead, risk panel. Built once, at its first-state look. ---- */
+function buildWorld() {
+  var svg = el('svg', { viewBox: '0 0 1920 720', width: 1920, height: 720, id: 'dia' }, stage);
+  svg.style.cssText = 'position:absolute;left:0;top:100px;display:block;';
+  stage.insertBefore(svg, stage.firstChild);
+  var rm = el('g', { opacity: 0 }, svg), rk = el('g', { opacity: 0 }, svg), fx = el('g', {}, svg);
+  var L = {};
+  ['bg', 'shapes', 'deps', 'play', 'labels'].forEach(function (n) { L[n] = el('g', { 'data-layer': n }, rm); });
+  var W = { svg: svg, rm: rm, rk: rk, fx: fx, hz: {}, lane: {}, bar: {}, dep: [], risk: {} };
+
+  /* horizon headers, grid, axis */
+  HORIZONS.forEach(function (h, k) {
+    var x = GX0 + k * UNIT;
+    el('rect', { x: x + 4, y: 8, width: UNIT - 8, height: 90, rx: 14, fill: C.panel, stroke: C.line, 'stroke-width': 2.5 }, L.bg);
+    var n = txt(L.labels, h.name, { x: x + UNIT / 2, y: 46, 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': 32, 'font-weight': 750 });
+    var c = txt(L.labels, h.cap, { x: x + UNIT / 2, y: 79, 'text-anchor': 'middle', class: 'sans', fill: C.muted, 'font-size': 22, 'font-weight': 500 });
+    W.hz[h.id] = [n, c];
+  });
+  for (var k = 0; k <= HORIZONS.length; k++) {
+    el('path', { d: 'M' + (GX0 + k * UNIT) + ',108 V' + (LANE_T0 + 4 * LANE_P - 2), stroke: '#2a3447', 'stroke-width': 2.5, 'stroke-dasharray': '4 8', fill: 'none' }, L.bg);
+  }
+  el('path', { d: 'M' + GX0 + ',104 H' + (GX0 + 3 * UNIT + 8), stroke: '#46536f', 'stroke-width': 3, 'stroke-linecap': 'round', fill: 'none' }, L.bg);
+  el('path', { d: 'M' + (GX0 + 3 * UNIT + 4) + ',97 L' + (GX0 + 3 * UNIT + 16) + ',104 L' + (GX0 + 3 * UNIT + 4) + ',111 Z', fill: '#46536f' }, L.bg);
+  /* lanes */
+  LANES.forEach(function (ln, i) {
+    var T = LANE_T0 + i * LANE_P;
+    el('rect', { x: 28, y: T + 2, width: GX0 + 3 * UNIT - 28, height: LANE_P - 4, rx: 14, fill: i % 2 ? '#0f1522' : C.panel, 'fill-opacity': i % 2 ? 0.7 : 0.8 }, L.bg);
+    var els = ln.name.map(function (s, j) {
+      var y = ln.name.length === 1 ? T + 72 : T + 54 + j * 36;
+      return txt(L.labels, s, { x: 44, y: y, class: 'sans', fill: C.text, 'font-size': 26, 'font-weight': 650 });
+    });
+    W.lane[ln.id] = els;
+  });
+  /* bars: outlined while planned, fill grows with the playhead, check when done */
+  INITS.forEach(function (b) {
+    var g = barGeo(b), bw = g.x1 - g.x0;
+    var fg = el('g', {}, L.shapes);
+    var out = el('rect', { x: g.x0, y: g.y0, width: bw, height: BAR_H, rx: 11, fill: C.panel, stroke: '#6a7ba3', 'stroke-width': 3 }, fg);
+    var fill = el('rect', { x: g.x0 + 1.5, y: g.y0 + 1.5, width: 0, height: BAR_H - 3, rx: 9.5, fill: C.accent }, fg);
+    var chk = el('g', { opacity: 0 }, fg);
+    el('circle', { cx: 0, cy: 0, r: 15, fill: C.secure, stroke: C.bg, 'stroke-width': 3.5 }, chk);
+    el('path', { d: 'M-7,0 L-2,5 L7,-5', fill: 'none', stroke: C.bg, 'stroke-width': 4, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, chk);
+    gsap.set(chk, { x: g.x1 - 22, y: g.mid, scale: 0 });
+    var lab = txt(L.labels, b.name, { x: g.x0, y: g.y0 - 11, class: 'sans', fill: C.text, 'font-size': 24, 'font-weight': 650 });
+    W.bar[b.id] = { g: g, fg: fg, out: out, fill: fill, chk: chk, lab: lab, bw: bw - 3 };
+  });
+  /* dependency arrows (drawn when the step about dependencies runs) */
+  DEPS.forEach(function (d) {
+    var r = routeDep(d), pts = r.pts, n = pts.length, p = pts[n - 1], q = pts[n - 2];
+    var dx = Math.sign(p[0] - q[0]), dy = Math.sign(p[1] - q[1]);
+    var tip = p, base = [p[0] - dx * 17, p[1] - dy * 17], hw = 9;
+    var pl = pts.slice(0, n - 1).concat([base]);
+    var g = el('g', { opacity: 0 }, L.deps);
+    var line = el('path', { d: roundedPath(pl, 12), fill: 'none', stroke: C.identity, 'stroke-width': 4.5, 'stroke-linecap': 'round' }, g);
+    var head = el('path', { d: 'M' + tip[0] + ',' + tip[1] + ' L' + (base[0] + dy * hw) + ',' + (base[1] + dx * hw) + ' L' + (base[0] - dy * hw) + ',' + (base[1] - dx * hw) + ' Z', fill: C.identity }, g);
+    W.dep.push({ d: d, g: g, line: line, head: head });
+  });
+  /* playhead */
+  var ph = el('g', { opacity: 0 }, L.play);
+  el('path', { d: 'M0,104 V' + (LANE_T0 + 4 * LANE_P - 4), stroke: C.token, 'stroke-width': 4, 'stroke-linecap': 'round', opacity: 0.9 }, ph);
+  el('path', { d: 'M-13,86 L13,86 L0,106 Z', fill: C.token }, ph);
+  gsap.set(ph, { x: X(0) });
+  W.ph = ph;
+
+  /* risk panel */
+  el('rect', { x: RP_X, y: RP_Y, width: RP_W, height: RP_H, rx: 18, fill: C.panel, stroke: C.line, 'stroke-width': 3 }, rk);
+  W.rkHead = [txt(rk, 'Exposure index, out of ' + F('scale'), { x: TRK_X, y: RP_Y + 38, class: 'sans', fill: C.muted, 'font-size': 22, 'font-weight': 600 }),
+              txt(rk, 'Appetite', { x: 1768, y: RP_Y + 38, class: 'sans', fill: C.muted, 'font-size': 22, 'font-weight': 600 })];
+  el('path', { d: 'M1752,' + (RP_Y + 18) + ' V' + (RP_Y + 46), stroke: C.text, 'stroke-width': 4, 'stroke-linecap': 'round' }, rk);
+  RISKS.forEach(function (r) {
+    var R = rowTop(r.id), g = el('g', {}, rk), v0 = F(r.start), ap = F(r.appetite);
+    var hi = el('rect', { x: RP_X + 10, y: R - 4, width: RP_W - 20, height: 92, rx: 14, fill: C.danger, 'fill-opacity': 0.08, stroke: C.danger, 'stroke-width': 3, opacity: 0 }, g);
+    var name = txt(g, r.name, { x: TRK_X, y: R + 27, class: 'sans', fill: C.text, 'font-size': 26, 'font-weight': 650 });
+    var val = txt(g, '0', { x: 1880, y: R + 29, 'text-anchor': 'end', class: 'sans', fill: C.text, 'font-size': 32, 'font-weight': 750 });
+    el('rect', { x: TRK_X, y: R + 42, width: 100 * PX, height: 30, rx: 8, fill: '#1b2436' }, g);
+    var ghost = el('rect', { x: TRK_X, y: R + 42, width: 0, height: 30, rx: 8, fill: C.danger, 'fill-opacity': 0.26 }, g);
+    var bar = el('rect', { x: TRK_X, y: R + 42, width: 0, height: 30, rx: 8, fill: C.danger }, g);
+    el('path', { d: 'M' + (TRK_X + ap * PX) + ',' + (R + 34) + ' V' + (R + 80), stroke: C.text, 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+    var note = txt(g, 'Not addressed', { x: 1640, y: R + 27, class: 'sans', fill: C.danger, 'font-size': 24, 'font-weight': 650, opacity: 0 });
+    W.risk[r.id] = { g: g, hi: hi, name: name, val: val, bar: bar, ghost: ghost, note: note, proxy: { v: 0 }, v0: v0, ap: ap };
+  });
+  return W;
+}
+
+/* ---- timeline contract + controls ---- */
+var TIMES = {};
+function bootstrap(choreograph) {
+  var world = buildWorld();
+  var tl = gsap.timeline({ paused: true, onUpdate: onTick });
+  var rawFromTo = tl.fromTo.bind(tl);
+  tl.fromTo = function (t, from, to, pos) { to.immediateRender = false; return rawFromTo(t, from, to, pos); };
+  var S = choreograph(tl, world);
+  tl.set({}, {}, S.duration);
+  var duration = tl.duration();
+  var steps = S.steps;
+
+  function stepIndexAt(t) { var idx = 0; steps.forEach(function (s, i) { if (t >= s.time - 1e-6) idx = i; }); return idx; }
+  var guard = 0;
+  function guardFor(t) { return stepIndexAt(t + 0.05); }
+  function onTick() {
+    if (PRESENT && !tl.paused() && guard + 1 < steps.length && tl.time() >= steps[guard + 1].time - 0.02) {
+      tl.pause(); tl.time(steps[guard + 1].time - 0.02, true);
+    }
+    syncUI();
+  }
+  function seek(t) { tl.pause(); tl.time(clamp(t, 0, duration), false); guard = guardFor(tl.time()); syncUI(); }
+  function play() { if (tl.time() >= duration - 1e-6) tl.time(0, true); guard = guardFor(tl.time()); tl.play(); syncUI(); }
+  function pause() { tl.pause(); syncUI(); }
+  function isPlaying() { return !tl.paused() && tl.time() < duration - 1e-6; }
+  function goStep(i) {
+    var was = isPlaying() || PRESENT;
+    if (i < 0) i = 0;
+    var t = i >= steps.length ? duration : steps[i].time + 0.0001;
+    guard = i >= steps.length ? steps.length - 1 : i;
+    tl.time(t, false);
+    if (was) tl.play(); else tl.pause();
+    syncUI();
+  }
+  function prevStep() { var t = tl.time(), i = stepIndexAt(t); goStep(t - steps[i].time > 0.6 ? i : i - 1); }
+  function nextStep() { goStep(stepIndexAt(tl.time()) + 1); }
+  function setNarr(m) { narr = m; applyNarr(); bNarr.textContent = 'Narration: ' + narr; }
+  function setPresent(on) { PRESENT = on; bPres.textContent = 'Present: ' + (PRESENT ? 'on' : 'off'); syncUI(); }
+
+  window.anim = { duration: duration, fps: 30,
+                  phases: PHASES.map(function (p) { return { id: p.id, title: p.title, firstStep: steps.findIndex(function (s) { return s.phase === p.id; }) }; }),
+                  steps: steps.map(function (s) { return { id: s.id, time: s.time, rest: s.rest, caption: s.title, title: s.title, body: s.body }; }),
+                  seek: seek, play: play, pause: pause };
+
+  var bPlay = document.getElementById('bPlay'), range = document.getElementById('range'), clock = document.getElementById('clock');
+  var bNarr = document.getElementById('bNarr'), bPres = document.getElementById('bPres'), pp = document.getElementById('pp');
+  var ticks = document.getElementById('ticks');
+  steps.forEach(function (s) {
+    var left = 'calc(8px + (100% - 16px) * ' + (s.time / duration) + ')';
+    var i = document.createElement('i'); i.style.left = left; ticks.appendChild(i);
+    var u = document.createElement('u'); u.style.left = left; u.textContent = s.id; ticks.appendChild(u);
+  });
+  function syncUI() {
+    var t = tl.time();
+    range.value = Math.round(t / duration * 1000);
+    clock.textContent = t.toFixed(1) + ' / ' + duration.toFixed(1) + ' s';
+    bPlay.textContent = isPlaying() ? 'Pause' : (t >= duration - 1e-6 ? 'Replay' : 'Play');
+    var i = stepIndexAt(t);
+    pp.style.display = (PRESENT && tl.paused() && i + 1 < steps.length && t >= steps[i + 1].time - 0.05) ? 'block' : 'none';
+  }
+  bPlay.addEventListener('click', function () { isPlaying() ? pause() : play(); });
+  document.getElementById('bPrev').addEventListener('click', prevStep);
+  document.getElementById('bNext').addEventListener('click', nextStep);
+  bNarr.addEventListener('click', function () { setNarr(NARR_MODES[(NARR_MODES.indexOf(narr) + 1) % 3]); });
+  bPres.addEventListener('click', function () { setPresent(!PRESENT); });
+  range.addEventListener('input', function () { seek(range.value / 1000 * duration); });
+  document.getElementById('speed').addEventListener('change', function (e) { tl.timeScale(parseFloat(e.target.value)); });
+  window.addEventListener('keydown', function (e) {
+    if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') && e.code === 'Space') e.target.blur();
+    if (e.code === 'Space') { e.preventDefault(); isPlaying() ? pause() : play(); }
+    else if (e.code === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+    else if (e.code === 'ArrowRight') { e.preventDefault(); nextStep(); }
+    else if (e.code === 'Home') { e.preventDefault(); seek(0); play(); }
+    else if (e.code === 'KeyN') setNarr(NARR_MODES[(NARR_MODES.indexOf(narr) + 1) % 3]);
+    else if (e.code === 'KeyP') setPresent(!PRESENT);
+  });
+
+  setNarr(narr); setPresent(PRESENT);
+  tl.time(0, false);
+  syncUI();
+  if (!CAPTURE) { guard = 0; tl.play(); } else tl.pause();
+  syncUI();
+  return tl;
+}
+
+/* ==========================================================================
+   3. CHOREOGRAPHY  (all visual state is a function of timeline time)
+   ========================================================================== */
+function choreograph(tl, w) {
+  var steps = [];
+
+  /* ---- text emphasis: what the step is about stays at full, the rest dims. Items are collected, events turned into fromTo tweens ---- */
+  var EM = [];
+  function emItem(els, act) { EM.push({ els: els, act: act, cur: null }); }
+  function setEmph(t, stepId, all) {
+    EM.forEach(function (it) {
+      var tgt = all || it.act(stepId) ? 1 : DIM_TEXT;
+      if (it.cur === null) tl.set(it.els, { opacity: tgt }, 0);
+      else if (it.cur !== tgt) tl.fromTo(it.els, { opacity: it.cur }, { opacity: tgt, duration: DIM_DUR, ease: 'power2.inOut' }, t);
+      it.cur = tgt;
+    });
+  }
+  function stepDef(id) { return STEPS.filter(function (s) { return s.id === id; })[0]; }
+  function inRange(b, h) { return b.start < h[1] - 1e-9 && b.end > h[0] + 1e-9; }          /* the bar is on the playhead's path this step */
+  function lands(b, h) { return b.end > h[0] + 1e-9 && b.end <= h[1] + 1e-9; }              /* it lands this step */
+  function depBar(id) { return DEPS.some(function (d) { return d.from === id || d.to === id; }); }
+  function barAct(id, s) {
+    var d = stepDef(s), b = INIT[id];
+    if (s === 'today') return false;
+    if (s === 'depends') return depBar(id);
+    return !!d.h && inRange(b, d.h);
+  }
+  function riskAct(id, s) {
+    var d = stepDef(s);
+    if (s === 'today' || s === 'left') return true;
+    if (s === 'depends') return false;
+    return INITS.some(function (b) { return lands(b, d.h) && b.reduces.some(function (x) { return x.risk === id; }); });
+  }
+  HORIZONS.forEach(function (h, k) { emItem(w.hz[h.id], function (s) { var d = stepDef(s); return !!d.h && d.h[0] === k; }); });
+  LANES.forEach(function (ln) { emItem(w.lane[ln.id], function (s) { return INITS.some(function (b) { return b.lane === ln.id && barAct(b.id, s); }); }); });
+  INITS.forEach(function (b) { emItem([w.bar[b.id].lab, w.bar[b.id].fg], function (s) { return barAct(b.id, s); }); });
+  RISKS.forEach(function (r) { emItem([w.risk[r.id].name, w.risk[r.id].val], function (s) { return riskAct(r.id, s); }); });
+
+  /* ---- fixed HUD: phase rail, narrative band ---- */
+  var rail = document.getElementById('rail'), band = document.getElementById('band');
+  var phEls = {}, dotEls = [];
+  PHASES.forEach(function (p) {
+    var d = document.createElement('div'); d.className = 'ph';
+    var n = document.createElement('div'); n.className = 'pn'; n.textContent = p.title; d.appendChild(n);
+    var dd = document.createElement('div'); dd.className = 'pd'; d.appendChild(dd);
+    rail.appendChild(d); phEls[p.id] = { box: d, name: n, dots: dd };
+  });
+  STEPS.forEach(function (st, i) {
+    var dot = document.createElement('i'); phEls[st.phase].dots.appendChild(dot); dotEls.push(dot);
+    var tt = document.createElement('div'); tt.className = 'tt'; tt.innerHTML = '<b>' + (i + 1) + ' / ' + STEPS.length + '</b>';
+    tt.appendChild(document.createTextNode(st.title)); band.appendChild(tt); st.ttEl = tt;
+    var bd = document.createElement('div'); bd.className = 'bd'; bd.textContent = st.body; band.appendChild(bd); st.bdEl = bd;
+  });
+
+  /* ---- headline measure: "Risks above appetite: N of M", counted by a tween on the value ---- */
+  var measEl = document.getElementById('measure'), chipEl = document.getElementById('chip'), mvEl = document.getElementById('mvv');
+  var hv = { v: 0 };
+  function setHead(v) { mvEl.textContent = Math.round(v) + ' of ' + TOTAL; }
+  setHead(0);
+  function headCount(t, from, to, dur) {
+    tl.fromTo(hv, { v: from }, { v: to, duration: dur, ease: 'power2.inOut', onUpdate: function () { setHead(hv.v); } }, t);
+  }
+
+  /* ---- risk bars: a tween on a proxy value sets the bar width and the number together ---- */
+  var cur = {};   RISKS.forEach(function (r) { cur[r.id] = 0; });
+  function paintRisk(r, v) { var R = w.risk[r.id]; R.bar.setAttribute('width', Math.max(0, v * PX)); R.val.textContent = Math.round(v); }
+  function tweenRisk(r, t, to, dur) {
+    var R = w.risk[r.id], from = cur[r.id];
+    tl.fromTo(R.proxy, { v: from }, { v: to, duration: dur, ease: 'power2.inOut', onUpdate: function () { paintRisk(r, R.proxy.v); } }, t);
+    cur[r.id] = to;
+  }
+  /* shrinkRisk: the bar shrinks by `by`; the ghost of its start stays; crossing the appetite turns it green */
+  function shrinkRisk(r, t, by, dur) {
+    var from = cur[r.id], to = from - by, ap = F(r.appetite);
+    tweenRisk(r, t, to, dur);
+    if (from > ap && to <= ap) tl.fromTo(w.risk[r.id].bar, { fill: C.danger }, { fill: C.secure, duration: 0.5 }, t + dur - 0.3);
+  }
+
+  /* ---- links: a thin line from a landed bar to the risk it reduces; short-lived ---- */
+  function linkTo(ev, risk, t) {
+    var g = barGeo(ev), xs = g.x1 - 24, ry = trackMid(risk);
+    var d = roundedPath([[xs, g.y1], [xs, g.T + LINK_GAP], [GUTTER_X, g.T + LINK_GAP], [GUTTER_X, ry], [TRK_X - 12, ry]], 14);
+    var ln = el('path', { d: d, fill: 'none', stroke: C.secure, 'stroke-width': 3, 'stroke-linecap': 'round', opacity: 0 }, w.fx);
+    var dot = el('circle', { cx: TRK_X - 12, cy: ry, r: 7, fill: C.secure, stroke: C.bg, 'stroke-width': 2.5, opacity: 0 }, w.fx);
+    tl.fromTo(ln, { opacity: 0 }, { opacity: 0.95, duration: 0.01 }, t);
+    tl.fromTo(ln, { drawSVG: '0% 0%' }, { drawSVG: '0% 100%', duration: 0.6, ease: 'power1.inOut' }, t);
+    tl.fromTo(dot, { opacity: 0 }, { opacity: 1, duration: 0.15 }, t + 0.55);
+    tl.fromTo(ln, { opacity: 0.95 }, { opacity: 0, duration: 0.5, ease: 'power1.in' }, t + 0.85);
+    tl.fromTo(dot, { opacity: 1 }, { opacity: 0, duration: 0.5, ease: 'power1.in' }, t + 0.85);
+  }
+  function ringBar(id, t, color) {
+    var g = w.bar[id].g, r = el('rect', { x: g.x0 - 6, y: g.y0 - 6, width: g.x1 - g.x0 + 12, height: BAR_H + 12, rx: 15, fill: 'none', stroke: color, 'stroke-width': 5, opacity: 0 }, w.fx);
+    tl.fromTo(r, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' }, t);
+    tl.fromTo(r, { opacity: 1 }, { opacity: 0, duration: 0.9, ease: 'power2.in' }, t + 0.7);
+  }
+
+  /* ---- land: a bar is done; links flash to its risks (staggered); the risks shrink; the headline counts down ---- */
+  var vals = {}; RISKS.forEach(function (r) { vals[r.id] = F(r.start); });
+  var above = ABOVE0;
+  function land(c, ev, r) {
+    var T = c.t0 + r, B = w.bar[ev.id];
+    tl.fromTo(B.fill, { fill: C.accent }, { fill: C.secure, duration: 0.4 }, T);
+    tl.fromTo(B.out, { stroke: '#6a7ba3' }, { stroke: C.secure, duration: 0.4 }, T);
+    tl.fromTo(B.chk, { opacity: 0, scale: 0 }, { opacity: 1, scale: 1, duration: 0.4, ease: 'back.out(2)' }, T + 0.1);
+    var order = ev.reduces.slice().sort(function (p, q) { return rowTop(p.risk) - rowTop(q.risk); });
+    order.forEach(function (x, i) {
+      var tl0 = T + 0.3 + 0.2 * i, ts = tl0 + 0.6;
+      linkTo(ev, x.risk, tl0);
+      shrinkRisk(RISK[x.risk], ts, F(x.by), 1.2);
+      vals[x.risk] -= F(x.by);
+    });
+    var now = aboveCount(vals);
+    if (now !== above) { headCount(T + 0.9, above, now, 1.2); above = now; }
+    c.firstR = Math.min(c.firstR, r);
+    return r + 0.3 + 0.2 * (ev.reduces.length - 1) + 0.6 + 1.2;   /* end of this landing's motion */
+  }
+  /* sweep: the playhead moves p0 to p1 over [r, r + dist * SWEEP]; every bar it crosses fills in step */
+  function sweepTo(c, p0, p1, r) {
+    var t0 = c.t0 + r, dur = (p1 - p0) * SWEEP;
+    tl.fromTo(w.ph, { x: X(p0) }, { x: X(p1), duration: dur, ease: 'none' }, t0);
+    INITS.forEach(function (b) {
+      if (b.start >= p1 - 1e-9 || b.end <= p0 + 1e-9) return;
+      var a = Math.max(p0, b.start), z = Math.min(p1, b.end), bw = w.bar[b.id].bw;
+      var fa = (a - b.start) / (b.end - b.start), fz = (z - b.start) / (b.end - b.start);
+      tl.fromTo(w.bar[b.id].fill, { attr: { width: fa * bw } }, { attr: { width: fz * bw }, duration: (z - a) * SWEEP, ease: 'none' }, t0 + (a - p0) * SWEEP);
+    });
+  }
+  /* runHorizon: sweep the playhead across [h0, h1], stopping at each landing so no two landings overlap */
+  function runHorizon(c, h0, h1, r) {
+    var evs = LANDINGS.filter(function (b) { return lands(b, [h0, h1]); }), p = h0, motionEnd = r;
+    evs.forEach(function (ev, i) {
+      if (ev.end > p + 1e-9) { sweepTo(c, p, ev.end, r); r += (ev.end - p) * SWEEP; p = ev.end; }
+      motionEnd = land(c, ev, r);
+      if (i < evs.length - 1 || p < h1 - 1e-9) r += HOLD;
+    });
+    if (p < h1 - 1e-9) { sweepTo(c, p, h1, r); motionEnd = Math.max(motionEnd, r + (h1 - p) * SWEEP); }
+    return motionEnd;
+  }
+
+  /* ======== per-step choreography; each returns the relative time of its last motion ======== */
+  var IMPL = {
+    today: function (c) {
+      var t0 = c.t0, gEnd = 0;
+      c.firstR = 0.2;
+      tl.fromTo(w.rm, { opacity: 0 }, { opacity: 1, duration: 0.8 }, t0 + 0.2);
+      tl.fromTo(chipEl, { opacity: 0 }, { opacity: 1, duration: 0.6 }, t0 + 0.2);       /* the figures are illustrative from the first frame */
+      tl.fromTo(measEl, { opacity: 0 }, { opacity: 1, duration: 0.6 }, t0 + 0.4);
+      tl.fromTo(w.rk, { opacity: 0 }, { opacity: 1, duration: 0.6 }, t0 + 0.5);
+      RISKS.forEach(function (r, i) {
+        var t = t0 + 1.0 + i * 0.35;
+        tweenRisk(r, t, F(r.start), 1.4);
+        tl.fromTo(w.risk[r.id].ghost, { attr: { width: 0 } }, { attr: { width: F(r.start) * PX }, duration: 0.01 }, t + 1.4);
+        gEnd = 1.0 + i * 0.35 + 1.4;
+      });
+      headCount(t0 + 1.0, 0, ABOVE0, 2.4);
+      return gEnd;
+    },
+    now: function (c) {
+      tl.fromTo(w.ph, { opacity: 0 }, { opacity: 1, duration: 0.5 }, c.t0 + 0.4);
+      c.firstR = 0.4;
+      return runHorizon(c, 0, 1, 1.2);
+    },
+    depends: function (c) {
+      var r = 1.0, end = 0;
+      c.firstR = 1.0;
+      w.dep.forEach(function (D) {
+        ringBar(D.d.from, c.t0 + r, C.identity);
+        tl.fromTo(D.g, { opacity: 0 }, { opacity: 1, duration: 0.01 }, c.t0 + r + 0.3);
+        tl.fromTo(D.line, { drawSVG: '0% 0%' }, { drawSVG: '0% 100%', duration: 0.9, ease: 'power1.inOut' }, c.t0 + r + 0.3);
+        tl.fromTo(D.head, { opacity: 0 }, { opacity: 1, duration: 0.2 }, c.t0 + r + 1.1);
+        ringBar(D.d.to, c.t0 + r + 1.1, C.identity);
+        end = r + 1.4; r += 1.6;
+      });
+      tl.fromTo(w.dep.map(function (D) { return D.g; }), { opacity: 1 }, { opacity: 0.55, duration: 0.8 }, c.t0 + end + 0.8);
+      return end;
+    },
+    next: function (c) { c.firstR = 0.4; return runHorizon(c, 1, 2, 1.0); },
+    later: function (c) { c.firstR = 0.4; return runHorizon(c, 2, 3, 1.0); },
+    left: function (c) {
+      var t0 = c.t0;
+      REMAIN.forEach(function (rr) {
+        var R = w.risk[rr.id];
+        tl.fromTo(R.hi, { opacity: 0 }, { opacity: 1, duration: 0.6 }, t0 + 0.8);
+        tl.fromTo(R.note, { opacity: 0 }, { opacity: 1, duration: 0.6 }, t0 + 1.2);
+      });
+      tl.fromTo(measEl, { borderColor: C.line }, { borderColor: C.danger, duration: 0.6 }, t0 + 0.8);
+      c.firstR = 0.8;
+      return 1.8;
+    }
+  };
+
+  /* ======== assemble: steps run back to back; each step's length depends on its motion and its narrative ======== */
+  var t0 = 0, prevSt = null;
+  STEPS.forEach(function (st, i) {
+    st.time = t0; TIMES[st.id] = t0;
+    tl.addLabel(st.id, t0);
+    var c = { st: st, t0: t0, firstR: 1e9 };
+    setEmph(t0 + 0.1, st.id, st.id === 'left');
+    var end = IMPL[st.id](c);
+    var bodyR = Math.min(c.firstR, end) + 0.8, words = wordCount(st.body);
+    var len = Math.max(end + END_AFTER_MOTION, bodyR + 0.7 + words / BODY_WPS);
+    if (i === STEPS.length - 1) len = Math.max(len, end + FINAL_HOLD);
+    var tEnd = t0 + len;
+    st.rest = t0 + Math.min(Math.max(end, bodyR + 0.7), len - 0.4);
+
+    tl.fromTo(st.ttEl, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, t0 + 0.05);
+    tl.fromTo(st.bdEl, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, t0 + bodyR);
+    if (i < STEPS.length - 1) {
+      tl.fromTo(st.ttEl, { opacity: 1 }, { opacity: 0, duration: 0.3, ease: 'power1.in' }, tEnd - 0.35);
+      tl.fromTo(st.bdEl, { opacity: 1 }, { opacity: 0, duration: 0.3, ease: 'power1.in' }, tEnd - 0.35);
+    }
+    var ph = phEls[st.phase], first = !prevSt || prevSt.phase !== st.phase;
+    if (first) {
+      tl.fromTo(ph.name, { color: C.muted }, { color: C.text, duration: 0.4 }, t0);
+      tl.fromTo(ph.box, { borderBottomColor: C.line }, { borderBottomColor: C.accent, duration: 0.4 }, t0);
+    }
+    var next = STEPS[i + 1], lastOfPhase = !next || next.phase !== st.phase;
+    if (lastOfPhase && next) {
+      tl.fromTo(ph.name, { color: C.text }, { color: C.muted, duration: 0.4 }, tEnd);
+      tl.fromTo(ph.box, { borderBottomColor: C.accent }, { borderBottomColor: C.line, duration: 0.4 }, tEnd);
+    }
+    tl.fromTo(dotEls[i], { backgroundColor: '#2a3447', scale: 1 }, { backgroundColor: C.accent, scale: 1.4, duration: 0.3 }, t0);
+    if (next) tl.fromTo(dotEls[i], { backgroundColor: C.accent, scale: 1.4 }, { backgroundColor: '#8b98ad', scale: 1, duration: 0.3 }, tEnd);
+    else tl.fromTo(dotEls[i], { backgroundColor: C.accent, scale: 1.4 }, { backgroundColor: '#8b98ad', scale: 1, duration: 0.3 }, tEnd - 0.5);
+
+    steps.push({ id: st.id, phase: st.phase, time: t0, rest: st.rest, title: st.title, body: st.body });
+    prevSt = st;
+    t0 = tEnd;
+  });
+  return { steps: steps, duration: t0 };
+}
+
+/* ==========================================================================
+   4. GO
+   ========================================================================== */
+bootstrap(choreograph);
+
+/* overlap hook for the render checks: pairs of visible text boxes that intersect (dimmed text counts).
+   Run at a time t with anim.seek(t) first. */
+window.__overlaps = function () {
+  var items = [];
+  Array.prototype.slice.call(document.querySelectorAll('#dia text, [data-ov]')).forEach(function (e) {
+    var op = 1, n = e;
+    while (n && n.nodeType === 1) { op *= parseFloat(getComputedStyle(n).opacity); n = n.parentElement; if (n === document.body) break; }
+    if (op < 0.05) return;
+    var r = e.getBoundingClientRect(); if (r.width < 1 || r.height < 1) return;
+    var label = (e.getAttribute('data-ov') || e.textContent || '').slice(0, 30);
+    items.push({ k: label, r: r });
+  });
+  var out = [];
+  for (var i = 0; i < items.length; i++) for (var j = i + 1; j < items.length; j++) {
+    var a = items[i], b = items[j];
+    if (a.r.left < b.r.right && b.r.left < a.r.right && a.r.top < b.r.bottom && b.r.top < a.r.bottom) out.push([a.k, b.k]);
+  }
+  return out;
+};
+})();
+</script>
+</body>
+</html>

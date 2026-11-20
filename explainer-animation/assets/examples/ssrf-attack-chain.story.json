@@ -1,0 +1,799 @@
+{
+  "_note": "Reference story for the explainer-animation kit: the flat v3 attack-chain scenario plus the replay v2 events and cards. Invented scenario; every record is illustrative. Keys starting with _ are notes.",
+  "meta": {"id":"ssrf-chain","title":"SSRF to cloud account compromise","accent":"cloud account","incidentRef":"IR-2025-0417","tagline":"One flaw in a public web page, an audit log nobody read, and a nine-day wait for the first alert.","kind":"incident","audience":"technical","redaction":"Source addresses, account ids, the role’s key values and the database password are redacted. Hostnames, object names and the downloaded files’ contents are replaced by invented examples.","source":{"kind":"illustrative"}},
+  "zones": [
+    {"id":"internet","name":"Internet","layout":{"caps":true},"source":{"kind":"illustrative"}},
+    {"id":"account","name":"AWS account · prod","short":"AWS account","layout":{"dir":"row","gap":100,"iso":{"dir":"row"}},"source":{"kind":"illustrative"}},
+    {"id":"edge","name":"Edge","parent":"account","source":{"kind":"illustrative"}},
+    {"id":"vpc","name":"VPC · 10.0.0.0/16","short":"VPC","parent":"account","layout":{"dir":"row","gap":60,"pad":{"l":50},"iso":{"dir":"row"}},"source":{"kind":"illustrative"}},
+    {"id":"public","name":"Public subnet","short":"Public tier","parent":"vpc","source":{"kind":"illustrative"}},
+    {"id":"private","name":"Private subnet","parent":"vpc","source":{"kind":"illustrative"}},
+    {"id":"cluster","name":"EKS cluster","short":"Cluster","parent":"private","layout":{"dir":"row","gap":50,"main":true,"iso":{"dir":"row","main":true,"gap":100}},"source":{"kind":"illustrative"}},
+    {"id":"ns_web","name":"ns: web","parent":"cluster","source":{"kind":"illustrative"}},
+    {"id":"ns_pay","name":"ns: payments","parent":"cluster","layout":{"iso":{"below":"ns_web"}},"source":{"kind":"illustrative"}},
+    {"id":"data","name":"Data subnet","short":"Data tier","parent":"vpc","layout":{"iso":{"below":"public"}},"source":{"kind":"illustrative"}},
+    {"id":"services","name":"Services","short":"Account services","parent":"account","layout":{"dir":"row","below":"vpc","belowGap":140,"gap":50,"dx":230,"pad":{"b":40},"iso":{"dir":"row","cols":2,"below":"edge","gap":130,"belowGap":100}},"source":{"kind":"illustrative"}}
+  ],
+  "systems": [
+    {"id":"attacker","name":"Attacker","role":"Outside party sending every hostile request.","tag":"outside party","detail":{"what":"The adversary, working over the public Internet with a browser and a few scripts. Everything they send is attacker-controlled.","did":"Starts as an ordinary visitor, then uses the storefront to get cloud keys, and finally calls the account’s services directly, going around the web defences."},"zone":"internet","icon":"attacker","tint":"danger","layout":{"main":true},"source":{"kind":"illustrative"}},
+    {"id":"cdn","name":"CDN / WAF","role":"Front door: firewall and caching for web traffic.","tag":"web firewall","detail":{"what":"A content delivery network with a web application firewall. It inspects and filters web requests before they reach the company’s servers.","did":"It passed the first request and the crafted URL, because both looked like valid web traffic. It never sees the later calls to cloud services."},"zone":"edge","icon":"cdn","layout":{"main":true},"source":{"kind":"illustrative"}},
+    {"id":"lb","name":"Load balancer","role":"Spreads incoming requests across the storefront pods.","tag":"spreads load","detail":{"what":"Receives traffic from the CDN, ends the TLS encryption and shares the requests between the storefront pods.","did":"Forwarded every request it was given, including the crafted URL, and again when the attacker came back for the sideways move."},"zone":"public","icon":"lb","layout":{"main":true},"source":{"kind":"illustrative"}},
+    {"id":"storefront","name":"storefront","role":"Public web pod with the URL-fetching flaw.","tag":"fetches URLs","detail":{"what":"The customer-facing web application running in a pod. One of its features fetches any URL a visitor supplies, which is the SSRF flaw.","did":"Fetched the internal metadata address for the attacker, then served as the way back in to reach the payments service."},"zone":"ns_web","icon":"store","layout":{"main":true,"iso":{"dx":26}},"source":{"kind":"illustrative"}},
+    {"id":"payments","name":"payments-api","role":"Payments service in its own namespace.","tag":"takes payments","detail":{"what":"A pod that processes payments and orders, kept in a separate namespace from the storefront.","did":"Reached from the compromised storefront because no network policy limited who may call it, then used the stolen password to open the Orders database."},"zone":"ns_pay","icon":"payments","layout":{"main":true},"source":{"kind":"illustrative"}},
+    {"id":"imds","name":"IMDS","sub":"169.254.169.254","role":"Hands the server’s keys to any caller on the server.","tag":"hands out keys","detail":{"what":"The instance metadata service. Code on a server asks it who it is, and it returns temporary credentials for the server’s cloud role.","did":"Answered the storefront’s request without asking why, and returned the role’s access key, secret key and session token."},"zone":"cluster","icon":"chip","layout":{"dy":94,"iso":{"dy":110}},"source":{"kind":"illustrative"}},
+    {"id":"db","name":"Orders DB","role":"Orders database, reachable only inside the VPC.","tag":"orders data","detail":{"what":"Stores customer orders. It sits in its own subnet and needs a password.","did":"Read in full by the attacker, through payments, with the password taken from Secrets Manager. The order rows flowed back out along the same route."},"zone":"data","icon":"db","layout":{"main":true},"source":{"kind":"illustrative"}},
+    {"id":"iam","name":"IAM / STS","role":"Identity service: says who a set of keys belongs to.","tag":"identity, keys","detail":{"what":"IAM and STS issue and check cloud identities and temporary tokens.","did":"Accepted the stolen keys as the node’s role, from an Internet address, and confirmed their identity. That opened every later call."},"zone":"services","icon":"iam","tint":"identity","source":{"kind":"illustrative"}},
+    {"id":"s3","name":"S3 bucket","sub":"customer-exports","role":"Bucket holding customer data exports.","tag":"customer files","detail":{"what":"An S3 storage bucket named customer-exports, holding files exported from the shop.","did":"Listed, then downloaded file by file. The node role could read it, and nothing on the path limited or inspected the download."},"zone":"services","icon":"bucket","source":{"kind":"illustrative"}},
+    {"id":"secrets","name":"Secrets Manager","short":"Secrets","role":"Stores the Orders database password.","tag":"stored secrets","detail":{"what":"Secrets Manager keeps passwords and keys and hands them to callers who have permission.","did":"Listed, then asked for the database password. The node role was allowed to read it, although the node never needs it."},"zone":"services","icon":"lock","source":{"kind":"illustrative"}},
+    {"id":"detect","name":"CloudTrail + GuardDuty","short":"GuardDuty","role":"Audit log and threat detection, after the fact.","tag":"audit, alerts","detail":{"what":"CloudTrail records every call made to the account. GuardDuty reads those records for suspicious patterns and raises findings.","did":"Recorded each of the attacker’s calls and later raised a finding about the keys being used from outside the account. By then the data had gone."},"zone":"services","icon":"eye","tint":"secure","source":{"kind":"illustrative"}}
+  ],
+  "links": [
+    {"from":"attacker","to":"cdn","source":{"kind":"illustrative"}},
+    {"from":"cdn","to":"lb","source":{"kind":"illustrative"}},
+    {"from":"lb","to":"storefront","source":{"kind":"illustrative"}},
+    {"from":"storefront","to":"imds","label":"SSRF","route":{"exit":"bottom","corridor":"below:ns_web"},"source":{"kind":"illustrative"}},
+    {"from":"storefront","to":"payments","label":"sideways","source":{"kind":"illustrative"}},
+    {"from":"payments","to":"db","source":{"kind":"illustrative"}},
+    {"from":"attacker","to":"iam","label":"stolen keys","route":{"exit":"bottom","corridor":"below:vpc","lane":2,"iso":{"exit":"bottom"}},"source":{"kind":"illustrative"}},
+    {"from":"attacker","to":"s3","label":"direct from outside","route":{"exit":"bottom","corridor":"below:vpc","lane":1,"iso":{"exit":"bottom","corridor":"above:services"}},"source":{"kind":"illustrative"}},
+    {"from":"attacker","to":"secrets","route":{"exit":"bottom","corridor":"below:vpc","lane":0,"iso":{"exit":"bottom"}},"source":{"kind":"illustrative"}},
+    {"from":"iam","to":"detect","kind":"audit","route":{"exit":"bottom","corridor":"below:iam","lane":1,"iso":{"corridor":"below:iam"}},"source":{"kind":"illustrative"}},
+    {"from":"s3","to":"detect","kind":"audit","route":{"exit":"bottom","corridor":"below:iam","lane":0,"iso":{}},"source":{"kind":"illustrative"}},
+    {"from":"secrets","to":"detect","kind":"audit","source":{"kind":"illustrative"}}
+  ],
+  "phases": [
+    {"id":"initial","title":"Initial access","short":"Initial","descriptor":"ordinary requests, then a crafted URL","source":{"kind":"illustrative"}},
+    {"id":"cred","title":"Credential access","short":"Credential","descriptor":"metadata keys, first calls with them","source":{"kind":"illustrative"}},
+    {"id":"disc","title":"Discovery & exfiltration","short":"Discovery","descriptor":"listing, then bulk downloads","source":{"kind":"illustrative"}},
+    {"id":"lateral","title":"Lateral movement","short":"Lateral","descriptor":"storefront to payments to the orders","source":{"kind":"illustrative"}},
+    {"id":"detect","title":"Detection & controls","short":"Detection","descriptor":"late alert, response, review","source":{"kind":"illustrative"}}
+  ],
+  "steps": [
+    {
+      "id": "recon",
+      "phase": "initial",
+      "short": "Normal request",
+      "title": "A normal request comes in",
+      "body": "First, the attacker behaves like a shopper. The request passes the firewall and load balancer and reaches the storefront. This is the legitimate path the attack will reuse.",
+      "color": "accent",
+      "touch": [
+        "attacker",
+        "cdn",
+        "lb",
+        "storefront"
+      ],
+      "uses": [
+        [
+          "attacker",
+          "cdn"
+        ],
+        [
+          "cdn",
+          "lb"
+        ],
+        [
+          "lb",
+          "storefront"
+        ]
+      ],
+      "frame": "full",
+      "callouts": [
+        {
+          "target": "cdn",
+          "text": "Firewall inspects traffic"
+        }
+      ],
+      "beats": [
+        {
+          "chain": [
+            "attacker",
+            "cdn",
+            "lb",
+            "storefront"
+          ],
+          "tag": "GET",
+          "color": "accent",
+          "mono": true,
+          "says": "GET /shop?id=7",
+          "sayAt": "attacker"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "ssrf",
+      "phase": "initial",
+      "short": "Crafted URL",
+      "title": "Crafted URL tricks the storefront",
+      "body": "The attacker puts an internal address in a URL parameter. The storefront fetches it on their behalf, so the request starts inside the network, where firewalls never look.",
+      "color": "danger",
+      "touch": [
+        "attacker",
+        "cdn",
+        "lb",
+        "storefront",
+        "imds"
+      ],
+      "uses": [
+        [
+          "attacker",
+          "cdn"
+        ],
+        [
+          "cdn",
+          "lb"
+        ],
+        [
+          "lb",
+          "storefront"
+        ],
+        [
+          "storefront",
+          "imds"
+        ]
+      ],
+      "frame": "full",
+      "beats": [
+        {
+          "chain": [
+            "attacker",
+            "cdn",
+            "lb",
+            "storefront"
+          ],
+          "tag": "?url=",
+          "color": "danger",
+          "mono": true,
+          "says": "?url=http://\n169.254.169.254/",
+          "sayAt": "attacker",
+          "trail": true,
+          "mark": "storefront"
+        },
+        {
+          "chain": [
+            "storefront",
+            "imds"
+          ],
+          "tag": "GET",
+          "color": "danger",
+          "mono": true,
+          "says": "GET /latest/meta-data/",
+          "trail": true,
+          "mark": "imds"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "creds",
+      "phase": "cred",
+      "short": "Keys handed over",
+      "title": "Metadata service hands over keys",
+      "body": "The metadata service answers any request from the node, trusting it blindly. It returns temporary keys for the node’s cloud role, and they flow back out to the attacker.",
+      "color": "token",
+      "touch": [
+        "attacker",
+        "cdn",
+        "lb",
+        "storefront",
+        "imds"
+      ],
+      "uses": [
+        [
+          "imds",
+          "storefront"
+        ],
+        [
+          "storefront",
+          "lb"
+        ],
+        [
+          "lb",
+          "cdn"
+        ],
+        [
+          "cdn",
+          "attacker"
+        ]
+      ],
+      "frame": "full",
+      "beats": [
+        {
+          "camera": {
+            "hold": [
+              "cluster"
+            ],
+            "zoom": 2
+          }
+        },
+        {
+          "card": "cred",
+          "title": "temporary credentials",
+          "at": "imds",
+          "rows": [
+            "AccessKeyId",
+            "SecretAccessKey",
+            "SessionToken",
+            "Expiration"
+          ],
+          "color": "token",
+          "then": "fold"
+        },
+        {
+          "camera": "full"
+        },
+        {
+          "chain": [
+            "imds",
+            "storefront",
+            "lb",
+            "cdn",
+            "attacker"
+          ],
+          "tag": "credentials",
+          "color": "token",
+          "mono": true,
+          "says": [
+            "AccessKeyId",
+            "SecretAccessKey",
+            "SessionToken",
+            "Expiration"
+          ],
+          "sayAt": "attacker"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "identity",
+      "phase": "cred",
+      "short": "Login with keys",
+      "title": "Attacker logs in with stolen keys",
+      "body": "The attacker calls the account’s identity service directly from the Internet. This traffic never touches the firewall, load balancer or network, so none of those defences can see it.",
+      "color": "danger",
+      "touch": [
+        "attacker",
+        "iam"
+      ],
+      "uses": [
+        [
+          "attacker",
+          "iam"
+        ]
+      ],
+      "frame": {
+        "hold": [
+          "services"
+        ],
+        "grow": "down"
+      },
+      "beats": [
+        {
+          "exchange": [
+            "attacker",
+            "iam"
+          ],
+          "tag": "API call",
+          "respTag": "result",
+          "req": "sts:GetCallerIdentity",
+          "resp": "→ role: node-role",
+          "mono": true,
+          "trail": true,
+          "color": "danger",
+          "mark": "iam"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "enumerate",
+      "phase": "disc",
+      "short": "Mapping access",
+      "title": "Mapping what the keys unlock",
+      "body": "With valid keys, the attacker lists the storage buckets and the stored secrets, one after the other. Every call looks like normal, authorised activity.",
+      "color": "danger",
+      "touch": [
+        "attacker",
+        "s3",
+        "secrets"
+      ],
+      "uses": [
+        [
+          "attacker",
+          "s3"
+        ],
+        [
+          "attacker",
+          "secrets"
+        ]
+      ],
+      "frame": {
+        "hold": [
+          "services"
+        ],
+        "grow": "down"
+      },
+      "beats": [
+        {
+          "exchange": [
+            "attacker",
+            "s3"
+          ],
+          "tag": "API call",
+          "respTag": "result",
+          "req": "s3:ListBuckets",
+          "resp": "→ customer-exports",
+          "mono": true,
+          "trail": true,
+          "color": "danger",
+          "mark": "s3"
+        },
+        {
+          "exchange": [
+            "attacker",
+            "secrets"
+          ],
+          "tag": "API call",
+          "respTag": "result",
+          "req": "ListSecrets",
+          "resp": "→ orders-db-pass",
+          "mono": true,
+          "trail": true,
+          "color": "danger",
+          "mark": "secrets",
+          "parallel": true
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "exfil",
+      "phase": "disc",
+      "short": "Data streams out",
+      "title": "Customer data streams out",
+      "body": "The node role can read the export bucket, so objects stream straight to the attacker. Nothing on the path inspects or limits this download.",
+      "color": "danger",
+      "touch": [
+        "attacker",
+        "s3"
+      ],
+      "uses": [
+        [
+          "s3",
+          "attacker"
+        ]
+      ],
+      "frame": {
+        "hold": [
+          "services"
+        ],
+        "grow": "down"
+      },
+      "beats": [
+        {
+          "stream": [
+            "s3",
+            "attacker"
+          ],
+          "items": [
+            "orders.csv",
+            "refunds.csv",
+            "emails.csv",
+            "cards.csv"
+          ],
+          "says": "s3:GetObject",
+          "mono": true,
+          "tally": "received:"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "secret",
+      "phase": "disc",
+      "short": "Password taken",
+      "title": "Database password taken",
+      "body": "Secrets Manager hands the database password to anyone holding the role. The attacker now has what they need to reach the orders data.",
+      "color": "token",
+      "touch": [
+        "attacker",
+        "secrets"
+      ],
+      "uses": [
+        [
+          "attacker",
+          "secrets"
+        ]
+      ],
+      "frame": {
+        "hold": [
+          "services"
+        ],
+        "grow": "down"
+      },
+      "beats": [
+        {
+          "exchange": [
+            "attacker",
+            "secrets"
+          ],
+          "tag": "API call",
+          "respTag": "secret",
+          "req": "GetSecretValue\norders-db-pass",
+          "resp": "→ password:\n••••••••••••",
+          "mono": true,
+          "color": "token",
+          "mark": "secrets"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "pivot",
+      "phase": "lateral",
+      "short": "Sideways move",
+      "title": "Back in, then sideways",
+      "body": "Through the same SSRF the attacker returns to the storefront, then moves to the payments service next door. No network policy blocks traffic between namespaces.",
+      "color": "danger",
+      "touch": [
+        "attacker",
+        "cdn",
+        "lb",
+        "storefront",
+        "payments"
+      ],
+      "uses": [
+        [
+          "attacker",
+          "cdn"
+        ],
+        [
+          "cdn",
+          "lb"
+        ],
+        [
+          "lb",
+          "storefront"
+        ],
+        [
+          "storefront",
+          "payments"
+        ]
+      ],
+      "frame": "full",
+      "beats": [
+        {
+          "chain": [
+            "attacker",
+            "cdn",
+            "lb",
+            "storefront",
+            "payments"
+          ],
+          "tag": "?url=",
+          "color": "danger",
+          "mono": true,
+          "says": "?url=payments:8080",
+          "sayAt": "attacker",
+          "trail": true,
+          "mark": "payments"
+        },
+        {
+          "card": "netpol",
+          "at": "payments",
+          "rows": [
+            "No network policy",
+            "between namespaces"
+          ],
+          "color": "danger",
+          "parallel": true
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "db",
+      "phase": "lateral",
+      "short": "Orders read",
+      "title": "Orders database read in full",
+      "body": "Payments connects to the database using the stolen password, and customer order rows flow back out along the same route to the attacker.",
+      "color": "danger",
+      "touch": [
+        "attacker",
+        "cdn",
+        "lb",
+        "storefront",
+        "payments",
+        "db"
+      ],
+      "uses": [
+        [
+          "attacker",
+          "cdn"
+        ],
+        [
+          "cdn",
+          "lb"
+        ],
+        [
+          "lb",
+          "storefront"
+        ],
+        [
+          "storefront",
+          "payments"
+        ],
+        [
+          "payments",
+          "db"
+        ]
+      ],
+      "frame": "full",
+      "beats": [
+        {
+          "chain": [
+            "payments",
+            "db"
+          ],
+          "tag": "SELECT",
+          "color": "danger",
+          "mono": true,
+          "says": "SELECT *\nFROM orders;",
+          "trail": true,
+          "mark": "db"
+        },
+        {
+          "chain": [
+            "db",
+            "payments",
+            "storefront",
+            "lb",
+            "cdn",
+            "attacker"
+          ],
+          "tag": "order rows",
+          "color": "danger",
+          "says": "order rows",
+          "sayAt": "attacker"
+        },
+        {
+          "chain": [
+            "db",
+            "payments",
+            "storefront",
+            "lb",
+            "cdn",
+            "attacker"
+          ],
+          "tag": "order rows",
+          "color": "danger",
+          "parallel": true
+        },
+        {
+          "chain": [
+            "db",
+            "payments",
+            "storefront",
+            "lb",
+            "cdn",
+            "attacker"
+          ],
+          "tag": "order rows",
+          "color": "danger",
+          "parallel": true
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "detect",
+      "phase": "detect",
+      "short": "Detection fires",
+      "title": "Detection fires, too late",
+      "body": "GuardDuty notices the keys being used from outside the account and raises a finding. By now, most of the chain has already happened.",
+      "color": "secure",
+      "touch": [
+        "detect",
+        "iam",
+        "s3",
+        "secrets"
+      ],
+      "uses": [
+        [
+          "iam",
+          "detect"
+        ],
+        [
+          "s3",
+          "detect"
+        ],
+        [
+          "secrets",
+          "detect"
+        ]
+      ],
+      "frame": "full",
+      "callouts": [
+        {
+          "target": "attacker",
+          "text": "Attack chain complete"
+        }
+      ],
+      "beats": [
+        {
+          "camera": {
+            "hold": [
+              "services"
+            ],
+            "grow": "down"
+          }
+        },
+        {
+          "chain": [
+            "iam",
+            "detect"
+          ],
+          "tag": "event",
+          "color": "secure"
+        },
+        {
+          "chain": [
+            "s3",
+            "detect"
+          ],
+          "tag": "event",
+          "color": "secure",
+          "parallel": true
+        },
+        {
+          "chain": [
+            "secrets",
+            "detect"
+          ],
+          "tag": "event",
+          "color": "secure",
+          "parallel": true
+        },
+        {
+          "card": "finding",
+          "at": "detect",
+          "rows": [
+            "Finding raised:",
+            "keys used from outside"
+          ],
+          "color": "secure"
+        },
+        {
+          "camera": "full"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "controls",
+      "phase": "detect",
+      "short": "Review",
+      "title": "Where controls would have cut it",
+      "body": "Each shield marks a link where one control breaks the chain. Fix the earliest and everything after it never happens, which is why prevention beats detection.",
+      "color": "secure",
+      "touch": [],
+      "uses": [],
+      "frame": "full",
+      "beats": [
+        {
+          "shields": "controls"
+        }
+      ],
+      "all": true,
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "controls": [
+    {"id":"waf","name":"WAF rule","why":"A firewall rule that refuses web addresses pointing at internal ranges.","on":["attacker","cdn"],"stops":["ssrf"],"source":{"kind":"illustrative"}},
+    {"id":"imdsv2","name":"IMDSv2 hop limit","why":"Metadata version 2 asks for a session token that a plain URL fetch cannot supply.","on":["storefront","imds"],"stops":["ssrf","creds"],"source":{"kind":"illustrative"}},
+    {"id":"least-privilege","name":"Least-privilege role","why":"The node role is not allowed to list or read secrets it never uses.","on":["attacker","secrets"],"stops":["enumerate"],"source":{"kind":"illustrative"}},
+    {"id":"bucket-policy","name":"Bucket policy + endpoint","why":"A bucket policy and a private endpoint let only the internal network read the bucket.","on":["attacker","s3"],"stops":["exfil"],"source":{"kind":"illustrative"}},
+    {"id":"netpol","name":"Network policy","why":"A network policy stops the storefront calling the payments service.","on":["storefront","payments"],"stops":["pivot"],"source":{"kind":"illustrative"}}
+  ],
+  "figures": {},
+  "events": [
+    {"t":0,"step":"recon","from":"attacker","to":"storefront","action":"GET / → 200","note":"A normal page view. The attacker starts out looking like any shopper.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":7,"step":"recon","from":"attacker","to":"storefront","action":"GET /static/* → 200","note":"The page’s scripts and images load, as for any browser.","count":14,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":19,"step":"recon","from":"attacker","to":"storefront","action":"GET /shop?id=7 → 200","note":"Browses a product page and notes how the shop builds its web addresses.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":33,"step":"recon","from":"attacker","to":"storefront","action":"GET /robots.txt → 200","note":"The file lists a /preview path that crawlers should skip. The attacker takes note.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":47,"step":"recon","from":"attacker","to":"storefront","action":"GET /shop?id=12 → 200","note":"Another product page. The web logs show nothing unusual.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":63,"step":"recon","from":"attacker","to":"storefront","action":"GET /preview?url=https://example.com/logo.png → 200","note":"Tests the link-preview feature with a harmless address. The server fetches whatever it is given.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":84,"step":"ssrf","from":"attacker","to":"storefront","action":"GET /preview?url=http://localhost/ → 500","note":"An internal address makes the server error out. That confirms it fetches addresses on its own.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":96,"step":"ssrf","from":"attacker","to":"storefront","action":"GET /preview?url=http://10.0.0.1/ → 504","note":"Probes the private network. A timeout shows the request left the storefront.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":108,"step":"ssrf","from":"attacker","to":"storefront","action":"GET /preview?url=http://169.254.169.254/ → 200","note":"The metadata address goes into the url parameter. The edge sees only an ordinary web request.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":111,"step":"ssrf","from":"storefront","to":"imds","action":"GET / HTTP/1.1  Host: 169.254.169.254","note":"The storefront itself calls the metadata service. That hop is inside the network and nothing records it.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":126,"step":"ssrf","from":"storefront","to":"imds","action":"GET /latest/meta-data/ → 200","note":"Lists what the metadata service holds. No log on the server or in the cloud account covers it.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":142,"step":"ssrf","from":"storefront","to":"imds","action":"GET /latest/meta-data/iam/ → 200","note":"Finds that the server has a cloud role attached.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":158,"step":"ssrf","from":"storefront","to":"imds","action":"GET /latest/meta-data/iam/security-credentials/ → node-role","note":"Learns the role’s name, node-role.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":174,"step":"creds","from":"storefront","to":"imds","action":"GET /latest/meta-data/iam/security-credentials/node-role","note":"Asks for the role’s keys. The metadata service wants no password and hands them over.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":183,"step":"creds","from":"imds","to":"storefront","action":"200 OK  AccessKeyId, SecretAccessKey, Token, Expiration","note":"Temporary keys for the server’s role come back to the storefront.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":196,"step":"creds","from":"storefront","to":"attacker","action":"HTTP 200 /preview  body 1.6 KB","note":"The storefront passes the keys on inside the page response. The edge logs only the size.","count":1,"visibility":"logged","actor":"system","source":{"kind":"illustrative"}},
+    {"t":214,"step":"creds","from":"attacker","to":"storefront","action":"GET /preview?url=http://169.254.169.254/latest/meta-data/iam/info → 200","note":"Uses the same trick again to see when the keys expire.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":216,"step":"creds","from":"storefront","to":"imds","action":"GET /latest/meta-data/iam/info","note":"The metadata call behind the previous request. Also unrecorded.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":246,"step":"creds","from":"attacker","to":"storefront","action":"GET /preview?url=http://169.254.169.254/latest/dynamic/instance-identity/document → 200","note":"Fetches the account id and region, to aim the next calls.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":248,"step":"creds","from":"storefront","to":"imds","action":"GET /latest/dynamic/instance-identity/document","note":"Again the hop inside the network, again without a record.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":282,"step":"identity","from":"attacker","to":"iam","action":"sts:GetCallerIdentity","note":"First use of the stolen keys, from the Internet. The audit log records it and no alert is set.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":296,"step":"identity","from":"attacker","to":"iam","action":"iam:ListAttachedRolePolicies  RoleName=node-role","note":"Asks what the stolen role is allowed to do.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":314,"step":"identity","from":"attacker","to":"iam","action":"iam:GetRolePolicy  PolicyName=node-inline","note":"Reads the policy itself, so the attacker knows exactly what to try.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":336,"step":"identity","from":"attacker","to":"iam","action":"sts:GetCallerIdentity","note":"Confirms that the keys still work.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":352,"step":"identity","from":"attacker","to":"iam","action":"iam:GetAccountSummary","note":"Gets a count of the account’s users, roles and policies.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":366,"step":"enumerate","from":"attacker","to":"s3","action":"s3:ListBuckets","note":"Lists every bucket the role can see. The audit log shows the node role, calling from outside.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":380,"step":"enumerate","from":"attacker","to":"s3","action":"s3:ListObjectsV2  Bucket=customer-exports","note":"Lists the export bucket page by page. Three requests, all recorded.","count":3,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":402,"step":"enumerate","from":"attacker","to":"s3","action":"s3:GetBucketPolicy  Bucket=customer-exports","note":"Reads the bucket’s policy. Nothing blocks the request.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":424,"step":"enumerate","from":"attacker","to":"secrets","action":"secretsmanager:ListSecrets","note":"Lists the stored secrets. One is named orders-db-pass.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":446,"step":"enumerate","from":"attacker","to":"secrets","action":"secretsmanager:DescribeSecret  SecretId=orders-db-pass","note":"Looks at the secret’s details before asking for its value.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":470,"step":"enumerate","from":"attacker","to":"s3","action":"s3:ListObjectsV2  Prefix=2025/","note":"Narrows the listing to last year’s exports. Four requests, all recorded.","count":4,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":486,"step":"exfil","from":"attacker","to":"s3","action":"s3:GetObject  orders.csv","note":"Downloads the first export. S3 data events are switched off, so this leaves no record.","count":1,"visibility":"blind","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":498,"step":"exfil","from":"attacker","to":"s3","action":"s3:GetObject  refunds.csv","note":"Second file. Still nothing recorded.","count":1,"visibility":"blind","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":510,"step":"exfil","from":"attacker","to":"s3","action":"s3:GetObject  emails.csv","note":"Third file, with customer email addresses.","count":1,"visibility":"blind","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":522,"step":"exfil","from":"attacker","to":"s3","action":"s3:GetObject  cards.csv","note":"Fourth file. Nothing on the path inspects or limits the download.","count":1,"visibility":"blind","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":534,"step":"exfil","from":"attacker","to":"s3","action":"s3:GetObject  exports/2025/*","note":"A scripted bulk download of this year’s exports. None of these requests is recorded.","count":186,"visibility":"blind","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":560,"step":"exfil","from":"attacker","to":"s3","action":"s3:GetObject  exports/2024/*","note":"The same for last year’s exports. The run ends when the bucket is empty of new files.","count":142,"visibility":"blind","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":576,"step":"secret","from":"attacker","to":"secrets","action":"secretsmanager:GetSecretValue  SecretId=orders-db-pass","note":"Reads the database password. The audit log keeps the secret’s name, not its value.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":600,"step":"secret","from":"attacker","to":"iam","action":"sts:GetCallerIdentity","note":"Checks once more that the keys are still valid before the next move.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":626,"step":"secret","from":"attacker","to":"secrets","action":"secretsmanager:GetResourcePolicy  SecretId=orders-db-pass","note":"Checks who else may read the secret.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":652,"step":"secret","from":"attacker","to":"secrets","action":"secretsmanager:GetSecretValue  SecretId=orders-db-pass","note":"A second read to confirm the password. It is the last cloud call of the incident.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":684,"step":"pivot","from":"attacker","to":"storefront","action":"GET /preview?url=http://payments.payments.svc:8080/health → 200","note":"Back in through the same flaw, now aimed at the payments service.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":690,"step":"pivot","from":"storefront","to":"payments","action":"GET /health HTTP/1.1","note":"The storefront calls payments. No network policy blocks it and no log records it.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":704,"step":"pivot","from":"attacker","to":"storefront","action":"GET /preview?url=http://payments.payments.svc:8080/v1/config → 200","note":"Asks payments for its configuration, through the storefront.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":710,"step":"pivot","from":"storefront","to":"payments","action":"GET /v1/config","note":"The configuration names the database host. Again nothing is recorded.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":728,"step":"pivot","from":"attacker","to":"storefront","action":"GET /preview?url=http://payments.payments.svc:8080/v1/orders?limit=5 → 200","note":"Asks for a few orders to test that the route works.","count":1,"visibility":"logged","actor":"attacker","source":{"kind":"illustrative"}},
+    {"t":734,"step":"pivot","from":"storefront","to":"payments","action":"GET /v1/orders?limit=5","note":"Payments answers a caller it has never served before. No log, no alert.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":756,"step":"db","from":"payments","to":"db","action":"TCP connect orders-db:5432","note":"Payments opens a database connection for the attacker. Connection logging is off.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":764,"step":"db","from":"payments","to":"db","action":"AUTH user=app password=<redacted>","note":"Logs in with the password taken from Secrets Manager.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":776,"step":"db","from":"payments","to":"db","action":"SELECT count(*) FROM orders","note":"Sizes up the table before reading it.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":794,"step":"db","from":"payments","to":"db","action":"SELECT * FROM orders","note":"Reads the whole orders table. The database keeps no query log.","count":1,"visibility":"blind","actor":"system","source":{"kind":"illustrative"}},
+    {"t":812,"step":"db","from":"db","to":"attacker","action":"HTTP 200 /preview  body 48 MB","note":"Order rows travel out through the storefront. The edge logs only the response sizes.","count":3,"visibility":"logged","actor":"system","source":{"kind":"illustrative"}},
+    {"t":830,"step":"db","from":"db","to":"attacker","action":"HTTP 200 /preview  body 52 MB","note":"The last chunk leaves. The attacker is done and goes quiet.","count":2,"visibility":"logged","actor":"system","source":{"kind":"illustrative"}},
+    {"t":768050,"step":"detect","from":"iam","to":"detect","action":"GuardDuty finding: InstanceCredentialExfiltration.OutsideAWS","note":"The first alert: the node role’s keys were used from outside the account.","count":1,"visibility":"alerted","actor":"system","source":{"kind":"illustrative"}},
+    {"t":768068,"step":"detect","from":"s3","to":"detect","action":"GuardDuty finding: Discovery:S3/AnomalousBehavior","note":"A second finding: unusual bucket listing by the same role.","count":1,"visibility":"alerted","actor":"system","source":{"kind":"illustrative"}},
+    {"t":768086,"step":"detect","from":"secrets","to":"detect","action":"GuardDuty finding updated: 3 resources affected","note":"The finding now covers the identity service, the bucket and the secret.","count":1,"visibility":"alerted","actor":"system","source":{"kind":"illustrative"}},
+    {"t":768116,"step":"detect","from":"detect","to":"iam","action":"Ticket SEC-4127 opened, severity high","note":"A responder picks it up. By now the attacker has had nine days.","count":1,"visibility":"alerted","actor":"defender","source":{"kind":"illustrative"}},
+    {"t":768146,"step":"controls","from":"detect","to":"iam","action":"iam:PutRolePolicy  AWSRevokeOlderSessions  node-role","note":"Revokes every session issued before now, so the stolen keys stop working.","count":1,"visibility":"logged","actor":"defender","source":{"kind":"illustrative"}},
+    {"t":768170,"step":"controls","from":"detect","to":"secrets","action":"secretsmanager:RotateSecret  SecretId=orders-db-pass","note":"Rotates the database password the attacker took.","count":1,"visibility":"logged","actor":"defender","source":{"kind":"illustrative"}},
+    {"t":768194,"step":"controls","from":"detect","to":"s3","action":"s3:PutBucketPolicy  deny non-VPC principals","note":"Closes the export bucket to callers outside the private network.","count":1,"visibility":"logged","actor":"defender","source":{"kind":"illustrative"}},
+    {"t":768218,"step":"controls","from":"detect","to":"iam","action":"Review opened: where would a control have cut the chain?","note":"The review that produces the controls listed at the foot of this page.","count":1,"visibility":"logged","actor":"defender","source":{"kind":"illustrative"}}
+  ],
+  "_gaps": [
+    {"step":"recon","page":"An arrival ring pulses on the attacker 1.0 s in, before the request leaves.","beats":"Nothing. Rings only fire on arrival at the end of a hop. Missing beat: a ring or pulse on a named system."},
+    {"step":"recon, ssrf, creds, pivot","page":"Request and key labels are monospace (and 34 px for the four key names in creds).","beats":"chain has no mono (or size) field, so the says text takes the default face. Missing field: mono on chain."},
+    {"step":"creds","page":"The credentials card pops above imds in a close-up, then shrinks into imds; the camera returns to the full view while it shrinks.","beats":"camera hold cluster, card at imds with then fold, camera full, chain back to the attacker. The card's size and the overlap of fold and camera pull-back are the kit's."},
+    {"step":"identity, secret","page":"The response chip and response label are token yellow while the request is red.","beats":"exchange has one color, so both are danger (identity) or token (secret). Missing field: respColor."},
+    {"step":"enumerate","page":"The second exchange starts 1.8 s after the first starts.","beats":"parallel true starts it 1.5 s after the first. Missing: a per-beat offset other than the explicit at."},
+    {"step":"exfil","page":"Files are document icons, not chips; the request label appears 0.8 s before the first file moves and reads 's3:GetObject x4'.","beats":"stream with plain packets and says 's3:GetObject'. The count 'x4' is not typed (a count); the kit would have to append it from items. Missing: a packet kind for stream, and an item-count token for says."},
+    {"step":"pivot","page":"A second label, 'No network policy between namespaces', sits in the corridor over the storefront-to-payments link and appears when the packet is a hop away.","beats":"card at payments, parallel, same text. Missing: a link-anchored label with its own timing (a say beat with an anchor link)."},
+    {"step":"db","page":"Three file packets run the five hops back to the attacker 1.1 s apart; a label at the attacker counts 'order rows: 1 of 3', '2 of 3', '3 of 3'.","beats":"Three chain beats (second and third parallel, 1.5 s apart) with a single static 'order rows' label and chip tag. Lost: file icons, 1.1 s spacing, the progressive counter (also a typed count). Missing: stream over a multi-hop path, and a counter token computed from the stream."},
+    {"step":"detect","page":"A green alert triangle with '!' pops on the detection system with a ring.","beats":"A card at detect with the finding text. Missing: an alert badge beat (or a mark with a colour and glyph)."},
+    {"step":"detect","page":"After the finding the camera pulls back, focus dimming is lifted for the whole estate, every trail pulses bright, and every marked system gets a danger ring.","beats":"camera full only. Lost: lifting focus mid-step, the trail pulse, the rings on all marked systems. Missing: a 'recap' beat (focus all, pulse trails, ring marked)."},
+    {"step":"detect","page":"A callout on the attacker reads 'Nine steps done' and appears mid-step, 1.9 s into the pull-back.","beats":"A step callout 'Attack chain complete' that appears at the kit's default time. The count is dropped (counts are computed, not typed). Missing: callout timing, and a count token such as {steps}."},
+    {"step":"detect","page":"The close-up starts on the services row; the three event chips run 1.1 s apart, then the finding label holds before the pull-back.","beats":"camera hold services, three chains (parallel, 1.5 s apart), card, camera full. Close; spacing differs."},
+    {"step":"controls","page":"The trace order is a fixed list (nine links); each shield lands at a point on its link (seg, t) with its label at a hand-set free spot or a side; the first shield lands with the trace, later ones 2.4 s then 1.2 s apart; shield numbers are typed.","beats":"shields 'controls'. The kit must derive the trace order from the steps' uses, the shield point from the link midpoint, label spots from the placer, and the shield number from controls[].stops (step order). Not expressible in the story: per-shield point on a link, label side, absolute spots."}
+  ]
+}

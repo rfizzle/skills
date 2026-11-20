@@ -23,6 +23,7 @@ design, installed as a package (`design-system`), not built per app.
 | Go | `go-http-server`, `go-auth`, `go-library`, `golang-testing`, `go-conformance-suite`, `golang-concurrency`, `golang-context`, `golang-error-handling`, `golang-design-patterns`, `golang-observability`, `golang-security`, `golang-performance`, `golang-troubleshooting`, `golang-spf13-cobra`, `golang-spf13-viper` |
 | UI | `design-system`, `svelte-frontend`, `frontend-api-client`, `browser-e2e`, `ui-patterns`, `ui-component-contract`, `ui-sketch`, `ui-exploration`, `design-tokens`, `a11y-review`, `storybook-layout` |
 | Security architecture | `security-architecture` |
+| Explainers | `explainer-animation` |
 
 A skill exists because something went wrong without it. It holds what a
 capable model would not do unprompted; a rule a machine can check becomes a

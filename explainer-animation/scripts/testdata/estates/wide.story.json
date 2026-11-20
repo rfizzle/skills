@@ -1,0 +1,32 @@
+{
+  "_note": "Synthetic estate: one wide row of seven systems; links that skip neighbours must leave the row and share a gap on separate lanes.",
+  "meta": { "id": "wide", "title": "Wide row", "source": { "kind": "illustrative" } },
+  "zones": [
+    { "id": "ext", "name": "Internet", "layout": { "caps": true } },
+    { "id": "row", "name": "Cluster", "layout": { "dir": "row", "gap": 50 } }
+  ],
+  "systems": [
+    { "id": "client", "name": "Client", "zone": "ext" },
+    { "id": "s1", "name": "One", "zone": "row" },
+    { "id": "s2", "name": "Two", "zone": "row" },
+    { "id": "s3", "name": "Three", "zone": "row" },
+    { "id": "s4", "name": "Four", "zone": "row" },
+    { "id": "s5", "name": "Five", "zone": "row" },
+    { "id": "s6", "name": "Six", "zone": "row" },
+    { "id": "s7", "name": "Seven", "zone": "row" }
+  ],
+  "links": [
+    { "from": "client", "to": "s1" },
+    { "from": "s1", "to": "s2" },
+    { "from": "s1", "to": "s4" },
+    { "from": "s2", "to": "s5" },
+    { "from": "s3", "to": "s7" },
+    { "from": "s6", "to": "s7" },
+    { "from": "client", "to": "s6" }
+  ],
+  "steps": [
+    { "id": "all", "touch": [], "frame": "full" },
+    { "id": "left", "touch": ["s1", "s2"], "frame": { "hold": ["s1", "s2"] } },
+    { "id": "row", "touch": ["s1"], "frame": { "hold": ["row"] } }
+  ]
+}

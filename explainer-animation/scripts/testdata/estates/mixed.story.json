@@ -1,0 +1,40 @@
+{
+  "_note": "Synthetic estate: rows and columns mixed by hint, a below-row, dx/dy shifts, a main anchor and a corridor hint.",
+  "meta": { "id": "mixed", "title": "Mixed rows and columns", "source": { "kind": "illustrative" } },
+  "zones": [
+    { "id": "onprem", "name": "On premises" },
+    { "id": "office", "name": "Office", "parent": "onprem", "layout": { "dir": "row", "gap": 40, "main": true } },
+    { "id": "cloud", "name": "Cloud", "layout": { "dir": "row", "gap": 90 } },
+    { "id": "web", "name": "Web tier", "parent": "cloud", "layout": { "dir": "col", "gap": 40, "main": true } },
+    { "id": "data", "name": "Data tier", "parent": "cloud", "layout": { "dir": "col", "gap": 40, "dy": 30 } },
+    { "id": "ops", "name": "Operations", "parent": "cloud", "layout": { "dir": "row", "below": "web", "belowGap": 100, "dx": 60, "gap": 50 } }
+  ],
+  "systems": [
+    { "id": "laptop", "name": "Laptop", "zone": "office", "layout": { "main": true } },
+    { "id": "printer", "name": "Printer", "zone": "office" },
+    { "id": "lb", "name": "Load balancer", "zone": "web", "layout": { "main": true } },
+    { "id": "app1", "name": "App one", "zone": "web" },
+    { "id": "app2", "name": "App two", "zone": "web" },
+    { "id": "db", "name": "Database", "zone": "data" },
+    { "id": "cache", "name": "Cache", "zone": "data", "layout": { "dx": 40 } },
+    { "id": "mon", "name": "Monitoring", "zone": "ops" },
+    { "id": "logs", "name": "Logs", "zone": "ops" }
+  ],
+  "links": [
+    { "from": "laptop", "to": "lb" },
+    { "from": "lb", "to": "app1" },
+    { "from": "app1", "to": "app2" },
+    { "from": "app1", "to": "db" },
+    { "from": "app2", "to": "cache" },
+    { "from": "laptop", "to": "mon", "route": { "exit": "bottom" } },
+    { "from": "printer", "to": "logs" },
+    { "from": "db", "to": "logs", "route": { "corridor": "right:data" } },
+    { "from": "cache", "to": "mon" }
+  ],
+  "steps": [
+    { "id": "all", "touch": [], "frame": "full" },
+    { "id": "web", "touch": ["lb", "app1"], "frame": { "hold": ["web"] } },
+    { "id": "data", "touch": ["db", "cache"], "frame": { "hold": ["data"] } },
+    { "id": "ops", "touch": ["mon", "logs"], "frame": { "hold": ["ops"], "grow": "down" } }
+  ]
+}

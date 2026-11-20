@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Token-authenticated request through a service mesh (B: isometric 2.5D)</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #121826; --panel-2: #18202f; --line: #2a3447;
+    --text: #e6edf7; --muted: #8b98ad; --accent: #4cc9f0; --token: #f5b941;
+    --identity: #a78bfa; --secure: #3ddc97; --danger: #ff5d6c;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #stagewrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; background: var(--bg); transform-origin: 0 0; overflow: hidden; }
+  #scene { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; display: block; }
+  .sans { font-family: var(--sans); }
+  .mono { font-family: var(--mono); }
+  #cap { position: absolute; left: 100px; right: 100px; top: 930px; height: 110px; display: flex; align-items: center; gap: 26px; }
+  #count { font: 700 30px var(--mono); color: var(--text); border: 2px solid var(--line); background: var(--panel); border-radius: 14px; padding: 8px 18px; white-space: nowrap; }
+  #stepid { font: 600 26px var(--mono); color: var(--muted); min-width: 130px; }
+  #captext { font: 500 36px/1.25 var(--sans); color: var(--text); }
+  #tip { position: absolute; left: 0; top: 0; max-width: 520px; padding: 14px 18px; border-radius: 12px; background: var(--panel-2); border: 2px solid var(--line); color: var(--text); font: 500 24px/1.3 var(--sans); pointer-events: none; display: none; z-index: 5; }
+  #tip b { display: block; color: var(--accent); font-size: 24px; margin-bottom: 2px; }
+  #controls { flex: none; height: 76px; display: flex; align-items: center; gap: 14px; padding: 0 20px; background: #0e1420; border-top: 1px solid var(--line); font: 500 15px var(--sans); }
+  #controls button, #controls select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; height: 38px; padding: 0 14px; font: 600 15px var(--sans); cursor: pointer; }
+  #controls button:hover, #controls select:hover { border-color: var(--accent); }
+  #play { min-width: 80px; }
+  #track { position: relative; flex: 1; height: 50px; }
+  #scrub { position: absolute; left: 0; right: 0; top: 4px; width: 100%; margin: 0; accent-color: var(--accent); height: 22px; }
+  .tick { position: absolute; top: 28px; transform: translateX(-50%); font: 600 12px var(--mono); color: var(--muted); text-align: center; pointer-events: none; white-space: nowrap; }
+  .tick::before { content: ""; display: block; width: 2px; height: 8px; margin: -4px auto 1px; background: var(--muted); }
+  #clock { font: 500 14px var(--mono); color: var(--muted); min-width: 108px; text-align: right; }
+  .capture #controls, .capture #tip { display: none !important; }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
+</head>
+<body>
+<div id="stagewrap">
+  <div id="stage">
+    <svg id="scene" viewBox="0 0 1920 1080" width="1920" height="1080" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <filter id="blur" x="-30%" y="-80%" width="160%" height="260%"><feGaussianBlur stdDeviation="5"/></filter>
+      </defs>
+    </svg>
+    <div id="cap"><div id="count"></div><div id="stepid"></div><div id="captext"></div></div>
+    <div id="tip"></div>
+  </div>
+</div>
+<div id="controls">
+  <button id="prev" title="Previous step (Left)">Prev</button>
+  <button id="play" title="Play / pause (Space)">Play</button>
+  <button id="next" title="Next step (Right)">Next</button>
+  <div id="track"><input id="scrub" type="range" min="0" max="1" step="0.01" value="0"></div>
+  <span id="clock">0.0 / 0.0 s</span>
+  <select id="speed" title="Speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select>
+</div>
+
+<script>
+(() => {
+'use strict';
+
+/* =====================================================================
+   1. SCENARIO DATA  (everything specific to this story lives here)
+   Ground units are pixels on the isometric ground plane: +x runs down-right,
+   +y runs down-left, +z is up.
+   ===================================================================== */
+const COL = { bg: '#0b0f17', panel: '#121826', panel2: '#18202f', line: '#2a3447', text: '#e6edf7',
+              muted: '#8b98ad', accent: '#4cc9f0', token: '#f5b941', identity: '#a78bfa', secure: '#3ddc97' };
+const ISO_ORIGIN = { x: 683, y: 105 };       // screen position of ground point (0,0)
+const GROUND_D = 400;                         // depth (y extent) of every zone platform
+const HALF = 45;                              // half footprint of a node block
+
+const ZONES = [
+  { id: 'internet', label: 'INTERNET',      x0: 0,   x1: 260 },
+  { id: 'edge',     label: 'EDGE / DMZ',    x0: 300, x1: 620 },
+  { id: 'mesh',     label: 'INTERNAL MESH', x0: 660, x1: 1040 },
+];
+const WALLS = [280, 640];                     // trust boundaries (x of the gap centres)
+
+const NODES = {
+  browser:  { label: 'Browser',      x: 130, y: 200, h: 56, color: COL.muted,    tip: ['Browser', 'Untrusted client on the open Internet. Holds the user session and the JWT.'] },
+  idp:      { label: 'IdP',          x: 470, y: 80,  h: 70, color: COL.identity, tip: ['Identity Provider', 'Checks credentials, signs JWTs and publishes its public key (JWKS).'] },
+  gateway:  { label: 'API Gateway',  x: 470, y: 320, h: 80, color: COL.accent,   tip: ['API Gateway', 'Edge entry point. Verifies the token signature before anything reaches the mesh.'] },
+  orders:   { label: 'Orders',       x: 740, y: 320, h: 70, color: '#c9d6ea',    tip: ['Orders service', 'Business logic for orders. Talks to peers over mTLS and swaps tokens for narrower ones.'] },
+  payments: { label: 'Payments',     x: 740, y: 100, h: 70, color: '#c9d6ea',    tip: ['Payments service', 'Only needs payments:read, so it only ever receives a down-scoped token.'] },
+  db:       { label: 'Orders DB',    x: 960, y: 320, h: 60, color: COL.muted,    tip: ['Orders DB', 'Private data store, reachable only from inside the mesh.'] },
+};
+
+// Routes run along the isometric axes. Packets travel on exactly these lines.
+const ROUTES = {
+  login:   [[180, 200], [360, 200], [360, 80],  [420, 80]],   // Browser -> IdP
+  request: [[180, 200], [360, 200], [360, 320], [420, 320]],  // Browser -> Gateway
+  jwks:    [[470, 125], [470, 275]],                          // IdP -> Gateway (public key)
+  mtls:    [[520, 320], [690, 320]],                          // Gateway -> Orders
+  pay:     [[740, 275], [740, 145]],                          // Orders -> Payments
+  db:      [[790, 320], [910, 320]],                          // Orders -> DB
+};
+const EDGE_DASHED = { jwks: true };
+
+const CLAIMS = [['sub', 'user-42'], ['aud', 'orders-api'], ['exp', '+15 min']];
+const SCOPE_FULL = ['orders:read', 'payments:read'];
+
+const STEPS = [
+  { id: 'login',    time: 0.8,  caption: 'Browser sends the user’s credentials to the identity provider.' },
+  { id: 'token',    time: 3.5,  caption: 'The IdP returns a signed JWT: header, payload and signature.' },
+  { id: 'request',  time: 8.0,  caption: 'Browser calls GET /orders/42 with the token, crossing into the edge.' },
+  { id: 'verify',   time: 10.0, caption: 'Gateway checks the signature against the IdP’s public key (JWKS).' },
+  { id: 'mtls',     time: 13.2, caption: 'Gateway forwards to Orders over mTLS: the link is encrypted.' },
+  { id: 'exchange', time: 15.8, caption: 'Orders swaps in a narrower token for Payments: payments:read only.' },
+  { id: 'data',     time: 19.0, caption: 'Orders reads its DB; the response returns via the Gateway to the Browser.' },
+];
+const DURATION = 23.6;
+const CARD_POS = { x: 1550, y: 205 };       // where the big JWT card floats (upper right, empty space)
+const Z_PK = 26, Z_CHIP = 74, Z_CHIP_ORDERS = 68;               // float heights for packets and the token chip
+
+/* =====================================================================
+   2. ISOMETRIC HELPERS + SVG BUILDING BLOCKS (generic)
+   ===================================================================== */
+const COS30 = Math.cos(Math.PI / 6), SIN30 = 0.5;
+function iso(x, y, z = 0) { return { x: ISO_ORIGIN.x + (x - y) * COS30, y: ISO_ORIGIN.y + (x + y) * SIN30 - z }; }
+const NS = 'http://www.w3.org/2000/svg';
+function el(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function text(parent, str, attrs) { const e = el('text', attrs, parent); e.textContent = str; return e; }
+const f1 = (n) => n.toFixed(1);
+const P = (x, y, z = 0) => { const q = iso(x, y, z); return f1(q.x) + ',' + f1(q.y); };
+const poly = (pts) => pts.map((p) => P(p[0], p[1], p[2] || 0)).join(' ');
+
+// Polyline with rounded corners, in ground space, lifted to height z.
+function pathD(pts, z = 0, r = 24) {
+  let d = '';
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i];
+    if (i === 0) { d += 'M' + P(p[0], p[1], z); continue; }
+    if (i === pts.length - 1) { d += ' L' + P(p[0], p[1], z); continue; }
+    const a = pts[i - 1], n = pts[i + 1];
+    const l1 = Math.hypot(p[0] - a[0], p[1] - a[1]), l2 = Math.hypot(n[0] - p[0], n[1] - p[1]);
+    const r1 = Math.min(r, l1 / 2), r2 = Math.min(r, l2 / 2);
+    const b = [p[0] + (a[0] - p[0]) / l1 * r1, p[1] + (a[1] - p[1]) / l1 * r1];
+    const c = [p[0] + (n[0] - p[0]) / l2 * r2, p[1] + (n[1] - p[1]) / l2 * r2];
+    d += ' L' + P(b[0], b[1], z) + ' Q' + P(p[0], p[1], z) + ' ' + P(c[0], c[1], z);
+  }
+  return d;
+}
+const rev = (pts) => pts.slice().reverse();
+// Fractions along a route (by length) at which it crosses each trust-boundary wall.
+function crossings(pts) {
+  let total = 0; const segs = [];
+  for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]); segs.push(l); total += l; }
+  const out = []; let acc = 0;
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1], b = pts[i];
+    WALLS.forEach((wx, wi) => {
+      if ((a[0] - wx) * (b[0] - wx) < 0) out.push({ wall: wi, f: (acc + Math.abs(wx - a[0]) * segs[i - 1] / Math.abs(b[0] - a[0])) / total });
+    });
+    acc += segs[i - 1];
+  }
+  return out;
+}
+function invEase(name, f) {
+  const e = gsap.parseEase(name); let lo = 0, hi = 1;
+  for (let i = 0; i < 30; i++) { const m = (lo + hi) / 2; if (e(m) < f) lo = m; else hi = m; }
+  return (lo + hi) / 2;
+}
+
+/* =====================================================================
+   3. SCENE + TIMELINE  (builds the SVG from the data above)
+   ===================================================================== */
+gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
+const params = new URLSearchParams(location.search);
+const CAPTURE = params.get('capture') === '1';
+if (CAPTURE) document.documentElement.classList.add('capture');
+
+const svg = document.getElementById('scene');
+const L = {};   // layers, bottom to top
+['zones', 'walls', 'edges', 'lit', 'plates', 'shadows', 'world', 'labels', 'packets', 'card'].forEach((n) => {
+  L[n] = el('g', { id: 'L-' + n }, svg);
+});
+L.shadows.setAttribute('filter', 'url(#blur)');
+
+const tl = gsap.timeline({ paused: true, defaults: { overwrite: false } });
+
+/* ---------- zones, grid, walls ---------- */
+const wallEls = [];
+function buildZones() {
+  ZONES.forEach((z) => {
+    const g = el('g', {}, L.zones), D = GROUND_D, th = 12;
+    el('polygon', { points: poly([[z.x0, D, 0], [z.x1, D, 0], [z.x1, D, -th], [z.x0, D, -th]]), fill: '#0e131c', stroke: COL.line, 'stroke-width': 1.5 }, g);
+    el('polygon', { points: poly([[z.x1, 0, 0], [z.x1, D, 0], [z.x1, D, -th], [z.x1, 0, -th]]), fill: '#090d14', stroke: COL.line, 'stroke-width': 1.5 }, g);
+    el('polygon', { points: poly([[z.x0, 0, 0], [z.x1, 0, 0], [z.x1, D, 0], [z.x0, D, 0]]), fill: 'rgba(24,32,47,0.62)', stroke: COL.line, 'stroke-width': 2.5 }, g);
+    let d = '';
+    for (let gx = z.x0 + 40; gx < z.x1; gx += 40) d += 'M' + P(gx, 0) + ' L' + P(gx, D) + ' ';
+    for (let gy = 40; gy < D; gy += 40) d += 'M' + P(z.x0, gy) + ' L' + P(z.x1, gy) + ' ';
+    el('path', { d, fill: 'none', stroke: COL.line, 'stroke-opacity': 0.35, 'stroke-width': 1 }, g);
+    const s = iso(z.x0 + 16, D, 0);
+    const lab = text(g, z.label, { transform: `translate(${f1(s.x)} ${f1(s.y + 38)}) skewY(30)`, fill: COL.muted, 'font-size': 24, 'font-weight': 700, 'letter-spacing': 3, class: 'sans' });
+    lab.setAttribute('x', 0); lab.setAttribute('y', 0);
+    z.el = g;
+  });
+  WALLS.forEach((wx) => {
+    const g = el('g', {}, L.walls);
+    el('polygon', { points: poly([[wx, 0, 0], [wx, GROUND_D, 0], [wx, GROUND_D, 44], [wx, 0, 44]]), fill: 'rgba(139,152,173,0.06)', stroke: '#3a4760', 'stroke-width': 2, 'stroke-dasharray': '10 8' }, g);
+    wallEls.push(g);
+  });
+}
+
+/* ---------- edges (ground routes) ---------- */
+function buildEdges() {
+  Object.keys(ROUTES).forEach((k) => {
+    const d = pathD(ROUTES[k], 0);
+    const dash = EDGE_DASHED[k] ? { 'stroke-dasharray': '3 14' } : {};
+    el('path', Object.assign({ d, fill: 'none', stroke: COL.line, 'stroke-width': 14, 'stroke-linecap': 'butt', 'stroke-linejoin': 'round', opacity: EDGE_DASHED[k] ? 0.55 : 1 }, dash), L.edges);
+    if (!EDGE_DASHED[k]) el('path', { d, fill: 'none', stroke: COL.panel, 'stroke-width': 7, 'stroke-linecap': 'butt', 'stroke-linejoin': 'round' }, L.edges);
+  });
+}
+
+/* ---------- nodes: depth-sorted isometric blocks ---------- */
+const SHADE = { top: '#222d44', left: '#161e2e', right: '#0e1420' };
+const plates = {}, plateOks = {}, nodeEls = {}, labelEls = {};
+function buildNodes() {
+  const items = Object.keys(NODES).map((id) => ({ id, key: NODES[id].x + NODES[id].y }));
+  items.push({ id: '__conduit', key: 925 });   // the mTLS conduit sits between Gateway and Orders in depth
+  items.sort((a, b) => a.key - b.key);
+  items.forEach((it) => {
+    if (it.id === '__conduit') { buildConduit(); return; }
+    const n = NODES[it.id], a = HALF, x = n.x, y = n.y, h = n.h, band = 9;
+    const g = el('g', { class: 'node', 'data-id': it.id, style: 'cursor: help' }, L.world);
+    el('polygon', { points: poly([[x - a, y + a, 0], [x + a, y + a, 0], [x + a, y + a, h], [x - a, y + a, h]]), fill: SHADE.left, stroke: '#0b0f17', 'stroke-width': 1.5 }, g);
+    el('polygon', { points: poly([[x + a, y - a, 0], [x + a, y + a, 0], [x + a, y + a, h], [x + a, y - a, h]]), fill: SHADE.right, stroke: '#0b0f17', 'stroke-width': 1.5 }, g);
+    el('polygon', { points: poly([[x - a, y + a, h - band], [x + a, y + a, h - band], [x + a, y + a, h], [x - a, y + a, h]]), fill: n.color, 'fill-opacity': 0.9 }, g);
+    el('polygon', { points: poly([[x + a, y - a, h - band], [x + a, y + a, h - band], [x + a, y + a, h], [x + a, y - a, h]]), fill: n.color, 'fill-opacity': 0.6 }, g);
+    el('polygon', { points: poly([[x - a, y - a, h], [x + a, y - a, h], [x + a, y + a, h], [x - a, y + a, h]]), fill: SHADE.top, stroke: n.color, 'stroke-width': 3, 'stroke-linejoin': 'round' }, g);
+    nodeEls[it.id] = g;
+  });
+  Object.keys(NODES).forEach((id) => {
+    const n = NODES[id], e = HALF + 18, top = iso(n.x, n.y, n.h);
+    const fp = poly([[n.x - e, n.y - e], [n.x + e, n.y - e], [n.x + e, n.y + e], [n.x - e, n.y + e]]);
+    plates[id] = el('polygon', { points: fp, fill: n.color, 'fill-opacity': 0.16, stroke: n.color, 'stroke-width': 4, opacity: 0, 'stroke-linejoin': 'round' }, L.plates);
+    plateOks[id] = el('polygon', { points: fp, fill: COL.secure, 'fill-opacity': 0.2, stroke: COL.secure, 'stroke-width': 4, opacity: 0, 'stroke-linejoin': 'round' }, L.plates);
+    labelEls[id] = text(L.labels, n.label, { x: f1(top.x), y: f1(top.y - HALF - 16), 'text-anchor': 'middle', fill: COL.text, 'font-size': 26, 'font-weight': 600, class: 'sans', stroke: COL.bg, 'stroke-width': 7, 'paint-order': 'stroke', 'stroke-linejoin': 'round', 'pointer-events': 'none' });
+  });
+}
+
+/* ---------- mTLS conduit: a raised translucent isometric tube ---------- */
+const conduit = { g: null, p: 0 };
+function buildConduit() {
+  const g = el('g', { opacity: 0, 'pointer-events': 'none' }, L.world);
+  conduit.g = g;
+  conduit.front = el('polygon', { fill: COL.secure, 'fill-opacity': 0.16, stroke: COL.secure, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, g);
+  conduit.top = el('polygon', { fill: COL.secure, 'fill-opacity': 0.26, stroke: COL.secure, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, g);
+  conduit.end = el('polygon', { fill: COL.secure, 'fill-opacity': 0.34, stroke: COL.secure, 'stroke-width': 2.5, 'stroke-linejoin': 'round' }, g);
+  conduit.rings = el('path', { fill: 'none', stroke: COL.secure, 'stroke-width': 2, 'stroke-opacity': 0.55 }, g);
+  drawConduit(0);
+}
+function drawConduit(p) {
+  conduit.p = p;
+  const xa = 520, xb = 520 + 170 * p, y0 = 304, y1 = 336, z0 = 8, z1 = 52;
+  conduit.top.setAttribute('points', poly([[xa, y0, z1], [xb, y0, z1], [xb, y1, z1], [xa, y1, z1]]));
+  conduit.front.setAttribute('points', poly([[xa, y1, z0], [xb, y1, z0], [xb, y1, z1], [xa, y1, z1]]));
+  conduit.end.setAttribute('points', poly([[xb, y0, z0], [xb, y1, z0], [xb, y1, z1], [xb, y0, z1]]));
+  let d = '';
+  for (let x = xa + 22; x < xb - 6; x += 34) d += 'M' + P(x, y1, z0) + ' L' + P(x, y1, z1) + ' L' + P(x, y0, z1) + ' ';
+  conduit.rings.setAttribute('d', d);
+}
+
+/* ---------- entities: packets, chip, key, card ---------- */
+function mkShadow(rx) { return el('ellipse', { rx, ry: 11, fill: '#000', 'fill-opacity': 0.55, opacity: 0 }, L.shadows); }
+function mkPacket(w, a, b) {
+  const g = el('g', { opacity: 0 }, L.packets);
+  const mk = (v) => {
+    const s = el('g', {}, g);
+    el('rect', { x: -w / 2, y: -22, width: w, height: 44, rx: 12, fill: '#0b0f17', stroke: v.color, 'stroke-width': 3 }, s);
+    text(s, v.label, { x: 0, y: 7.5, 'text-anchor': 'middle', fill: v.color, 'font-size': 22, 'font-weight': 600, class: 'mono' });
+    return s;
+  };
+  const A = mk(a), B = b ? mk(b) : null;
+  if (B) B.setAttribute('opacity', 0);
+  return { g, A, B, sh: mkShadow(w * 0.3) };
+}
+function mkChip() {
+  const g = el('g', { opacity: 0 }, L.packets);
+  el('rect', { x: -130, y: -24, width: 260, height: 48, rx: 12, fill: COL.panel, stroke: COL.token, 'stroke-width': 3 }, g);
+  [[-118, 52, COL.accent], [-60, 66, COL.token], [12, 52, COL.identity]].forEach((s) => el('rect', { x: s[0], y: -12, width: s[1], height: 24, rx: 5, fill: s[2] }, g));
+  text(g, 'JWT', { x: 82, y: 8, fill: COL.token, 'font-size': 22, 'font-weight': 700, class: 'mono' });
+  return { g, sh: mkShadow(70) };
+}
+function mkKey() {
+  const g = el('g', { opacity: 0 }, L.packets);
+  el('rect', { x: -60, y: -26, width: 120, height: 52, rx: 12, fill: COL.bg, stroke: COL.identity, 'stroke-width': 3 }, g);
+  el('circle', { cx: -34, cy: 0, r: 9, fill: 'none', stroke: COL.identity, 'stroke-width': 4 }, g);
+  el('path', { d: 'M-25,0 L2,0 M-8,0 L-8,9 M-1,0 L-1,7', fill: 'none', stroke: COL.identity, 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+  text(g, 'key', { x: 12, y: 8, fill: COL.identity, 'font-size': 22, 'font-weight': 700, class: 'mono' });
+  return { g, sh: mkShadow(40) };
+}
+
+const card = {};
+function buildCard() {
+  const g = el('g', { opacity: 0 }, L.card); card.g = g;
+  el('rect', { x: -320, y: -190, width: 640, height: 380, fill: 'none', 'pointer-events': 'none' }, g);   // keeps the bbox centred on the origin for scaling
+  el('rect', { x: -320, y: -150, width: 640, height: 300, rx: 22, fill: COL.panel, stroke: COL.token, 'stroke-width': 3 }, g);
+  text(g, 'access token (JWT)', { x: -320, y: -166, fill: COL.token, 'font-size': 24, 'font-weight': 700, class: 'sans', stroke: COL.bg, 'stroke-width': 6, 'paint-order': 'stroke' });
+  const segs = [{ id: 'h', x: -302, w: 150, c: COL.accent, t: 'header', tx: -227 }, { id: 'p', x: -140, w: 230, c: COL.token, t: 'payload', tx: -25 }, { id: 's', x: 102, w: 200, c: COL.identity, t: 'signature', tx: 178 }];
+  card.hi = {};
+  segs.forEach((s) => el('rect', { x: s.x, y: -115, width: s.w, height: 50, rx: 8, fill: s.c }, g));
+  card.sigOk = el('rect', { x: 102, y: -115, width: 200, height: 50, rx: 8, fill: COL.secure, opacity: 0 }, g);
+  segs.forEach((s) => { card.hi[s.id] = el('rect', { x: s.x, y: -115, width: s.w, height: 50, rx: 8, fill: '#ffffff', opacity: 0 }, g); });
+  segs.forEach((s) => text(g, s.t, { x: s.tx, y: -81, 'text-anchor': 'middle', fill: '#0b0f17', 'font-size': 22, 'font-weight': 700, class: 'sans' }));
+  el('circle', { cx: -146, cy: -90, r: 4, fill: COL.muted }, g);
+  el('circle', { cx: 96, cy: -90, r: 4, fill: COL.muted }, g);
+  card.tick = el('path', { d: 'M256,-90 L268,-77 L292,-104', fill: 'none', stroke: COL.bg, 'stroke-width': 6, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', opacity: 0 }, g);
+  card.rows = [];
+  const ys = [-22, 16, 54, 92];
+  CLAIMS.forEach((c, i) => {
+    const r = el('g', { opacity: 0 }, g);
+    text(r, c[0], { x: -296, y: ys[i], fill: COL.muted, 'font-size': 26, class: 'mono' });
+    text(r, c[1], { x: -171, y: ys[i], fill: COL.text, 'font-size': 26, class: 'mono' });
+    card.rows.push(r);
+  });
+  const sr = el('g', { opacity: 0 }, g);
+  text(sr, 'scope', { x: -296, y: 92, fill: COL.muted, 'font-size': 26, class: 'mono' });
+  card.sc1 = text(sr, SCOPE_FULL[0], { x: -171, y: 92, fill: COL.token, 'font-size': 26, class: 'mono' });
+  card.sc2 = text(sr, SCOPE_FULL[1], { x: -171 + (SCOPE_FULL[0].length + 1) * 15.6, y: 92, fill: COL.token, 'font-size': 26, class: 'mono' });
+  card.strike = el('path', { d: 'M-171,83 L' + f1(-171 + SCOPE_FULL[0].length * 15.6) + ',83', stroke: COL.text, 'stroke-width': 3, fill: 'none', opacity: 0 }, sr);
+  card.rows.push(sr);
+  card.bar = el('rect', { x: -296, y: 108, width: 592, height: 12, rx: 6, fill: COL.token, opacity: 0 }, g);
+  card.barTrack = el('rect', { x: -296, y: 108, width: 592, height: 12, rx: 6, fill: COL.line, opacity: 0 }, g);
+  g.insertBefore(card.barTrack, card.bar);
+  card.rows.push(card.bar, card.barTrack);
+}
+
+/* ---------- timeline helpers ---------- */
+function put(ent, x, y, z, t) {
+  const b = iso(x, y, z), s = iso(x, y, 0);
+  tl.set(ent.g, { x: b.x, y: b.y }, t);
+  tl.set(ent.sh, { x: s.x, y: s.y }, t);
+}
+function show(ent, t, dur = 0.25, pop = true) {
+  tl.fromTo(ent.g, pop ? { opacity: 0, scale: 0.7 } : { opacity: 0 }, Object.assign({ opacity: 1, duration: dur, ease: 'back.out(1.7)', immediateRender: false }, pop ? { scale: 1 } : {}), t);
+  tl.fromTo(ent.sh, { opacity: 0 }, { opacity: 1, duration: dur, immediateRender: false }, t);
+}
+function hide(ent, t, dur = 0.25, pop = true) {
+  tl.fromTo(ent.g, pop ? { opacity: 1, scale: 1 } : { opacity: 1 }, Object.assign({ opacity: 0, duration: dur, ease: 'power2.in', immediateRender: false }, pop ? { scale: 0.7 } : {}), t);
+  tl.fromTo(ent.sh, { opacity: 1 }, { opacity: 0, duration: dur, immediateRender: false }, t);
+}
+// Move an entity along a route (floating at height z), shadow follows on the ground.
+function move(ent, pts, z, t, dur, ease = 'power2.inOut') {
+  put(ent, pts[0][0], pts[0][1], z, t);
+  tl.to(ent.g, { motionPath: { path: pathD(pts, z), autoRotate: false }, duration: dur, ease, immediateRender: false }, t);
+  tl.to(ent.sh, { motionPath: { path: pathD(pts, 0), autoRotate: false }, duration: dur, ease, immediateRender: false }, t);
+}
+// Light the route up behind a travelling packet and flash any trust boundary it crosses.
+function lit(pts, color, t, dur, fadeAt, ease = 'power2.inOut') {
+  const p = el('path', { d: pathD(pts, 0), fill: 'none', stroke: color, 'stroke-width': 7, 'stroke-linecap': 'butt', 'stroke-linejoin': 'round', opacity: 0 }, L.lit);
+  tl.fromTo(p, { opacity: 0 }, { opacity: 1, duration: 0.05, immediateRender: false }, t);
+  tl.fromTo(p, { drawSVG: '0% 0%' }, { drawSVG: '0% 100%', duration: dur, ease, immediateRender: false }, t);
+  tl.fromTo(p, { opacity: 1 }, { opacity: 0, duration: 0.4, ease: 'power1.out', immediateRender: false }, fadeAt);
+  crossings(pts).forEach((c) => {
+    const tc = t + dur * invEase(ease, c.f), wx = WALLS[c.wall];
+    const g = el('g', { opacity: 0 }, L.walls);
+    el('polygon', { points: poly([[wx, 0, 0], [wx, GROUND_D, 0], [wx, GROUND_D, 44], [wx, 0, 44]]), fill: color, 'fill-opacity': 0.22, stroke: color, 'stroke-width': 3 }, g);
+    tl.fromTo(g, { opacity: 0 }, { opacity: 1, duration: 0.15, ease: 'power2.out', immediateRender: false }, tc - 0.1);
+    tl.fromTo(g, { opacity: 1 }, { opacity: 0, duration: 0.6, ease: 'power2.inOut', immediateRender: false }, tc + 0.15);
+  });
+}
+function glow(id, t0, t1, ok = false) {
+  const p = (ok ? plateOks : plates)[id];
+  tl.fromTo(p, { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, t0);
+  tl.fromTo(p, { opacity: 1 }, { opacity: 0, duration: 0.3, immediateRender: false }, t1);
+}
+function placeAt(ent, x, y, z, t) { put(ent, x, y, z, t); }
+function cardShow(t, dur, from) {
+  tl.fromTo(card.g, { x: from.x, y: from.y, scale: 0.28 }, { x: CARD_POS.x, y: CARD_POS.y, scale: 1, duration: dur, ease: 'power3.out', immediateRender: false }, t);
+  tl.fromTo(card.g, { opacity: 0 }, { opacity: 1, duration: dur * 0.4, ease: 'power1.out', immediateRender: false }, t);
+}
+function cardHide(t, dur, to) {
+  tl.fromTo(card.g, { x: CARD_POS.x, y: CARD_POS.y, scale: 1 }, { x: to.x, y: to.y, scale: 0.28, duration: dur, ease: 'power2.inOut', immediateRender: false }, t);
+  tl.fromTo(card.g, { opacity: 1 }, { opacity: 0, duration: dur * 0.35, ease: 'power1.in', immediateRender: false }, t + dur * 0.65);
+}
+
+/* ---------- the story: one master timeline, one label per step ---------- */
+function buildTimeline() {
+  buildZones(); buildEdges(); buildNodes(); buildCard();
+
+  const cred = mkPacket(240, { label: 'user + password', color: COL.accent });
+  const req = mkPacket(230, { label: 'GET /orders/42', color: COL.accent }, { label: '9f3a·c1e7·b208', color: COL.secure });
+  const dbq = mkPacket(250, { label: 'SELECT order 42', color: COL.accent });
+  const dbr = mkPacket(220, { label: 'row: order 42', color: COL.accent });
+  const respEnc = mkPacket(230, { label: '4be0·77d1·a39c', color: COL.secure });
+  const respOut = mkPacket(262, { label: '200 OK · order 42', color: COL.accent });
+  const chip = mkChip(), key = mkKey();
+
+  // lock + label on the conduit
+  const lockP = iso(605, 320, 78);
+  const lockG = el('g', { opacity: 0, 'pointer-events': 'none' }, L.labels);
+  el('rect', { x: f1(lockP.x - 15), y: f1(lockP.y - 6), width: 30, height: 24, rx: 5, fill: COL.secure }, lockG);
+  el('path', { d: `M${f1(lockP.x - 9)},${f1(lockP.y - 6)} v-8 a9,9 0 0 1 18,0 v8`, fill: 'none', stroke: COL.secure, 'stroke-width': 4 }, lockG);
+  text(lockG, 'mTLS', { x: f1(lockP.x), y: f1(lockP.y - 34), 'text-anchor': 'middle', fill: COL.secure, 'font-size': 26, 'font-weight': 700, class: 'mono', stroke: COL.bg, 'stroke-width': 7, 'paint-order': 'stroke' });
+
+  // initial hidden state for entities (also what seek(0) shows)
+  gsap.set([cred.g, req.g, dbq.g, dbr.g, respEnc.g, respOut.g, chip.g, key.g, card.g], { opacity: 0 });
+  gsap.set(card.g, { x: CARD_POS.x, y: CARD_POS.y });
+
+  // -- initial state (what t=0 shows): the scene is built up by the intro tweens below --
+  gsap.set([L.zones, L.edges, L.walls, '#cap'], { opacity: 0 });
+  gsap.set(Object.values(nodeEls), { opacity: 0, y: -26 });
+  gsap.set(Object.values(labelEls), { opacity: 0 });
+
+  // -- intro: platforms, blocks and labels settle in --
+  const nodeIds = Object.keys(NODES);
+  tl.fromTo([L.zones, L.edges, L.walls], { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out', immediateRender: false }, 0);
+  nodeIds.forEach((id, i) => {
+    tl.fromTo(nodeEls[id], { opacity: 0, y: -26 }, { opacity: 1, y: 0, duration: 0.45, ease: 'power3.out', immediateRender: false }, 0.1 + i * 0.07);
+    tl.fromTo(labelEls[id], { opacity: 0 }, { opacity: 1, duration: 0.35, immediateRender: false }, 0.3 + i * 0.07);
+  });
+  nodeIds.forEach((id, i) => tl.addLabel(id + '-in', 0.1 + i * 0.07));
+  STEPS.forEach((s) => tl.addLabel(s.id, s.time));
+
+  // caption: opacity is a pure function of time; the text swap lives in sync()
+  STEPS.forEach((s) => tl.fromTo('#cap', { opacity: 0 }, { opacity: 1, duration: 0.45, ease: 'power2.out', immediateRender: false }, s.time));
+
+  const LOGIN = ROUTES.login, REQ = ROUTES.request;
+
+  /* 1. login: credentials go from the Browser to the IdP */
+  glow('browser', 0.8, 2.2);
+  show(cred, 1.0); put(cred, 180, 200, Z_PK, 1.0);
+  move(cred, LOGIN, Z_PK, 1.4, 1.3);
+  lit(LOGIN, COL.accent, 1.4, 1.3, 3.5);
+  hide(cred, 2.75);
+  glow('idp', 2.7, 6.9);
+
+  /* 2. token: IdP signs a JWT, we open it up, then it travels back as a chip */
+  const idpTop = iso(470, 80, 70 + 40);
+  cardShow(3.7, 0.7, idpTop);
+  card.rows.forEach((r, i) => { if (i < 3) tl.fromTo(r, { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, 4.2 + i * 0.12); });
+  tl.fromTo(card.rows[3], { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, 4.2 + 3 * 0.12);
+  tl.fromTo([card.bar, card.barTrack], { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, 4.2 + 4 * 0.12);
+  [['h', 4.6], ['p', 4.95], ['s', 5.3]].forEach(([k, t0]) => {
+    tl.fromTo(card.hi[k], { opacity: 0 }, { opacity: 0.5, duration: 0.15, ease: 'power2.out', immediateRender: false }, t0);
+    tl.fromTo(card.hi[k], { opacity: 0.5 }, { opacity: 0, duration: 0.3, ease: 'power2.inOut', immediateRender: false }, t0 + 0.2);
+  });
+  const chipIdp = { x: 420, y: 80 };
+  placeAt(chip, chipIdp.x, chipIdp.y, Z_CHIP, 6.4);
+  cardHide(6.4, 0.5, iso(chipIdp.x, chipIdp.y, Z_CHIP));
+  tl.fromTo(chip.g, { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, 6.75);
+  tl.fromTo(chip.sh, { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, 6.75);
+  move(chip, rev(LOGIN), Z_CHIP, 6.9, 1.0);
+  lit(rev(LOGIN), COL.token, 6.9, 1.0, 8.3);
+  glow('browser', 7.9, 8.8);
+
+  /* 3. request: GET /orders/42 plus the token, Internet -> Edge */
+  show(req, 8.1); put(req, 180, 200, Z_PK, 8.1);
+  move(req, REQ, Z_PK, 8.4, 1.2);
+  move(chip, REQ, Z_CHIP, 8.4, 1.2);
+  lit(REQ, COL.accent, 8.4, 1.2, 10.2);
+  glow('gateway', 9.6, 13.2);
+
+  /* 4. verify: key from the JWKS endpoint lights the signature, a tick lands */
+  hide(req, 10.0, 0.3);
+  tl.fromTo(chip.g, { opacity: 1 }, { opacity: 0, duration: 0.2, immediateRender: false }, 10.0);
+  tl.fromTo(chip.sh, { opacity: 1 }, { opacity: 0, duration: 0.2, immediateRender: false }, 10.0);
+  cardShow(10.0, 0.6, iso(420, 320, Z_CHIP));
+  show(key, 10.2, 0.2, false); put(key, 470, 125, 44, 10.2);
+  move(key, ROUTES.jwks, 44, 10.3, 0.7);
+  lit(ROUTES.jwks, COL.identity, 10.3, 0.7, 12.6);
+  const sigPos = { x: CARD_POS.x + 178, y: CARD_POS.y - 90 + 40 };
+  const keyEnd = iso(470, 275, 44);
+  tl.fromTo(key.g, { x: keyEnd.x, y: keyEnd.y }, { x: sigPos.x, y: sigPos.y, duration: 0.55, ease: 'power2.inOut', immediateRender: false }, 11.0);
+  tl.fromTo(key.sh, { opacity: 1 }, { opacity: 0, duration: 0.2, immediateRender: false }, 11.0);
+  tl.fromTo(card.hi.s, { opacity: 0 }, { opacity: 0.55, duration: 0.2, ease: 'power2.out', immediateRender: false }, 11.55);
+  tl.fromTo(card.hi.s, { opacity: 0.55 }, { opacity: 0, duration: 0.3, immediateRender: false }, 11.8);
+  tl.fromTo(card.sigOk, { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, 11.75);
+  tl.fromTo(card.tick, { opacity: 0 }, { opacity: 1, duration: 0.01, immediateRender: false }, 11.9);
+  tl.fromTo(card.tick, { drawSVG: '0% 0%' }, { drawSVG: '0% 100%', duration: 0.35, ease: 'power2.out', immediateRender: false }, 11.9);
+  tl.fromTo(key.g, { opacity: 1 }, { opacity: 0, duration: 0.25, immediateRender: false }, 12.1);
+  glow('gateway', 12.0, 13.4, true);
+  const chipGw = { x: 420, y: 320 };
+  placeAt(chip, chipGw.x, chipGw.y, Z_CHIP, 12.6);
+  cardHide(12.6, 0.5, iso(chipGw.x, chipGw.y, Z_CHIP));
+  tl.fromTo(chip.g, { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, 12.95);
+  tl.fromTo(chip.sh, { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, 12.95);
+
+  /* 5. mtls: a raised encrypted conduit grows; the packet inside is ciphertext */
+  const prox = { p: 0 };
+  tl.fromTo(conduit.g, { opacity: 0 }, { opacity: 1, duration: 0.2, immediateRender: false }, 13.3);
+  tl.fromTo(prox, { p: 0 }, { p: 1, duration: 0.7, ease: 'power2.inOut', immediateRender: false, onUpdate: () => drawConduit(prox.p) }, 13.3);
+  tl.fromTo(lockG, { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, 13.8);
+  tl.fromTo(chip.g, { opacity: 1 }, { opacity: 0, duration: 0.3, immediateRender: false }, 13.7);
+  tl.fromTo(chip.sh, { opacity: 1 }, { opacity: 0, duration: 0.3, immediateRender: false }, 13.7);
+  show(req, 13.9); put(req, 520, 320, 30, 13.9);
+  tl.fromTo(req.A, { opacity: 1 }, { opacity: 0, duration: 0.3, immediateRender: false }, 14.2);
+  tl.fromTo(req.B, { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, 14.2);
+  move(req, ROUTES.mtls, 30, 14.2, 1.0);
+  lit(ROUTES.mtls, COL.secure, 14.2, 1.0, 15.8);
+  glow('orders', 15.2, 19.0);
+  // Gateway plate off after step; token chip reappears inside Orders
+  hide(req, 15.8, 0.25);
+  placeAt(chip, 690, 320, Z_CHIP_ORDERS, 15.3);
+  tl.fromTo(chip.g, { opacity: 0 }, { opacity: 1, duration: 0.2, immediateRender: false }, 15.3);
+  tl.fromTo(chip.sh, { opacity: 0 }, { opacity: 1, duration: 0.2, immediateRender: false }, 15.3);
+
+  /* 6. exchange: the token shrinks from two scopes to one */
+  tl.fromTo(chip.g, { opacity: 1 }, { opacity: 0, duration: 0.2, immediateRender: false }, 15.8);
+  tl.fromTo(chip.sh, { opacity: 1 }, { opacity: 0, duration: 0.2, immediateRender: false }, 15.8);
+  cardShow(15.8, 0.6, iso(690, 320, Z_CHIP_ORDERS));
+  const keepX = -171, fullW = 592, narrowW = Math.round(592 * SCOPE_FULL[1].length / (SCOPE_FULL.join(' ').length));
+  tl.fromTo(card.strike, { opacity: 0 }, { opacity: 1, duration: 0.01, immediateRender: false }, 16.6);
+  tl.fromTo(card.strike, { drawSVG: '0% 0%' }, { drawSVG: '0% 100%', duration: 0.25, ease: 'power2.out', immediateRender: false }, 16.6);
+  tl.fromTo(card.sc1, { opacity: 1 }, { opacity: 0, duration: 0.3, immediateRender: false }, 17.0);
+  tl.fromTo(card.strike, { opacity: 1 }, { opacity: 0, duration: 0.3, immediateRender: false }, 17.0);
+  tl.fromTo(card.sc2, { attr: { x: -171 + (SCOPE_FULL[0].length + 1) * 15.6 } }, { attr: { x: keepX }, duration: 0.5, ease: 'power2.inOut', immediateRender: false }, 17.1);
+  tl.fromTo(card.bar, { attr: { width: fullW } }, { attr: { width: narrowW }, duration: 0.6, ease: 'power2.inOut', immediateRender: false }, 17.0);
+  const chipOr = { x: 740, y: 275 };
+  placeAt(chip, chipOr.x, chipOr.y, Z_CHIP, 17.9);
+  cardHide(17.9, 0.45, iso(chipOr.x, chipOr.y, Z_CHIP));
+  tl.fromTo(chip.g, { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, 18.2);
+  tl.fromTo(chip.sh, { opacity: 0 }, { opacity: 1, duration: 0.15, immediateRender: false }, 18.2);
+  move(chip, ROUTES.pay, Z_CHIP, 18.35, 0.65);
+  lit(ROUTES.pay, COL.token, 18.35, 0.65, 19.3);
+  glow('payments', 19.0, 19.5);
+
+  /* 7. data: Orders reads the DB, the response goes back out through the Gateway */
+  hide(chip, 19.3, 0.25);
+  show(dbq, 19.3); put(dbq, 790, 320, Z_PK, 19.3);
+  move(dbq, ROUTES.db, Z_PK, 19.45, 0.6);
+  lit(ROUTES.db, COL.accent, 19.45, 0.6, 20.2);
+  hide(dbq, 20.05, 0.2);
+  glow('db', 20.0, 20.9);
+  show(dbr, 20.15); put(dbr, 910, 320, Z_PK, 20.15);
+  move(dbr, rev(ROUTES.db), Z_PK, 20.3, 0.55);
+  lit(rev(ROUTES.db), COL.accent, 20.3, 0.55, 21.1);
+  hide(dbr, 20.85, 0.2);
+  show(respEnc, 20.9); put(respEnc, 690, 320, 30, 20.9);
+  move(respEnc, rev(ROUTES.mtls), 30, 21.05, 0.7);
+  lit(rev(ROUTES.mtls), COL.secure, 21.05, 0.7, 22.1);
+  hide(respEnc, 21.75, 0.2);
+  show(respOut, 21.8); put(respOut, 420, 320, Z_PK, 21.8);
+  move(respOut, rev(REQ), Z_PK, 21.95, 1.1);
+  lit(rev(REQ), COL.accent, 21.95, 1.1, 23.2);
+  hide(respOut, 23.05, 0.25);
+  tl.fromTo(plates.browser, { opacity: 0 }, { opacity: 1, duration: 0.3, immediateRender: false }, 23.05);   // stays lit to the end
+
+  tl.set({}, {}, DURATION);   // pad the timeline to the declared duration
+}
+
+/* =====================================================================
+   4. SCAFFOLDING: stage fit, caption, tooltips, controls, timeline contract
+   ===================================================================== */
+const $ = (s) => document.querySelector(s);
+const stage = $('#stage'), wrap = $('#stagewrap');
+let scale = 1;
+function fit() {
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  scale = Math.min(w / 1920, h / 1080);
+  stage.style.transform = `translate(${(w - 1920 * scale) / 2}px, ${(h - 1080 * scale) / 2}px) scale(${scale})`;
+}
+window.addEventListener('resize', fit);
+
+const capText = $('#captext'), capCount = $('#count'), capId = $('#stepid');
+const scrub = $('#scrub'), playBtn = $('#play'), clock = $('#clock');
+let lastIdx = -2;
+function stepIndexAt(t) { let idx = -1; STEPS.forEach((s, i) => { if (t >= s.time - 1e-6) idx = i; }); return idx; }
+function isPlaying() { return !tl.paused() && tl.progress() < 1; }
+// Everything below is a pure function of tl.time(): safe to call after any seek.
+function sync() {
+  const t = tl.time(), idx = stepIndexAt(t);
+  if (idx !== lastIdx) {
+    lastIdx = idx;
+    capText.textContent = idx >= 0 ? STEPS[idx].caption : '';
+    capCount.textContent = (idx + 1) + ' / ' + STEPS.length;
+    capId.textContent = idx >= 0 ? STEPS[idx].id : '';
+  }
+  scrub.value = t;
+  clock.textContent = t.toFixed(1) + ' / ' + DURATION.toFixed(1) + ' s';
+  playBtn.textContent = isPlaying() ? 'Pause' : 'Play';
+}
+
+function setupTooltips() {
+  if (CAPTURE) return;
+  const tip = $('#tip');
+  document.querySelectorAll('.node').forEach((n) => {
+    const d = NODES[n.getAttribute('data-id')].tip;
+    const move = (e) => {
+      const r = stage.getBoundingClientRect();
+      let x = (e.clientX - r.left) / scale + 24, y = (e.clientY - r.top) / scale + 24;
+      x = Math.min(x, 1920 - 540); y = Math.min(y, 1080 - 150);
+      tip.style.left = x + 'px'; tip.style.top = y + 'px';
+    };
+    n.addEventListener('pointerenter', (e) => { tip.innerHTML = '<b></b><span></span>'; tip.firstChild.textContent = d[0]; tip.lastChild.textContent = d[1]; tip.style.display = 'block'; move(e); });
+    n.addEventListener('pointermove', move);
+    n.addEventListener('pointerleave', () => { tip.style.display = 'none'; });
+  });
+}
+
+function setupControls() {
+  const bar = $('#track');
+  STEPS.forEach((s, i) => {
+    const d = document.createElement('div');
+    d.className = 'tick'; d.style.left = (s.time / DURATION * 100) + '%';
+    d.textContent = (i + 1) + ' ' + s.id;
+    bar.appendChild(d);
+  });
+  scrub.max = DURATION;
+  scrub.addEventListener('input', () => { api.pause(); tl.time(+scrub.value); sync(); });
+  playBtn.addEventListener('click', toggle);
+  $('#prev').addEventListener('click', () => goStep(-1));
+  $('#next').addEventListener('click', () => goStep(1));
+  $('#speed').addEventListener('change', (e) => tl.timeScale(+e.target.value));
+  document.addEventListener('keydown', (e) => {
+    if (e.target && e.target.tagName === 'SELECT') return;
+    if (e.code === 'Space') { e.preventDefault(); toggle(); }
+    else if (e.code === 'ArrowLeft') { e.preventDefault(); goStep(-1); }
+    else if (e.code === 'ArrowRight') { e.preventDefault(); goStep(1); }
+    else if (e.code === 'Home') { e.preventDefault(); api.seek(0); api.play(); }
+  });
+}
+function toggle() { if (isPlaying()) api.pause(); else api.play(); }
+function goStep(dir) {
+  const t = tl.time(), idx = stepIndexAt(t), was = isPlaying();
+  let target;
+  if (dir > 0) target = idx + 1 < STEPS.length ? STEPS[idx + 1].time : DURATION;
+  else target = (idx >= 0 && t - STEPS[idx].time > 0.6) ? STEPS[idx].time : (idx > 0 ? STEPS[idx - 1].time : 0);
+  tl.pause(); tl.time(target); sync();
+  if (was && target < DURATION) api.play();
+}
+
+// ---- timeline contract used by the video exporter ----
+const api = {
+  duration: DURATION,
+  fps: 30,
+  steps: STEPS.map((s) => ({ id: s.id, time: s.time, caption: s.caption })),
+  seek(t) { tl.pause(); tl.time(Math.max(0, Math.min(DURATION, t)), false); sync(); },
+  play() { if (tl.progress() >= 1) tl.restart(); else tl.play(); sync(); },
+  pause() { tl.pause(); sync(); },
+};
+window.anim = api;
+
+buildTimeline();
+tl.eventCallback('onUpdate', sync);
+tl.eventCallback('onComplete', sync);
+fit();
+setupTooltips();
+setupControls();
+api.seek(0);
+if (!CAPTURE) api.play();
+})();
+</script>
+</body>
+</html>

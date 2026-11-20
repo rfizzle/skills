@@ -1,0 +1,16 @@
+{
+  "_note": "First passing run of scripts/equivalence.mjs: pixels over delta 24 at each rest frame, times 1.5. A regression guard, not acceptance. Delete the file to record again.",
+  "steps": {
+    "recon": 88317,
+    "ssrf": 90113,
+    "creds": 104595,
+    "identity": 198617,
+    "enumerate": 312561,
+    "exfil": 319539,
+    "secret": 299027,
+    "pivot": 144224,
+    "db": 132770,
+    "detect": 405564,
+    "controls": 239690
+  }
+}

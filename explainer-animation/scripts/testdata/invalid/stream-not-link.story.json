@@ -1,0 +1,152 @@
+{
+  "_rule": "stream-not-link",
+  "_expect": "steps[1].beats[0].stream[1]: [db, client] is not a link. Fix: add the link to links[] or pick a linked pair.",
+  "meta": {
+    "id": "minimal",
+    "title": "A request reaches the database",
+    "tagline": "Smallest valid story",
+    "kind": "architecture",
+    "audience": "technical",
+    "redaction": "none: invented example",
+    "source": {
+      "kind": "illustrative"
+    }
+  },
+  "zones": [
+    {
+      "id": "internet",
+      "name": "Internet",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "cloud",
+      "name": "Cloud account",
+      "short": "Cloud",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "systems": [
+    {
+      "id": "client",
+      "name": "Client",
+      "role": "sends requests from outside",
+      "zone": "internet",
+      "icon": "attacker",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "web",
+      "name": "Web app",
+      "role": "answers requests",
+      "zone": "cloud",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "db",
+      "name": "Database",
+      "role": "stores the records",
+      "zone": "cloud",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "links": [
+    {
+      "from": "client",
+      "to": "web",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "from": "web",
+      "to": "db",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "phases": [
+    {
+      "id": "request",
+      "title": "Request",
+      "descriptor": "one request, end to end",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "arrive",
+      "phase": "request",
+      "title": "A request arrives",
+      "body": "The client sends a request to the web app, which is the only thing exposed to the internet.",
+      "touch": [
+        "client",
+        "web"
+      ],
+      "uses": [
+        [
+          "client",
+          "web"
+        ]
+      ],
+      "frame": "full",
+      "beats": [
+        {
+          "chain": [
+            "client",
+            "web"
+          ],
+          "tag": "GET",
+          "color": "accent",
+          "says": "GET /orders"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "lookup",
+      "phase": "request",
+      "title": "The app reads the database",
+      "body": "The web app asks the database for the records and returns them to the client.",
+      "touch": [
+        "web",
+        "db"
+      ],
+      "uses": [
+        [
+          "web",
+          "db"
+        ]
+      ],
+      "source": {
+        "kind": "illustrative"
+      },
+      "beats": [
+        {
+          "stream": [
+            "web",
+            "db",
+            "client"
+          ],
+          "items": [
+            "a.csv"
+          ]
+        }
+      ]
+    }
+  ]
+}

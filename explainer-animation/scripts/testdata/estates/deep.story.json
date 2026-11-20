@@ -1,0 +1,32 @@
+{
+  "_note": "Synthetic estate: five nested zones (default row/col alternation), nodes at several depths.",
+  "meta": { "id": "deep", "title": "Deep nesting", "source": { "kind": "illustrative" } },
+  "zones": [
+    { "id": "outside", "name": "Outside" },
+    { "id": "d1", "name": "Level one" },
+    { "id": "d2", "name": "Level two", "parent": "d1" },
+    { "id": "d3", "name": "Level three", "parent": "d2" },
+    { "id": "d4", "name": "Level four", "parent": "d3" },
+    { "id": "d5", "name": "Level five", "parent": "d4" }
+  ],
+  "systems": [
+    { "id": "user", "name": "User", "zone": "outside" },
+    { "id": "n1", "name": "Gateway", "zone": "d1" },
+    { "id": "n3", "name": "Service", "zone": "d3" },
+    { "id": "n5a", "name": "Worker A", "zone": "d5" },
+    { "id": "n5b", "name": "Worker B", "zone": "d5" }
+  ],
+  "links": [
+    { "from": "user", "to": "n1" },
+    { "from": "user", "to": "n5a" },
+    { "from": "n5a", "to": "n5b" },
+    { "from": "n5b", "to": "n3" },
+    { "from": "n3", "to": "n1" }
+  ],
+  "steps": [
+    { "id": "all", "touch": [], "frame": "full" },
+    { "id": "inner", "touch": ["n5a", "n5b"], "frame": { "hold": ["d5"] } },
+    { "id": "middle", "touch": ["n3"], "frame": { "hold": ["d3"] } },
+    { "id": "pair", "touch": ["n5b", "n3"] }
+  ]
+}

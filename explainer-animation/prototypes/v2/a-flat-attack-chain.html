@@ -1,0 +1,1037 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Prototype v2-A: flat 2D. SSRF to cloud account compromise</title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #121826; --panel-2: #18202f; --line: #2a3447;
+    --text: #e6edf7; --muted: #8b98ad; --accent: #4cc9f0; --token: #f5b941;
+    --identity: #a78bfa; --secure: #3ddc97; --danger: #ff5d6c;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #viewport { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--bg); overflow: hidden; }
+  .sans { font-family: var(--sans); }
+  .mono { font-family: var(--mono); }
+  .node { cursor: default; }
+  #rail { position: absolute; left: 60px; top: 14px; width: 1800px; height: 76px; display: flex; gap: 14px; }
+  .ph { flex: 1; box-sizing: border-box; padding-top: 4px; border-bottom: 4px solid var(--line); }
+  .ph .pn { font-size: 24px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+  .ph .pd { display: flex; gap: 12px; margin-top: 10px; }
+  .ph .pd i { display: block; width: 16px; height: 16px; border-radius: 8px; background: #2a3447; }
+  #bandline { position: absolute; left: 0; top: 832px; width: 1920px; height: 2px; background: var(--line); }
+  #band { position: absolute; left: 60px; top: 846px; width: 1420px; height: 224px; }
+  #band .tt { position: absolute; left: 0; top: 0; width: 1420px; font-size: 46px; font-weight: 700; line-height: 56px; white-space: nowrap; opacity: 0; }
+  #band .tt b { color: var(--accent); font-size: 38px; margin-right: 22px; font-weight: 700; }
+  #band .bd { position: absolute; left: 0; top: 68px; width: 1420px; font-size: 32px; line-height: 43px; color: #c4cee0; opacity: 0; }
+  #mm { position: absolute; left: 1530px; top: 862px; width: 340px; height: 128px; }
+  #pp { position: absolute; left: 1530px; top: 1010px; width: 340px; text-align: right; font-size: 24px; color: var(--muted); display: none; }
+  #tip { position: absolute; display: none; width: 440px; padding: 14px 18px; box-sizing: border-box; background: var(--panel-2);
+         border: 2px solid var(--line); border-radius: 14px; font-size: 24px; line-height: 1.35; color: var(--text); pointer-events: none; z-index: 5; }
+  #tip b { display: block; font-size: 26px; margin-bottom: 4px; }
+  #tip span { color: var(--muted); }
+  .nm-caption #band .bd, .nm-caption .co { display: none; }
+  .nm-off #rail, .nm-off #band, .nm-off #bandline, .nm-off #mm, .nm-off .co { display: none; }
+  #controls { flex: none; height: 76px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 22px;
+              background: #0e1320; border-top: 1px solid var(--line); font-size: 16px; color: var(--muted); }
+  #controls button, #controls select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+              padding: 9px 12px; font: inherit; font-size: 16px; cursor: pointer; }
+  #controls button:hover, #controls select:hover { border-color: var(--accent); }
+  #bPlay { min-width: 84px; }
+  #scrub { position: relative; flex: 1; height: 44px; }
+  #ticks { position: absolute; left: 0; right: 0; top: 0; height: 100%; pointer-events: none; }
+  #ticks i { position: absolute; top: 6px; width: 2px; height: 14px; margin-left: -1px; background: var(--muted); opacity: .8; }
+  #ticks u { position: absolute; top: 24px; transform: translateX(-50%); font-size: 12px; text-decoration: none; color: var(--muted); white-space: nowrap; }
+  #range { position: absolute; left: 0; right: 0; top: 8px; width: 100%; margin: 0; height: 28px; accent-color: var(--accent); }
+  #clock { min-width: 110px; text-align: right; font-family: var(--mono); font-size: 15px; }
+  body.capture #controls, body.capture #tip, body.capture #pp { display: none !important; }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+  <div id="rail"></div>
+  <div id="bandline"></div>
+  <div id="band"></div>
+  <svg id="mm" viewBox="0 0 340 128" width="340" height="128"></svg>
+  <div id="pp">Presenter: press Right arrow</div>
+  <div id="tip"></div>
+</div></div>
+<div id="controls">
+  <button id="bPlay" title="Space">Pause</button>
+  <button id="bPrev" title="Left arrow">&#9664; Step</button>
+  <button id="bNext" title="Right arrow">Step &#9654;</button>
+  <div id="scrub"><div id="ticks"></div><input id="range" type="range" min="0" max="1000" value="0" step="1" aria-label="Timeline"></div>
+  <span id="clock">0.0 / 0.0 s</span>
+  <button id="bNarr" title="N">Narration: full</button>
+  <button id="bPres" title="P">Present: off</button>
+  <label>Speed <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select></label>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/MotionPathPlugin.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/DrawSVGPlugin.min.js"></script>
+<script>
+(function () {
+'use strict';
+gsap.registerPlugin(MotionPathPlugin, DrawSVGPlugin);
+
+/* ==========================================================================
+   1. SCENARIO DATA + LAYOUT  (pure: no DOM, no gsap; a node script loads exactly this block)
+   ========================================================================== */
+//<core>
+var C = { bg: '#0b0f17', panel: '#121826', panel2: '#18202f', line: '#2a3447', text: '#e6edf7', muted: '#8b98ad',
+          accent: '#4cc9f0', token: '#f5b941', identity: '#a78bfa', secure: '#3ddc97', danger: '#ff5d6c' };
+
+var NW = 240, NH = 132, PAD = 32, TOPPAD = 76, TABH = 58, LFS = 44, ASPECT = 8 / 3, MARGIN = 70;
+var LANE0 = 50, LANEGAP = 100, XK0 = 50, XKGAP = 50;
+var HOLD_RULE = 'reading';   /* 'reading': body stays up words/3 s after it appears, and at least 2.5 s after the last motion.
+                                'literal': hold words/3 s (min 2.5 s) after the last motion. */
+
+function N(id, lines, icon, tint, tip, o) {
+  var n = { id: id, type: 'node', lines: lines, label: lines.join(' '), icon: icon, tint: tint, tip: tip };
+  for (var k in (o || {})) n[k] = o[k];
+  return n;
+}
+function K(id, kind, label, dir, kids, o) {
+  var b = { id: id, type: 'box', kind: kind, label: label, dir: dir, kids: kids, gap: 0 };
+  for (var k in (o || {})) b[k] = o[k];
+  return b;
+}
+
+/* The estate. Container bounds are computed from children (see layoutTree); nothing here has coordinates. */
+var TREE = K('root', 'root', null, 'row', [
+  K('internet', 'internet', 'INTERNET', 'col', [
+    N('attacker', ['Attacker'], 'attacker', C.danger, 'The adversary, on the public Internet. Everything they send is attacker-controlled.', { main: true })
+  ], { caps: true }),
+  K('account', 'account', 'AWS account · prod', 'row', [
+    K('edge', 'edge', 'Edge', 'col', [
+      N('cdn', ['CDN / WAF'], 'cdn', C.text, 'Content delivery network with a web application firewall. The front door for web traffic.', { main: true })
+    ]),
+    K('vpc', 'vpc', 'VPC · 10.0.0.0/16', 'row', [
+      K('public', 'subnet', 'Public subnet', 'col', [
+        N('lb', ['Load balancer'], 'lb', C.text, 'Terminates TLS and spreads requests across the storefront pods.', { main: true })
+      ]),
+      K('private', 'subnet', 'Private subnet', 'col', [
+        K('cluster', 'cluster', 'EKS cluster', 'row', [
+          K('ns_web', 'ns', 'ns: web', 'col', [
+            N('storefront', ['storefront'], 'store', C.text, 'Public-facing pod. Fetches any URL a user supplies: the SSRF flaw.', { main: true })
+          ]),
+          K('ns_pay', 'ns', 'ns: payments', 'col', [
+            N('payments', ['payments-api'], 'payments', C.text, 'Payments pod in its own namespace. No network policy limits who may call it.', { main: true })
+          ])
+        ], { gap: 80, main: true }),
+        N('imds', ['IMDS', '169.254.169.254'], 'chip', C.text, 'Instance metadata service on the node. Hands the node role’s temporary credentials to any caller on the node.', { dx: 64 })
+      ], { gap: 90 }),
+      K('data', 'subnet', 'Data subnet', 'col', [
+        N('db', ['Orders DB'], 'db', C.text, 'Orders database. Only reachable from inside the VPC, with a password.', { main: true })
+      ])
+    ], { gap: 110 }),
+    K('services', 'acct', 'Services', 'col', [
+      N('iam', ['IAM / STS'], 'iam', C.identity, 'Identity and token service. Decides who a set of credentials belongs to.'),
+      N('s3', ['S3 bucket', 'customer-exports'], 'bucket', C.text, 'Bucket of customer data exports.'),
+      N('secrets', ['Secrets', 'Manager'], 'lock', C.text, 'Holds the Orders DB password.'),
+      N('detect', ['CloudTrail +', 'GuardDuty'], 'eye', C.secure, 'Audit log and threat detection. Raises findings after the fact.')
+    ], { gap: 50, padOver: { r: 110 }, gapBefore: 200 })
+  ], { gap: 130 })
+], { gap: 230, padOver: { l: 0, r: 0, b: 0 } });
+
+var PHASES = [
+  { id: 'initial', title: 'Initial access' },
+  { id: 'cred',    title: 'Credential access' },
+  { id: 'disc',    title: 'Discovery & exfiltration' },
+  { id: 'lateral', title: 'Lateral movement' },
+  { id: 'detect',  title: 'Detection & controls' }
+];
+
+/* touch: nodes the step involves (camera frame must contain them); edges: links it uses.
+   lead: an optional close-up frame shown first. callouts: target is a node or edge id. */
+var STEPS = [
+  { id: 'recon', phase: 'initial', color: C.accent, title: 'A normal request comes in',
+    body: 'First, the attacker behaves like a shopper. The request passes the firewall and load balancer and reaches the storefront. This is the legitimate path the attack will reuse.',
+    callouts: [{ target: 'cdn', text: 'Firewall inspects traffic', side: 'up', at: 3.0 }],
+    touch: ['attacker', 'cdn', 'lb', 'storefront'], edges: ['att_cdn', 'cdn_lb', 'lb_store'] },
+  { id: 'ssrf', phase: 'initial', color: C.danger, title: 'Crafted URL tricks the storefront',
+    body: 'The attacker puts an internal address in a URL parameter. The storefront fetches it on their behalf, so the request starts inside the network, where firewalls never look.',
+    callouts: [{ target: 'storefront', text: 'SSRF flaw here', side: 'down', off: [150, 0], at: 5.6 },
+               { target: 'imds', text: 'Metadata service on the node', side: 'left', at: 7.4 }],
+    touch: ['attacker', 'cdn', 'lb', 'storefront', 'imds'], edges: ['att_cdn', 'cdn_lb', 'lb_store', 'store_imds'] },
+  { id: 'creds', phase: 'cred', color: C.token, title: 'Metadata service hands over keys',
+    body: 'The metadata service answers any request from the node, trusting it blindly. It returns temporary keys for the node’s cloud role, and they flow back out to the attacker.',
+    callouts: [{ target: 'imds', text: 'Node role credentials', side: 'left', at: 5.2 }],
+    touch: ['attacker', 'cdn', 'lb', 'storefront', 'imds'], edges: ['att_cdn', 'cdn_lb', 'lb_store', 'store_imds'],
+    lead: { ids: ['imds', 'storefront'], pop: true } },
+  { id: 'identity', phase: 'cred', color: C.danger, title: 'Attacker logs in with stolen keys',
+    body: 'The attacker calls the account’s identity service directly from the Internet. This traffic never touches the firewall, load balancer or network, so none of those defences can see it.',
+    callouts: [{ target: 'byp_iam', text: 'Skips WAF, LB and VPC', side: 'up', seg: 1, t: 0.16, at: 1.6 }],
+    touch: ['attacker', 'iam'], edges: ['byp_iam'] },
+  { id: 'enumerate', phase: 'disc', color: C.danger, title: 'Mapping what the keys unlock',
+    body: 'With valid keys, the attacker lists the storage buckets and the stored secrets at the same time. Every call looks like normal, authorised activity.',
+    callouts: [{ target: 's3', text: 'List buckets', side: 'left', off: [-100, -110], at: 2.4 }, { target: 'secrets', text: 'List secrets', side: 'left', off: [-100, 90], at: 2.6 }],
+    touch: ['attacker', 's3', 'secrets'], edges: ['byp_s3', 'byp_sec'] },
+  { id: 'exfil', phase: 'disc', color: C.danger, title: 'Customer data streams out',
+    body: 'The node role can read the export bucket, so objects stream straight to the attacker. Nothing on the path inspects or limits this download.',
+    callouts: [{ target: 's3', text: 'Over-broad role', side: 'left', off: [-100, -110], at: 1.2 }],
+    touch: ['attacker', 's3'], edges: ['byp_s3'] },
+  { id: 'secret', phase: 'disc', color: C.token, title: 'Database password taken',
+    body: 'Secrets Manager hands the database password to anyone holding the role. The attacker now has what they need to reach the orders data.',
+    callouts: [{ target: 'secrets', text: 'Orders DB password', side: 'left', off: [-100, 90], at: 3.2 }],
+    touch: ['attacker', 'secrets'], edges: ['byp_sec'] },
+  { id: 'pivot', phase: 'lateral', color: C.danger, title: 'Back in, then sideways',
+    body: 'Through the same SSRF the attacker returns to the storefront, then moves to the payments service next door. No network policy blocks traffic between namespaces.',
+    callouts: [{ target: 'store_pay', text: 'No network policy here', side: 'down', off: [60, 0], at: 6.0 }],
+    touch: ['attacker', 'cdn', 'lb', 'storefront', 'payments'], edges: ['att_cdn', 'cdn_lb', 'lb_store', 'store_pay'] },
+  { id: 'db', phase: 'lateral', color: C.danger, title: 'Orders database read in full',
+    body: 'Payments connects to the database using the stolen password, and customer order rows flow back out along the same route to the attacker.',
+    callouts: [{ target: 'db', text: 'Order rows leave', side: 'up', at: 2.8 }],
+    touch: ['attacker', 'cdn', 'lb', 'storefront', 'payments', 'db'], edges: ['att_cdn', 'cdn_lb', 'lb_store', 'store_pay', 'pay_db'] },
+  { id: 'detect', phase: 'detect', color: C.secure, title: 'Detection fires, too late',
+    body: 'GuardDuty notices the keys being used from outside the account and raises a finding. By now, most of the chain has already happened.',
+    callouts: [{ target: 'detect', text: 'Keys used externally', side: 'down', off: [75, 0], lead: true, at: 4.0 },
+               { target: 'attacker', text: 'Nine steps already done', side: 'up', off: [260, 0], at: 7.6 }],
+    touch: ['detect', 'iam', 's3', 'secrets'], edges: ['log_iam', 'log_s3', 'log_sec'],
+    lead: { ids: ['iam', 's3', 'secrets', 'detect'], pts: [[3700, 1085]] }, mainFull: true },
+  { id: 'controls', phase: 'detect', color: C.secure, title: 'Where controls would have cut it',
+    body: 'Each shield marks a link where one control breaks the chain. Fix the earliest and everything after it never happens, which is why prevention beats detection.',
+    callouts: [], touch: [], edges: [], mainFull: true, all: true }
+];
+
+/* controls shown in the last step: edge + point on it + label placement */
+var SHIELDS = [
+  { n: '2',   edge: 'att_cdn',    seg: 0, t: 0.50, label: 'WAF rule',            side: 'up' },
+  { n: '2/3', edge: 'store_imds', seg: 0, t: 0.55, label: 'IMDSv2 hop limit',    side: 'left' },
+  { n: '5',   edge: 'byp_sec',    seg: 1, t: 0.62, label: 'Least-privilege role', side: 'right' },
+  { n: '6',   edge: 'byp_s3',     seg: 1, t: 0.40, label: 'Bucket policy + endpoint', side: 'right' },
+  { n: '8',   edge: 'store_pay',  seg: 0, t: 0.50, label: 'Network policy',      side: 'down', off: [100, 40] }
+];
+/* the order in which the finished attack is traced in step 11 */
+var TRACE = ['att_cdn', 'cdn_lb', 'lb_store', 'store_imds', 'byp_iam', 'byp_s3', 'byp_sec', 'store_pay', 'pay_db'];
+
+/* ---- layout: bottom-up measure, top-down place. Rows align children on their "anchor" line (the main flow). ---- */
+function textW(label, fs, caps) { return label.length * fs * (caps ? 0.68 : 0.56); }
+
+function measure(b) {
+  if (b.type === 'node') { b.w = NW; b.h = NH; b.a = NH / 2; return; }
+  var p = b.pad = { l: PAD, r: PAD, t: b.label ? TOPPAD : 0, b: PAD };
+  if (b.padOver) for (var k in b.padOver) p[k] = b.padOver[k];
+  b.kids.forEach(measure);
+  var cw = 0, ch = 0, a;
+  if (b.dir === 'row') {
+    var A = 0;
+    b.kids.forEach(function (c) { A = Math.max(A, c.a); });
+    b.kids.forEach(function (c, i) {
+      if (i) cw += (c.gapBefore != null ? c.gapBefore : b.gap);
+      c.rx = cw; c.ry = A - c.a; cw += c.w; ch = Math.max(ch, c.ry + c.h);
+    });
+    a = p.t + A;
+  } else {
+    var main = null;
+    b.kids.forEach(function (c, i) {
+      if (i) ch += (c.gapBefore != null ? c.gapBefore : b.gap);
+      c.ry = ch; c.rx = c.dx || 0; ch += c.h; cw = Math.max(cw, c.rx + c.w);
+      if (c.main) main = c;
+    });
+    a = p.t + (main ? main.ry + main.a : ch / 2);
+  }
+  b.cw = cw; b.ch = ch; b.a = a;
+  b.w = p.l + cw + p.r; b.h = p.t + ch + p.b;
+  if (b.label) {
+    b.tab = { w: Math.round(textW(b.label, LFS, b.caps) + 44), h: TABH };
+    b.w = Math.max(b.w, b.tab.w + 40);
+  }
+}
+function place(b, x, y, B, depth, parent) {
+  b.x = x; b.y = y; b.cx = x + b.w / 2; b.cy = y + b.h / 2; b.depth = depth; b.parent = parent; B[b.id] = b;
+  if (b.type === 'node') return;
+  var p = b.pad, ox = x + p.l + (b.w - p.l - p.r - b.cw) / 2, oy = y + p.t;
+  b.kids.forEach(function (c) { place(c, ox + c.rx, oy + c.ry, B, depth + 1, b.id); });
+}
+function layoutTree() {
+  measure(TREE);
+  var B = {};
+  place(TREE, MARGIN, MARGIN, B, 0, null);
+  return B;
+}
+
+/* ---- edges: orthogonal waypoints through the gaps. The first/last points sit inside the nodes (hidden). ---- */
+function buildEdges(B) {
+  var A = B.attacker, Y = A.cy, acc = B.account, vpc = B.vpc, sf = B.storefront;
+  var L1 = acc.y + acc.h + LANE0, L2 = L1 + LANEGAP, L3 = L2 + LANEGAP;
+  var X1 = vpc.x + vpc.w + XK0, X2 = X1 + XKGAP, X3 = X2 + XKGAP;
+  var iam = B.iam, s3 = B.s3, sec = B.secrets, D = B.detect, R = iam.x + iam.w;
+  var E = {};
+  function def(id, a, b, pts) { E[id] = { id: id, a: a, b: b, pts: pts }; }
+  def('att_cdn', 'attacker', 'cdn', [[A.cx, Y], [B.cdn.cx, Y]]);
+  def('cdn_lb', 'cdn', 'lb', [[B.cdn.cx, Y], [B.lb.cx, Y]]);
+  def('lb_store', 'lb', 'storefront', [[B.lb.cx, Y], [sf.cx, Y]]);
+  def('store_imds', 'storefront', 'imds', [[sf.cx, Y], [sf.cx, B.imds.cy]]);
+  def('store_pay', 'storefront', 'payments', [[sf.cx, Y], [B.payments.cx, Y]]);
+  def('pay_db', 'payments', 'db', [[B.payments.cx, Y], [B.db.cx, Y]]);
+  /* bypass: out of the bottom of the attacker, under the account, up the channel beside the VPC */
+  def('byp_iam', 'attacker', 'iam', [[A.cx + 70, Y], [A.cx + 70, L1], [X1, L1], [X1, iam.cy], [iam.cx, iam.cy]]);
+  def('byp_s3', 'attacker', 's3', [[A.cx, Y], [A.cx, L2], [X2, L2], [X2, s3.cy], [s3.cx, s3.cy]]);
+  def('byp_sec', 'attacker', 'secrets', [[A.cx - 70, Y], [A.cx - 70, L3], [X3, L3], [X3, sec.cy], [sec.cx, sec.cy]]);
+  /* audit trail into CloudTrail/GuardDuty, nested so no two lanes cross */
+  def('log_iam', 'iam', 'detect', [[iam.cx, iam.cy], [R + 90, iam.cy], [R + 90, D.cy + 30], [D.cx, D.cy + 30]]);
+  def('log_s3', 's3', 'detect', [[s3.cx, s3.cy], [R + 60, s3.cy], [R + 60, D.cy], [D.cx, D.cy]]);
+  def('log_sec', 'secrets', 'detect', [[sec.cx, sec.cy], [R + 30, sec.cy], [R + 30, D.cy - 30], [D.cx, D.cy - 30]]);
+  Object.keys(E).forEach(function (id) { E[id].d = roundedPath(E[id].pts, 30); E[id].len = polyLen(E[id].pts); });
+  return { E: E, lanes: [L1, L2, L3] };
+}
+function roundedPath(pts, r) {
+  var d = 'M' + pts[0][0] + ',' + pts[0][1];
+  for (var i = 1; i < pts.length - 1; i++) {
+    var p0 = pts[i - 1], p1 = pts[i], p2 = pts[i + 1];
+    var l1 = Math.abs(p1[0] - p0[0]) + Math.abs(p1[1] - p0[1]), l2 = Math.abs(p2[0] - p1[0]) + Math.abs(p2[1] - p1[1]);
+    var rr = Math.min(r, l1 / 2, l2 / 2);
+    var ax = p1[0] - Math.sign(p1[0] - p0[0]) * rr, ay = p1[1] - Math.sign(p1[1] - p0[1]) * rr;
+    var bx = p1[0] + Math.sign(p2[0] - p1[0]) * rr, by = p1[1] + Math.sign(p2[1] - p1[1]) * rr;
+    d += ' L' + ax + ',' + ay + ' Q' + p1[0] + ',' + p1[1] + ' ' + bx + ',' + by;
+  }
+  var q = pts[pts.length - 1];
+  return d + ' L' + q[0] + ',' + q[1];
+}
+function polyLen(pts) {
+  var s = 0;
+  for (var i = 1; i < pts.length; i++) s += Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]);
+  return s;
+}
+function segPoint(pts, seg, t) {
+  var a = pts[seg], b = pts[seg + 1];
+  return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+}
+function polyMid(pts) {
+  var half = polyLen(pts) / 2, acc = 0;
+  for (var i = 1; i < pts.length; i++) {
+    var l = Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]);
+    if (acc + l >= half) return segPoint(pts, i - 1, (half - acc) / l);
+    acc += l;
+  }
+  return pts[0];
+}
+/* ports: where an edge crosses a container border */
+function portsFor(pts, boxes) {
+  var out = [];
+  for (var i = 1; i < pts.length; i++) {
+    var a = pts[i - 1], b = pts[i];
+    boxes.forEach(function (c) {
+      if (a[0] === b[0]) {
+        var x = a[0], lo = Math.min(a[1], b[1]), hi = Math.max(a[1], b[1]);
+        if (x > c.x + 1 && x < c.x + c.w - 1) {
+          if (lo < c.y && hi > c.y) out.push([x, c.y]);
+          if (lo < c.y + c.h && hi > c.y + c.h) out.push([x, c.y + c.h]);
+        }
+      } else {
+        var y = a[1], l2 = Math.min(a[0], b[0]), h2 = Math.max(a[0], b[0]);
+        if (y > c.y + 1 && y < c.y + c.h - 1) {
+          if (l2 < c.x && h2 > c.x) out.push([c.x, y]);
+          if (l2 < c.x + c.w && h2 > c.x + c.w) out.push([c.x + c.w, y]);
+        }
+      }
+    });
+  }
+  return out;
+}
+
+/* ---- camera ---- */
+function frameFromBounds(model, bb, mx, my) {
+  var w = bb.x1 - bb.x0 + 2 * mx, h = bb.y1 - bb.y0 + 2 * my;
+  if (w / h < ASPECT) w = h * ASPECT; else h = w / ASPECT;
+  var full = model.full;
+  if (w >= full.w * 0.96) return { x: full.x, y: full.y, w: full.w, h: full.h };
+  var x = (bb.x0 + bb.x1) / 2 - w / 2, y = (bb.y0 + bb.y1) / 2 - h / 2;
+  var wd = model.world;
+  x = Math.max(wd.x, Math.min(x, wd.x + wd.w - w));
+  if (h <= wd.h) y = Math.max(wd.y, Math.min(y, wd.y + wd.h - h));
+  return { x: x, y: y, w: w, h: h };
+}
+function boundsOf(model, ids, edgeIds, pts) {
+  var bb = { x0: 1e9, y0: 1e9, x1: -1e9, y1: -1e9 };
+  function add(x, y) { bb.x0 = Math.min(bb.x0, x); bb.y0 = Math.min(bb.y0, y); bb.x1 = Math.max(bb.x1, x); bb.y1 = Math.max(bb.y1, y); }
+  ids.forEach(function (id) { var b = model.B[id]; add(b.x, b.y); add(b.x + b.w, b.y + b.h); });
+  (edgeIds || []).forEach(function (id) { model.E[id].pts.forEach(function (p) { add(p[0], p[1]); }); });
+  (pts || []).forEach(function (p) { add(p[0], p[1]); });
+  return bb;
+}
+
+/* ---- callouts and shields (geometry in diagram space) ---- */
+function anchorOf(model, target, side, seg, t) {
+  var b = model.B[target];
+  if (b) {
+    if (side === 'up') return [b.cx, b.y];
+    if (side === 'down') return [b.cx, b.y + b.h];
+    if (side === 'left') return [b.x, b.cy];
+    return [b.x + b.w, b.cy];
+  }
+  var e = model.E[target];
+  return seg != null ? segPoint(e.pts, seg, t) : polyMid(e.pts);
+}
+function labelBox(side, P, D, tw, th, off) {
+  var cx, cy;
+  if (side === 'up') { cx = P[0]; cy = P[1] - D - th / 2; }
+  else if (side === 'down') { cx = P[0]; cy = P[1] + D + th / 2; }
+  else if (side === 'left') { cx = P[0] - D - tw / 2; cy = P[1]; }
+  else { cx = P[0] + D + tw / 2; cy = P[1]; }
+  if (off) { cx += off[0]; cy += off[1]; }
+  return { x: cx - tw / 2, y: cy - th / 2, w: tw, h: th, cx: cx, cy: cy };
+}
+function calloutGeom(model, step, c) {
+  var fr = model.frames[step.id], z = c.lead && fr.leadZoom ? fr.leadZoom : fr.zoom;
+  var fs = Math.max(26, Math.min(44, Math.round(25 / z)));
+  var tw = Math.round(c.text.length * fs * 0.56 + 40), th = fs + 26;
+  var P = anchorOf(model, c.target, c.side || 'up', c.seg, c.t);
+  var D = Math.round(50 + 30 / z);
+  var box = labelBox(c.side || 'up', P, D, tw, th, c.off);
+  return { fs: fs, P: P, box: box };
+}
+function shieldGeom(model, s) {
+  var e = model.E[s.edge], P = segPoint(e.pts, s.seg, s.t);
+  var fs = 43, tw = Math.round(s.label.length * fs * 0.56 + 44), th = 64;
+  var D = s.side === 'down' ? 52 : s.side === 'up' ? 40 : 42;
+  var box = labelBox(s.side, P, D, tw, th, s.off);
+  return { P: P, fs: fs, box: box };
+}
+
+function wordCount(s) { return s.trim().split(/\s+/).length; }
+
+function buildModel() {
+  var B = layoutTree();
+  var eb = buildEdges(B);
+  var acc = B.account;
+  var world = { x: 0, y: 0, w: B.root.w + 2 * MARGIN, h: eb.lanes[2] + 130 };
+  var fw = Math.max(world.w, world.h * ASPECT);
+  var full = { x: world.w / 2 - fw / 2, y: world.h / 2 - fw / ASPECT / 2, w: fw, h: fw / ASPECT };
+  var model = { B: B, E: eb.E, lanes: eb.lanes, world: world, full: full, frames: {}, tree: TREE };
+  var boxes = Object.keys(B).map(function (k) { return B[k]; });
+  model.boxes = boxes.filter(function (b) { return b.type === 'box' && b.kind !== 'root'; });
+  model.nodes = boxes.filter(function (b) { return b.type === 'node'; });
+  model.ports = {};
+  Object.keys(model.E).forEach(function (id) { model.ports[id] = portsFor(model.E[id].pts, model.boxes); });
+  var imds = B.imds;
+  model.credPop = { cx: imds.cx + 330, cy: imds.cy - 24, w: 330, h: 224 };
+  STEPS.forEach(function (st) {
+    var main = st.mainFull ? full : frameFromBounds(model, boundsOf(model, st.touch, st.edges), 190, 160);
+    var f = { main: main, zoom: 1920 / main.w, lead: null };
+    if (st.lead) {
+      var pts = st.lead.pts || null, cp = model.credPop;
+      if (st.lead.pop) pts = [[cp.cx - cp.w / 2, cp.cy - cp.h / 2], [cp.cx + cp.w / 2, cp.cy + cp.h / 2]];
+      f.lead = frameFromBounds(model, boundsOf(model, st.lead.ids, [], pts), 150, 130);
+      f.leadZoom = 1920 / f.lead.w;
+    }
+    model.frames[st.id] = f;
+  });
+  return model;
+}
+//</core>
+
+var ICONS = {
+  attacker: '<path d="M-17,23 C-17,9 -8,3 0,3 C8,3 17,9 17,23 Z"/><path d="M-11,-7 C-11,-18 -6,-23 0,-23 C6,-23 11,-18 11,-7 C11,3 6,5 0,5 C-6,5 -11,3 -11,-7 Z"/><path d="M-6,-8 H6"/>',
+  cdn:      '<path d="M0,-23 L19,-15 V2 C19,13 10,20 0,25 C-10,20 -19,13 -19,2 V-15 Z"/><path d="M-10,-7 L-5,9 L0,-3 L5,9 L10,-7"/>',
+  lb:       '<circle cx="-19" cy="0" r="4"/><path d="M-15,0 H-5 M-5,0 L6,-14 H14 M-5,0 H14 M-5,0 L6,14 H14"/><circle cx="18" cy="-14" r="3.5"/><circle cx="18" cy="0" r="3.5"/><circle cx="18" cy="14" r="3.5"/>',
+  store:    '<path d="M-20,-8 L-15,-21 H15 L20,-8"/><path d="M-20,-8 C-20,-2 -10,-2 -10,-8 C-10,-2 0,-2 0,-8 C0,-2 10,-2 10,-8 C10,-2 20,-2 20,-8"/><path d="M-16,-1 V21 H16 V-1"/><rect x="-5" y="7" width="10" height="14"/>',
+  payments: '<rect x="-24" y="-15" width="48" height="30" rx="5"/><path d="M-24,-5 H24 M-16,7 H-4"/>',
+  chip:     '<rect x="-15" y="-15" width="30" height="30" rx="5"/><rect x="-6" y="-6" width="12" height="12" rx="2"/><path d="M-8,-15 V-22 M0,-15 V-22 M8,-15 V-22 M-8,15 V22 M0,15 V22 M8,15 V22 M-15,-8 H-22 M-15,0 H-22 M-15,8 H-22 M15,-8 H22 M15,0 H22 M15,8 H22"/>',
+  iam:      '<path d="M0,-21 L18,-14 V2 C18,13 9,19 0,23 C-9,19 -18,13 -18,2 V-14 Z"/><circle cx="0" cy="-5" r="5"/><path d="M-9,12 C-9,5 9,5 9,12"/>',
+  bucket:   '<ellipse cx="0" cy="-15" rx="19" ry="6"/><path d="M-19,-15 L-14,19 C-14,24 14,24 14,19 L19,-15"/><path d="M-17,-1 C-10,4 10,4 17,-1"/>',
+  lock:     '<rect x="-15" y="-4" width="30" height="25" rx="5"/><path d="M-9,-4 V-11 A9,9 0 0 1 9,-11 V-4"/><circle cx="0" cy="8" r="3"/><path d="M0,11 V15"/>',
+  eye:      '<path d="M-23,0 C-12,-15 12,-15 23,0 C12,15 -12,15 -23,0 Z"/><circle cx="0" cy="0" r="6.5"/>',
+  db:       '<ellipse cx="0" cy="-14" rx="19" ry="6.5"/><path d="M-19,-14 V14 C-19,18 -10,21 0,21 C10,21 19,18 19,14 V-14"/><path d="M-19,0 C-19,4 -10,7 0,7 C10,7 19,4 19,0"/>'
+};
+
+var KIND = {
+  internet: { r: 34, sw: 3,   stroke: '#33405a', dash: '18 12', fa: 0.012 },
+  account:  { r: 36, sw: 4.5, stroke: '#46536f', dash: null,    fa: 0.03 },
+  edge:     { r: 30, sw: 4,   stroke: '#4d5c7b', dash: '1 11',   fa: 0.045, cap: 'round' },
+  vpc:      { r: 30, sw: 3.5, stroke: '#4d5d7e', dash: '30 9 5 9', fa: 0.05 },
+  subnet:   { r: 24, sw: 2.5, stroke: '#52628a', dash: null,    fa: 0.065 },
+  cluster:  { r: 22, sw: 3,   stroke: '#5a6b93', dash: null,    fa: 0.085, dbl: true },
+  ns:       { r: 18, sw: 2.5, stroke: '#65779f', dash: '9 7',   fa: 0.11 },
+  acct:     { r: 28, sw: 3,   stroke: '#4a5a7c', dash: '3 8',   fa: 0.05, cap: 'round' }
+};
+
+/* ==========================================================================
+   2. SCAFFOLDING  (stage, svg helpers, world builder, controls, timeline contract)
+   ========================================================================== */
+var NS = 'http://www.w3.org/2000/svg';
+var QS = new URLSearchParams(location.search);
+var CAPTURE = QS.get('capture') === '1';
+var NARR_MODES = ['full', 'caption', 'off'];
+var narr = NARR_MODES.indexOf(QS.get('narration')) >= 0 ? QS.get('narration') : 'full';
+var PRESENT = QS.get('present') === '1';
+var stage = document.getElementById('stage');
+var viewport = document.getElementById('viewport');
+if (CAPTURE) document.body.classList.add('capture');
+
+function el(tag, attrs, parent) {
+  var e = document.createElementNS(NS, tag);
+  for (var k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function txt(parent, s, attrs) { var e = el('text', attrs, parent); e.textContent = s; return e; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+function fit() {
+  var r = viewport.getBoundingClientRect();
+  var s = Math.min(r.width / 1920, r.height / 1080);
+  stage.style.transform = 'scale(' + s + ')';
+  stage.style.left = ((r.width - 1920 * s) / 2) + 'px';
+  stage.style.top = ((r.height - 1080 * s) / 2) + 'px';
+}
+window.addEventListener('resize', fit);
+fit();
+function applyNarr() { stage.className = 'nm-' + narr; }
+applyNarr();
+
+var MODEL = buildModel();
+var TIMES = {};   /* step id -> start time, filled by choreograph */
+
+/* ---- world: containers, edges (with ports), trail, nodes, marks, minimap ---- */
+function buildWorld() {
+  var M = MODEL;
+  var svg = el('svg', { viewBox: [M.full.x, M.full.y, M.full.w, M.full.h].join(' '), width: 1920, height: 720 }, stage);
+  svg.id = 'dia';
+  svg.style.cssText = 'position:absolute;left:0;top:100px;display:block;';
+  stage.insertBefore(svg, stage.firstChild);
+  var L = {};
+  ['boxes', 'edges', 'trail', 'fx', 'packets', 'nodes', 'top', 'callouts'].forEach(function (n) { L[n] = el('g', { 'data-layer': n }, svg); });
+
+  var BX = {}, EG = {}, E = {}, T = {}, ND = {}, NM = {};
+  M.boxes.slice().sort(function (a, b) { return a.depth - b.depth; }).forEach(function (b) {
+    var k = KIND[b.kind], g = el('g', {}, L.boxes);
+    BX[b.id] = g;
+    var ra = { x: b.x, y: b.y, width: b.w, height: b.h, rx: k.r, fill: '#ffffff', 'fill-opacity': k.fa, stroke: k.stroke, 'stroke-width': k.sw };
+    if (k.dash) ra['stroke-dasharray'] = k.dash;
+    if (k.cap) ra['stroke-linecap'] = k.cap;
+    el('rect', ra, g);
+    if (k.dbl) el('rect', { x: b.x + 10, y: b.y + 10, width: b.w - 20, height: b.h - 20, rx: k.r - 6, fill: 'none', stroke: k.stroke, 'stroke-width': 1.5, 'stroke-opacity': 0.7 }, g);
+    var tw = b.tab.w, th = TABH, r = k.r;
+    el('path', { d: 'M' + b.x + ',' + (b.y + th) + ' V' + (b.y + r) + ' Q' + b.x + ',' + b.y + ' ' + (b.x + r) + ',' + b.y + ' H' + (b.x + tw) +
+                    ' V' + (b.y + th - 14) + ' Q' + (b.x + tw) + ',' + (b.y + th) + ' ' + (b.x + tw - 14) + ',' + (b.y + th) + ' Z',
+                 fill: k.stroke, 'fill-opacity': 0.55 }, g);
+    txt(g, b.label, { x: b.x + 22, y: b.y + 44, class: 'sans', fill: '#dbe3f0', 'font-size': LFS, 'font-weight': 650, 'letter-spacing': b.caps ? 2 : 0 });
+  });
+
+  Object.keys(M.E).forEach(function (id) {
+    var e = M.E[id], g = el('g', {}, L.edges);
+    EG[id] = g;
+    E[id] = el('path', { id: 'edge-' + id, d: e.d, fill: 'none', stroke: '#33405a', 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+    M.ports[id].forEach(function (p) {
+      el('circle', { cx: p[0], cy: p[1], r: 9, fill: C.bg, stroke: '#7d8cab', 'stroke-width': 3 }, g);
+    });
+    T[id] = el('path', { d: e.d, fill: 'none', stroke: C.danger, 'stroke-width': 9, 'stroke-linecap': 'round', opacity: 0 }, L.trail);
+  });
+
+  var tip = document.getElementById('tip');
+  M.nodes.forEach(function (b) {
+    var n = b.id, def = b;
+    var g = el('g', { class: 'node', transform: 'translate(' + b.cx + ',' + b.cy + ')' }, L.nodes);
+    var hw = NW / 2, hh = NH / 2, two = b.lines.length > 1;
+    el('rect', { x: -hw, y: -hh, width: NW, height: NH, rx: 20, fill: C.panel, stroke: '#3a4660', 'stroke-width': 2.5 }, g);
+    var ig = el('g', { transform: 'translate(0,' + (two ? -30 : -16) + ')', fill: 'none', stroke: b.tint, 'stroke-width': 3, 'stroke-linecap': 'round', 'stroke-linejoin': 'round' }, g);
+    ig.innerHTML = ICONS[b.icon];
+    if (two) {
+      txt(g, b.lines[0], { x: 0, y: 22, 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': 26, 'font-weight': 600 });
+      txt(g, b.lines[1], { x: 0, y: 52, 'text-anchor': 'middle', class: 'sans', fill: C.muted, 'font-size': 24, 'font-weight': 500 });
+    } else {
+      txt(g, b.lines[0], { x: 0, y: 44, 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': 28, 'font-weight': 600 });
+    }
+    /* persistent "abused / compromised" marker */
+    var mk = el('g', { opacity: 0 }, g);
+    el('rect', { x: -hw, y: -hh, width: NW, height: NH, rx: 20, fill: C.danger, 'fill-opacity': 0.1, stroke: C.danger, 'stroke-width': 6 }, mk);
+    var bd = el('g', { transform: 'translate(' + (hw - 6) + ',' + (-hh + 6) + ')' }, mk);
+    el('circle', { cx: 0, cy: 0, r: 21, fill: C.danger, stroke: C.bg, 'stroke-width': 4 }, bd);
+    txt(bd, '!', { x: 0, y: 10, 'text-anchor': 'middle', class: 'sans', fill: C.bg, 'font-size': 30, 'font-weight': 800 });
+    NM[n] = mk;
+    ND[n] = { g: g, x: b.cx, y: b.cy };
+    if (!CAPTURE) {
+      g.addEventListener('mouseenter', function () {
+        tip.innerHTML = '<b>' + def.lines.join(' ') + '</b><span>' + def.tip + '</span>';
+        tip.style.display = 'block';
+        var r = g.getBoundingClientRect(), sr = stage.getBoundingClientRect(), sc = sr.width / 1920;
+        tip.style.left = clamp((r.left - sr.left) / sc + (r.width / sc) / 2 - 220, 10, 1470) + 'px';
+        tip.style.top = clamp((r.bottom - sr.top) / sc + 10, 100, 700) + 'px';
+      });
+      g.addEventListener('mouseleave', function () { tip.style.display = 'none'; });
+    }
+  });
+
+  /* mini-map (stage-fixed) */
+  var mm = document.getElementById('mm'), sc = 340 / M.world.w;
+  var mmg = el('g', { transform: 'scale(' + sc + ')' }, mm);
+  M.boxes.forEach(function (b) {
+    el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 14, fill: 'none', stroke: '#52628a', 'stroke-width': 4 / sc * 0.5 }, mmg);
+  });
+  M.nodes.forEach(function (b) { el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 14, fill: '#3a4660' }, mmg); });
+  var mmCam = el('rect', { x: 0, y: 0, width: 10, height: 10, fill: 'none', stroke: C.accent, 'stroke-width': 24 }, mmg);
+  var mmDot = el('circle', { cx: 0, cy: 0, r: 60, fill: C.danger, stroke: C.bg, 'stroke-width': 14 }, mmg);
+  mm.style.opacity = 0;
+  return { svg: svg, L: L, E: E, T: T, BX: BX, EG: EG, N: ND, NM: NM, M: M, mm: mm, mmCam: mmCam, mmDot: mmDot,
+           cam: { x: M.full.x, y: M.full.y, w: M.full.w }, dot: { x: M.B.attacker.cx, y: M.B.attacker.cy } };
+}
+
+/* ---- timeline helpers ---- */
+var EASE = 'power2.inOut';
+function ring(tl, w, id, t, color) {
+  var n = w.N[id], hw = NW / 2, hh = NH / 2;
+  var r = el('rect', { x: -hw, y: -hh, width: NW, height: NH, rx: 20, fill: 'none', stroke: color, 'stroke-width': 7, opacity: 0 }, n.g);
+  tl.fromTo(r, { opacity: 0 }, { opacity: 1, duration: 0.2, ease: 'power2.out' }, t);
+  tl.fromTo(r, { opacity: 1 }, { opacity: 0, duration: 1.0, ease: 'power2.in' }, t + 0.6);
+}
+function mkChip(parent, label, color, sc) {
+  var fs = 34, cw = Math.round(label.length * fs * 0.6 + 44), ch = 64;
+  var g = el('g', { opacity: 0 }, parent), s = el('g', { transform: 'scale(' + (sc || 1) + ')' }, g);
+  el('rect', { x: -cw / 2, y: -ch / 2, width: cw, height: ch, rx: 18, fill: C.panel, stroke: color, 'stroke-width': 4.5 }, s);
+  el('rect', { x: -cw / 2, y: -ch / 2, width: cw, height: ch, rx: 18, fill: color, 'fill-opacity': 0.18 }, s);
+  txt(s, label, { x: 0, y: 0, dy: '.35em', 'text-anchor': 'middle', class: 'mono', fill: C.text, 'font-size': fs });
+  return g;
+}
+function mkCred(parent, sc) {
+  var g = el('g', { opacity: 0 }, parent), s = el('g', { transform: 'scale(' + (sc || 1) + ')' }, g);
+  var W = 330, H = 224;
+  el('rect', { x: -W / 2, y: -H / 2, width: W, height: H, rx: 20, fill: C.panel, stroke: C.token, 'stroke-width': 5 }, s);
+  el('rect', { x: -W / 2, y: -H / 2, width: W, height: H, rx: 20, fill: C.token, 'fill-opacity': 0.12 }, s);
+  txt(s, 'temporary credentials', { x: 0, y: -H / 2 + 38, 'text-anchor': 'middle', class: 'sans', fill: C.token, 'font-size': 26, 'font-weight': 700 });
+  ['AccessKeyId', 'SecretAccessKey', 'SessionToken', 'Expiration'].forEach(function (k, i) {
+    var y = -H / 2 + 86 + i * 40;
+    el('rect', { x: -W / 2 + 22, y: y - 25, width: W - 44, height: 34, rx: 9, fill: C.token, 'fill-opacity': 0.2 }, s);
+    txt(s, k, { x: -W / 2 + 34, y: y, class: 'mono', fill: C.text, 'font-size': 26 });
+  });
+  return g;
+}
+
+/* ---- timeline contract + controls ---- */
+function bootstrap(choreograph) {
+  var world = buildWorld();
+  var tl = gsap.timeline({ paused: true, onUpdate: onTick });
+  var rawFromTo = tl.fromTo.bind(tl);
+  tl.fromTo = function (t, from, to, pos) { to.immediateRender = false; return rawFromTo(t, from, to, pos); };
+  var S = choreograph(tl, world);   /* returns { steps, duration } */
+  tl.set({}, {}, S.duration);
+  var duration = tl.duration();
+  var steps = S.steps;
+
+  function renderState() {
+    var c = world.cam, h = c.w / ASPECT;
+    world.svg.setAttribute('viewBox', c.x.toFixed(2) + ' ' + c.y.toFixed(2) + ' ' + c.w.toFixed(2) + ' ' + h.toFixed(2));
+    world.mmCam.setAttribute('x', c.x); world.mmCam.setAttribute('y', c.y);
+    world.mmCam.setAttribute('width', c.w); world.mmCam.setAttribute('height', h);
+    world.mmDot.setAttribute('cx', world.dot.x); world.mmDot.setAttribute('cy', world.dot.y);
+    var fw = MODEL.full.w;
+    world.mm.style.opacity = clamp((fw - c.w) / (fw * 0.06), 0, 1);
+  }
+  function stepIndexAt(t) {
+    var idx = 0;
+    steps.forEach(function (s, i) { if (t >= s.time - 1e-6) idx = i; });
+    return idx;
+  }
+  var guard = 0;   /* presenter mode: index of the step currently allowed to play out */
+  function guardFor(t) { return stepIndexAt(t + 0.05); }
+  function onTick() {
+    renderState();
+    if (PRESENT && !tl.paused() && guard + 1 < steps.length && tl.time() >= steps[guard + 1].time - 0.02) {
+      tl.pause(); tl.time(steps[guard + 1].time - 0.02, true); renderState();
+    }
+    syncUI();
+  }
+  function seek(t) { tl.pause(); tl.time(clamp(t, 0, duration), false); guard = guardFor(tl.time()); renderState(); syncUI(); }
+  function play() { if (tl.time() >= duration - 1e-6) tl.time(0, true); guard = guardFor(tl.time()); tl.play(); syncUI(); }
+  function pause() { tl.pause(); syncUI(); }
+  function isPlaying() { return !tl.paused() && tl.time() < duration - 1e-6; }
+  function goStep(i) {
+    var was = isPlaying() || PRESENT;
+    if (i < 0) i = 0;
+    var t = i >= steps.length ? duration : steps[i].time + 0.0001;
+    guard = i >= steps.length ? steps.length - 1 : i;
+    tl.time(t, false);
+    if (was) tl.play(); else tl.pause();
+    renderState(); syncUI();
+  }
+  function prevStep() { var t = tl.time(), i = stepIndexAt(t); goStep(t - steps[i].time > 0.6 ? i : i - 1); }
+  function nextStep() { goStep(stepIndexAt(tl.time()) + 1); }
+  function setNarr(m) { narr = m; applyNarr(); bNarr.textContent = 'Narration: ' + narr; }
+  function setPresent(on) { PRESENT = on; bPres.textContent = 'Present: ' + (PRESENT ? 'on' : 'off'); syncUI(); }
+
+  window.anim = { duration: duration, fps: 30,
+                  phases: PHASES.map(function (p) { return { id: p.id, title: p.title, firstStep: steps.findIndex(function (s) { return s.phase === p.id; }) }; }),
+                  steps: steps.map(function (s) { return { id: s.id, time: s.time, caption: s.title, title: s.title, body: s.body }; }),
+                  seek: seek, play: play, pause: pause };
+
+  var bPlay = document.getElementById('bPlay'), range = document.getElementById('range'), clock = document.getElementById('clock');
+  var bNarr = document.getElementById('bNarr'), bPres = document.getElementById('bPres'), pp = document.getElementById('pp');
+  var ticks = document.getElementById('ticks');
+  steps.forEach(function (s) {
+    var left = 'calc(8px + (100% - 16px) * ' + (s.time / duration) + ')';
+    var i = document.createElement('i'); i.style.left = left; ticks.appendChild(i);
+    var u = document.createElement('u'); u.style.left = left; u.textContent = s.id; ticks.appendChild(u);
+  });
+  function syncUI() {
+    var t = tl.time();
+    range.value = Math.round(t / duration * 1000);
+    clock.textContent = t.toFixed(1) + ' / ' + duration.toFixed(1) + ' s';
+    bPlay.textContent = isPlaying() ? 'Pause' : (t >= duration - 1e-6 ? 'Replay' : 'Play');
+    var i = stepIndexAt(t);
+    pp.style.display = (PRESENT && tl.paused() && i + 1 < steps.length && t >= steps[i + 1].time - 0.05) ? 'block' : 'none';
+  }
+  bPlay.addEventListener('click', function () { isPlaying() ? pause() : play(); });
+  document.getElementById('bPrev').addEventListener('click', prevStep);
+  document.getElementById('bNext').addEventListener('click', nextStep);
+  bNarr.addEventListener('click', function () { setNarr(NARR_MODES[(NARR_MODES.indexOf(narr) + 1) % 3]); });
+  bPres.addEventListener('click', function () { setPresent(!PRESENT); });
+  range.addEventListener('input', function () { seek(range.value / 1000 * duration); });
+  document.getElementById('speed').addEventListener('change', function (e) { tl.timeScale(parseFloat(e.target.value)); });
+  window.addEventListener('keydown', function (e) {
+    if (e.target && (e.target.tagName === 'SELECT' || e.target.tagName === 'INPUT') && e.code === 'Space') e.target.blur();
+    if (e.code === 'Space') { e.preventDefault(); isPlaying() ? pause() : play(); }
+    else if (e.code === 'ArrowLeft') { e.preventDefault(); prevStep(); }
+    else if (e.code === 'ArrowRight') { e.preventDefault(); nextStep(); }
+    else if (e.code === 'Home') { e.preventDefault(); seek(0); play(); }
+    else if (e.code === 'KeyN') setNarr(NARR_MODES[(NARR_MODES.indexOf(narr) + 1) % 3]);
+    else if (e.code === 'KeyP') setPresent(!PRESENT);
+  });
+
+  setNarr(narr); setPresent(PRESENT);
+  tl.time(0, false);
+  renderState(); syncUI();
+  if (!CAPTURE) { guard = 0; tl.play(); } else tl.pause();
+  syncUI();
+  return tl;
+}
+
+/* ==========================================================================
+   3. CHOREOGRAPHY  (all visual state is a function of timeline time)
+   ========================================================================== */
+var DIM = 0.35;
+
+function choreograph(tl, w) {
+  var M = MODEL, B = M.B, steps = [];
+  var camPrev = M.full, dotPrev = w.dot, focusCur = new Map();
+  var trailed = {}, shieldEls = [], traceEls = [];
+  var sceneEnd = 0;
+
+  /* ---- fixed HUD: phase rail, narrative band ---- */
+  var rail = document.getElementById('rail'), band = document.getElementById('band');
+  var phEls = {}, dotEls = [];
+  PHASES.forEach(function (p) {
+    var d = document.createElement('div'); d.className = 'ph';
+    var n = document.createElement('div'); n.className = 'pn'; n.textContent = p.title; d.appendChild(n);
+    var dd = document.createElement('div'); dd.className = 'pd'; d.appendChild(dd);
+    rail.appendChild(d); phEls[p.id] = { box: d, name: n, dots: dd };
+  });
+  STEPS.forEach(function (st, i) {
+    var dot = document.createElement('i'); phEls[st.phase].dots.appendChild(dot); dotEls.push(dot);
+    var tt = document.createElement('div'); tt.className = 'tt'; tt.innerHTML = '<b>' + (i + 1) + ' / ' + STEPS.length + '</b>';
+    tt.appendChild(document.createTextNode(st.title)); band.appendChild(tt); st.ttEl = tt;
+    var bd = document.createElement('div'); bd.className = 'bd'; bd.textContent = st.body; band.appendChild(bd); st.bdEl = bd;
+  });
+
+  /* ---- focus: dim what the step does not involve ---- */
+  function focusTo(t, st, dur, all) {
+    var act = { nodes: {}, boxes: {}, edges: {} };
+    if (!all) {
+      st.touch.forEach(function (id) { act.nodes[id] = 1; var p = B[id].parent; while (p) { act.boxes[p] = 1; p = B[p].parent; } });
+      st.edges.forEach(function (id) { act.edges[id] = 1; });
+    }
+    var items = [];
+    M.nodes.forEach(function (b) { items.push([w.N[b.id].g, all || act.nodes[b.id] ? 1 : DIM]); });
+    M.boxes.forEach(function (b) { items.push([w.BX[b.id], all || act.boxes[b.id] ? 1 : DIM]); });
+    Object.keys(M.E).forEach(function (id) { items.push([w.EG[id], all || act.edges[id] ? 1 : DIM]); });
+    items.forEach(function (it) {
+      var prev = focusCur.get(it[0]);
+      if (prev === undefined) tl.set(it[0], { opacity: it[1] }, t);
+      else if (prev !== it[1]) tl.fromTo(it[0], { opacity: prev }, { opacity: it[1], duration: dur, ease: 'power2.inOut' }, t);
+      focusCur.set(it[0], it[1]);
+    });
+  }
+
+  function camTo(t, frame, dur) {
+    tl.fromTo(w.cam, { x: camPrev.x, y: camPrev.y, w: camPrev.w }, { x: frame.x, y: frame.y, w: frame.w, duration: dur, ease: 'power2.inOut' }, t);
+    camPrev = frame;
+  }
+  function setActive(t, id, dur) {
+    var n = w.N[id];
+    tl.fromTo(w.dot, { x: dotPrev.x, y: dotPrev.y }, { x: n.x, y: n.y, duration: dur || 0.6, ease: 'power2.inOut' }, t);
+    dotPrev = { x: n.x, y: n.y };
+  }
+
+  function makeCtx(st, t0) {
+    var f = M.frames[st.id];
+    var c = { st: st, t0: t0, f: f, lines: [], callEls: [], firstR: 1e9, trailIds: [], z: f.zoom };
+    c.sc = clamp(0.74 / f.zoom, 1, 1.45);
+    c.chip = function (label, color) { return mkChip(w.L.packets, label, color, c.sc); };
+    c.hop = function (p, id, rev, r, dur, color, o) {
+      o = o || {};
+      var e = w.E[id], t = t0 + r, ed = M.E[id], arrive = rev ? ed.a : ed.b;
+      c.firstR = Math.min(c.firstR, r);
+      tl.set(p, { opacity: 1 }, t);
+      tl.to(p, { motionPath: { path: e, start: rev ? 1 : 0, end: rev ? 0 : 1 }, duration: dur, ease: EASE }, t);
+      if (o.hide) tl.set(p, { opacity: 0 }, t + dur + 0.001);
+      if (!o.noLine) {
+        var ln = el('path', { d: ed.d, fill: 'none', stroke: color, 'stroke-width': 8, 'stroke-linecap': 'butt', opacity: 0 }, w.L.fx);
+        tl.set(ln, { opacity: 1 }, t);
+        tl.fromTo(ln, { drawSVG: rev ? '100% 100%' : '0% 0%' }, { drawSVG: rev ? '0% 100%' : '0% 100%', duration: dur, ease: EASE }, t);
+        c.lines.push(ln);
+      }
+      if (!o.noRing) { ring(tl, w, arrive, t + dur - 0.15, color); setActive(t + dur - 0.5, arrive, 0.6); }
+      if (o.trail) c.trailIds.push(id);
+      return r + dur;
+    };
+    c.chain = function (p, hops, r, dur, color, o) {
+      o = o || {};
+      hops.forEach(function (h, i) {
+        var last = i === hops.length - 1;
+        r = c.hop(p, h[0], !!h[1], r, dur, color, { hide: last && o.hideLast !== false, trail: o.trail, noLine: o.noLine, noRing: o.noRing });
+      });
+      return r;
+    };
+    c.mark = function (id, r) {
+      tl.fromTo(w.NM[id], { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power2.out' }, t0 + r);
+    };
+    c.camTo = function (r, frame, dur) { c.firstR = Math.min(c.firstR, r); camTo(t0 + r, frame, dur); };
+    c.callout = function (cd, r) {
+      var G = calloutGeom(M, st, cd), b = G.box;
+      var g = el('g', { opacity: 0, class: 'co' }, w.L.callouts);
+      var ex = b.cx, ey = b.cy;
+      /* leader runs from the anchor to the nearest point on the label box */
+      var side = cd.side || 'up';
+      var lx = side === 'left' ? b.x + b.w : side === 'right' ? b.x : b.cx, ly = side === 'up' ? b.y + b.h : side === 'down' ? b.y : b.cy;
+      el('path', { d: 'M' + G.P[0] + ',' + G.P[1] + ' L' + lx + ',' + ly, fill: 'none', stroke: st.color, 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+      el('circle', { cx: G.P[0], cy: G.P[1], r: 9, fill: st.color, stroke: C.bg, 'stroke-width': 3 }, g);
+      el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 14, fill: C.panel, stroke: st.color, 'stroke-width': 3.5 }, g);
+      txt(g, cd.text, { x: ex, y: ey, dy: '.35em', 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': G.fs, 'font-weight': 600 });
+      tl.fromTo(g, { opacity: 0 }, { opacity: 1, duration: 0.5, ease: 'power3.out' }, t0 + (cd.at != null ? cd.at : r));
+      c.callEls.push(g);
+    };
+    return c;
+  }
+
+  /* ======== per-step choreography; each returns the relative time of its last motion ======== */
+  var IMPL = {
+    recon: function (c) {
+      c.camTo(1.0, c.f.main, 1.6);
+      ring(tl, w, 'attacker', c.t0 + 1.8, C.accent);
+      var p = c.chip('GET /shop?id=7', C.accent);
+      return c.chain(p, [['att_cdn'], ['cdn_lb'], ['lb_store']], 2.2, 1.7, C.accent);
+    },
+    ssrf: function (c) {
+      c.camTo(0.0, c.f.main, 1.4);
+      var p = c.chip('?url=169.254.169.254', C.danger);
+      var r = c.chain(p, [['att_cdn'], ['cdn_lb'], ['lb_store']], 1.2, 1.6, C.danger, { trail: true });
+      c.mark('storefront', r - 0.1);
+      var p2 = c.chip('GET /meta-data/', C.danger);
+      r = c.hop(p2, 'store_imds', false, r + 0.2, 1.6, C.danger, { hide: true, trail: true });
+      c.mark('imds', r - 0.1);
+      return r;
+    },
+    creds: function (c) {
+      var cp = M.credPop, imds = B.imds;
+      c.camTo(0.0, c.f.lead, 1.4);
+      /* readable pop-up card beside IMDS, then it shrinks into the object that travels */
+      var pop = mkCred(w.L.top, 1);
+      gsap.set(pop, { x: cp.cx, y: cp.cy });
+      tl.fromTo(pop, { opacity: 0 }, { opacity: 1, duration: 0.6, ease: 'power3.out' }, c.t0 + 1.4);
+      var trav = mkCred(w.L.packets, 0.62);
+      var tcard = trav;
+      var tk = 4.4;
+      tl.fromTo(pop, { x: cp.cx, y: cp.cy, scale: 1, opacity: 1 }, { x: imds.cx, y: imds.cy, scale: 0.62, opacity: 0, duration: 0.9, ease: 'power2.inOut' }, c.t0 + tk);
+      c.camTo(tk, c.f.main, 1.6);
+      var r = tk + 0.8;
+      r = c.chain(tcard, [['store_imds', true], ['lb_store', true], ['cdn_lb', true], ['att_cdn', true]], r, 1.6, C.token);
+      return r;
+    },
+    identity: function (c) {
+      c.camTo(0.0, c.f.main, 1.6);
+      var p = c.chip('GetCallerIdentity', C.danger);
+      var r = c.hop(p, 'byp_iam', false, 1.4, 2.4, C.danger, { hide: true, trail: true });
+      c.mark('iam', r - 0.1);
+      var p2 = c.chip('role: node-role', C.token);
+      r = c.hop(p2, 'byp_iam', true, r + 0.3, 2.0, C.token, { hide: true });
+      return r;
+    },
+    enumerate: function (c) {
+      c.camTo(0.0, c.f.main, 1.4);
+      var a = c.chip('ListBuckets', C.danger), b = c.chip('ListSecrets', C.danger);
+      var r1 = c.hop(a, 'byp_s3', false, 1.2, 2.4, C.danger, { hide: true, trail: true });
+      var r2 = c.hop(b, 'byp_sec', false, 1.4, 2.4, C.danger, { hide: true, trail: true });
+      c.mark('s3', r1 - 0.1); c.mark('secrets', r2 - 0.1);
+      var a2 = c.chip('customer-exports', C.danger), b2 = c.chip('orders-db-pass', C.danger);
+      var e1 = c.hop(a2, 'byp_s3', true, r1 + 0.4, 2.0, C.danger, { hide: true });
+      var e2 = c.hop(b2, 'byp_sec', true, r2 + 0.4, 2.0, C.danger, { hide: true });
+      return Math.max(e1, e2);
+    },
+    exfil: function (c) {
+      c.camTo(0.0, c.f.main, 1.4);
+      var names = ['orders.csv', 'refunds.csv', 'emails.csv', 'cards.csv', 'users.csv'], r = 0;
+      names.forEach(function (n, i) {
+        var p = c.chip(n, C.danger);
+        r = Math.max(r, c.hop(p, 'byp_s3', true, 1.2 + i * 0.6, 2.2, C.danger, { hide: true, noLine: i > 0, noRing: i < names.length - 1 }));
+      });
+      return r;
+    },
+    secret: function (c) {
+      c.camTo(0.0, c.f.main, 1.4);
+      var p = c.chip('GetSecretValue', C.danger);
+      var r = c.hop(p, 'byp_sec', false, 1.2, 2.2, C.danger, { hide: true });
+      var p2 = c.chip('db password', C.token);
+      return c.hop(p2, 'byp_sec', true, r + 0.4, 2.0, C.token, { hide: true });
+    },
+    pivot: function (c) {
+      c.camTo(0.0, c.f.main, 1.5);
+      var p = c.chip('?url=payments:8080', C.danger);
+      var r = c.chain(p, [['att_cdn'], ['cdn_lb'], ['lb_store']], 1.2, 1.6, C.danger, { hideLast: false, trail: true });
+      r = c.hop(p, 'store_pay', false, r, 1.6, C.danger, { hide: true, trail: true });
+      c.mark('payments', r - 0.1);
+      return r;
+    },
+    db: function (c) {
+      c.camTo(0.0, c.f.main, 1.5);
+      var p = c.chip('SELECT *', C.danger);
+      var r = c.hop(p, 'pay_db', false, 1.2, 1.6, C.danger, { hide: true, trail: true });
+      c.mark('db', r - 0.1);
+      var end = 0;
+      for (var i = 0; i < 3; i++) {
+        var q = c.chip('order rows', C.danger);
+        end = Math.max(end, c.chain(q, [['pay_db', true], ['store_pay', true], ['lb_store', true], ['cdn_lb', true], ['att_cdn', true]],
+                                  r + 0.3 + i * 0.7, 1.6, C.danger, { noLine: i > 0, noRing: i < 2 }));
+      }
+      return end;
+    },
+    detect: function (c) {
+      c.camTo(0.0, c.f.lead, 1.4);
+      var evs = ['log_iam', 'log_s3', 'log_sec'], r = 0;
+      evs.forEach(function (id, i) {
+        var p = c.chip('event', C.secure);
+        r = Math.max(r, c.hop(p, id, false, 1.4 + i * 0.4, 1.8, C.secure, { hide: true, noRing: i < 2 }));
+      });
+      /* finding badge on the detection node */
+      var bd = el('g', { transform: 'translate(' + (B.detect.cx) + ',' + (B.detect.y) + ')', opacity: 0 }, w.L.top);
+      var inner = el('g', {}, bd);
+      el('path', { d: 'M0,-34 L32,20 H-32 Z', fill: C.secure, stroke: C.bg, 'stroke-width': 5, 'stroke-linejoin': 'round' }, inner);
+      txt(inner, '!', { x: 0, y: 12, 'text-anchor': 'middle', class: 'sans', fill: C.bg, 'font-size': 36, 'font-weight': 800 });
+      tl.fromTo(bd, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'power2.out' }, c.t0 + r - 0.3);
+      tl.fromTo(inner, { scale: 0.2 }, { scale: 1, duration: 0.5, ease: 'back.out(2)' }, c.t0 + r - 0.3);
+      ring(tl, w, 'detect', r - 0.3 + c.t0, C.secure);
+      /* pull back: everything the attacker already did, lit at once */
+      var pb = r + 1.6;
+      c.camTo(pb, M.full, 1.8);
+      focusTo(c.t0 + pb, c.st, 0.9, true);
+      var tt = c.t0 + pb + 1.8;
+      Object.keys(w.T).forEach(function (id) {
+        if (!trailed[id]) return;
+        tl.fromTo(w.T[id], { opacity: 0.42 }, { opacity: 0.95, duration: 0.5, ease: 'power2.out', immediateRender: false }, tt);
+        tl.fromTo(w.T[id], { opacity: 0.95 }, { opacity: 0.42, duration: 0.9, ease: 'power2.in' }, tt + 0.9);
+      });
+      Object.keys(w.NM).forEach(function (id) { ring(tl, w, id, tt, C.danger); });
+      return pb + 1.8 + 1.8;
+    },
+    controls: function (c) {
+      c.firstR = 0.6;
+      var order = TRACE, r = 1.0;
+      order.forEach(function (id) {
+        var ed = M.E[id];
+        var ln = el('path', { d: ed.d, fill: 'none', stroke: C.danger, 'stroke-width': 11, 'stroke-linecap': 'round', opacity: 0 }, w.L.fx);
+        tl.set(ln, { opacity: 1 }, c.t0 + r);
+        tl.fromTo(ln, { drawSVG: '0% 0%' }, { drawSVG: '0% 100%', duration: 0.7, ease: 'power2.inOut' }, c.t0 + r);
+        traceEls.push({ id: id, el: ln });
+        r += 0.45;
+      });
+      var tTrace = r + 0.4;
+      /* shields land in chain order; after the first, the rest of the chain fades */
+      SHIELDS.forEach(function (s, i) {
+        var G = shieldGeom(M, s), b = G.box;
+        var g = el('g', { transform: 'translate(' + G.P[0] + ',' + G.P[1] + ')', opacity: 0 }, w.L.top);
+        var ic = el('g', {}, g);
+        el('path', { d: 'M0,-34 L28,-24 V0 C28,18 14,30 0,38 C-14,30 -28,18 -28,0 V-24 Z', fill: C.panel, stroke: C.secure, 'stroke-width': 5 }, ic);
+        el('path', { d: 'M0,-34 L28,-24 V0 C28,18 14,30 0,38 C-14,30 -28,18 -28,0 V-24 Z', fill: C.secure, 'fill-opacity': 0.25 }, ic);
+        txt(ic, s.n, { x: 0, y: 10, 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': s.n.length > 1 ? 24 : 30, 'font-weight': 800 });
+        var lg = el('g', { opacity: 0 }, w.L.top);
+        el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: 16, fill: C.panel, stroke: C.secure, 'stroke-width': 3.5 }, lg);
+        txt(lg, s.label, { x: b.cx, y: b.cy, dy: '.35em', 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': G.fs, 'font-weight': 600 });
+        var ts = tTrace + (i === 0 ? 0 : 2.4 + (i - 1) * 1.2);
+        tl.fromTo(g, { opacity: 0 }, { opacity: 1, duration: 0.25, ease: 'power2.out' }, c.t0 + ts);
+        tl.fromTo(ic, { scale: 2.2 }, { scale: 1, duration: 0.5, ease: 'back.out(1.6)' }, c.t0 + ts);
+        tl.fromTo(lg, { opacity: 0 }, { opacity: 1, duration: 0.4, ease: 'power3.out' }, c.t0 + ts + 0.25);
+        shieldEls.push(g);
+      });
+      var tFade = tTrace + 1.2;
+      traceEls.forEach(function (o) {
+        if (o.id === 'att_cdn') return;
+        tl.fromTo(o.el, { opacity: 1 }, { opacity: 0.1, duration: 1.2, ease: 'power2.inOut' }, c.t0 + tFade);
+      });
+      Object.keys(w.T).forEach(function (id) {
+        if (id === 'att_cdn' || !trailed[id]) return;
+        tl.fromTo(w.T[id], { opacity: 0.42 }, { opacity: 0.08, duration: 1.2, ease: 'power2.inOut' }, c.t0 + tFade);
+      });
+      Object.keys(w.NM).forEach(function (id) {
+        tl.fromTo(w.NM[id], { opacity: 1 }, { opacity: 0.2, duration: 1.2, ease: 'power2.inOut' }, c.t0 + tFade);
+      });
+      return tTrace + 2.4 + 3 * 1.2 + 1.0;
+    }
+  };
+
+  /* ======== assemble: steps run back to back; each step's length depends on its narrative ======== */
+  var t0 = 0, prevSt = null;
+  STEPS.forEach(function (st, i) {
+    st.time = t0; TIMES[st.id] = t0;
+    tl.addLabel(st.id, t0);
+    var c = makeCtx(st, t0);
+    focusTo(t0, st, 0.8, !!st.all);
+    var end = IMPL[st.id](c);
+    st.callouts.forEach(function (cd) { c.callout(cd, 1.0); });
+    var bodyR = Math.min(c.firstR, end) + 0.8, words = wordCount(st.body);
+    var len = HOLD_RULE === 'literal' ? end + Math.max(2.5, words / 3) : Math.max(end + 2.5, bodyR + words / 3);
+    if (i === STEPS.length - 1) len = Math.max(len, end + 3.5);
+    var tEnd = t0 + len;
+
+    /* narrative band, phase rail */
+    tl.fromTo(st.ttEl, { opacity: 0, y: 14 }, { opacity: 1, y: 0, duration: 0.5, ease: 'power3.out' }, t0 + 0.05);
+    tl.fromTo(st.bdEl, { opacity: 0, y: 10 }, { opacity: 1, y: 0, duration: 0.7, ease: 'power3.out' }, t0 + bodyR);
+    if (i < STEPS.length - 1) {
+      tl.fromTo(st.ttEl, { opacity: 1 }, { opacity: 0, duration: 0.3, ease: 'power1.in' }, tEnd - 0.35);
+      tl.fromTo(st.bdEl, { opacity: 1 }, { opacity: 0, duration: 0.3, ease: 'power1.in' }, tEnd - 0.35);
+    }
+    var ph = phEls[st.phase], first = !prevSt || prevSt.phase !== st.phase;
+    if (first) {
+      tl.fromTo(ph.name, { color: C.muted }, { color: C.text, duration: 0.4 }, t0);
+      tl.fromTo(ph.box, { borderBottomColor: C.line }, { borderBottomColor: C.accent, duration: 0.4 }, t0);
+    }
+    var next = STEPS[i + 1], lastOfPhase = !next || next.phase !== st.phase;
+    if (lastOfPhase && next) {
+      tl.fromTo(ph.name, { color: C.text }, { color: C.muted, duration: 0.4 }, tEnd);
+      tl.fromTo(ph.box, { borderBottomColor: C.accent }, { borderBottomColor: C.line, duration: 0.4 }, tEnd);
+    }
+    tl.fromTo(dotEls[i], { backgroundColor: '#2a3447', scale: 1 }, { backgroundColor: C.accent, scale: 1.4, duration: 0.3 }, t0);
+    if (next) tl.fromTo(dotEls[i], { backgroundColor: C.accent, scale: 1.4 }, { backgroundColor: '#8b98ad', scale: 1, duration: 0.3 }, tEnd);
+    else tl.fromTo(dotEls[i], { backgroundColor: C.accent, scale: 1.4 }, { backgroundColor: '#8b98ad', scale: 1, duration: 0.3 }, tEnd - 0.5);
+
+    /* callouts leave at the end of the step, active lines settle into the persistent trail */
+    c.callEls.forEach(function (g) { tl.fromTo(g, { opacity: 1 }, { opacity: 0, duration: 0.4, ease: 'power1.in' }, tEnd - 0.5); });
+    if (i < STEPS.length - 1) {
+      var tf = t0 + end + 0.3;
+      c.lines.forEach(function (ln) { tl.fromTo(ln, { opacity: 1 }, { opacity: 0, duration: 0.6, ease: 'power1.in' }, tf); });
+      c.trailIds.forEach(function (id) {
+        if (trailed[id]) return;
+        trailed[id] = true;
+        tl.fromTo(w.T[id], { opacity: 0 }, { opacity: 0.42, duration: 0.8, ease: 'power1.out' }, tf);
+      });
+    }
+    steps.push({ id: st.id, phase: st.phase, time: t0, title: st.title, body: st.body });
+    prevSt = st;
+    t0 = tEnd;
+  });
+  sceneEnd = t0;
+  return { steps: steps, duration: sceneEnd };
+}
+
+/* ==========================================================================
+   4. GO
+   ========================================================================== */
+bootstrap(choreograph);
+})();
+</script>
+</body>
+</html>

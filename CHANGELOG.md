@@ -6,6 +6,10 @@ All notable changes to this repository. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `explainer-animation`: an incident, architecture or plan explained as a film for slide decks (MP4, GIF, a clip and a still per step, flat or isometric) and as a self-contained replay page, both built from one story file with provenance on every record. Ships the build, validation, layout, render, replay and export scripts with their tests, a vendored GSAP, seven hand-adapt pattern pages, and references for the story format, the design rules, the checks and the history. Nothing invented is shown without the "Illustrative" mark, counts are computed, and the checks run in a headless browser the skill does not install.
+
 ### Removed
 
 - `guided-ops`, `cloudflare-edge` and `credential-rotation`: they were about running the owner's own hosts and devices, not building or running a repository's code, so they do not belong in the shared set. `project-docs` no longer names the device page or the exposure list (`docs/edge.md`) that they owned.

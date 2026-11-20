@@ -1,0 +1,92 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title><!--@title--></title>
+<style>
+  :root {
+    --bg: #0b0f17; --panel: #121826; --panel-2: #18202f; --line: #2a3447;
+    --text: #e6edf7; --muted: #8b98ad; --accent: #4cc9f0; --token: #f5b941;
+    --identity: #a78bfa; --secure: #3ddc97; --danger: #ff5d6c;
+    --sans: system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: var(--sans); overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+  #viewport { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+  #stage { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; transform-origin: 0 0; background: var(--bg); overflow: hidden; }
+  .sans { font-family: var(--sans); }
+  .mono { font-family: var(--mono); }
+  /* diagram area: 1920x720 between the rail and the band; the painter draws into #area, the text layer sits above it in stage space */
+  #area { position: absolute; left: 0; top: 100px; width: 1920px; height: 720px; overflow: hidden; }
+  #area > svg { display: block; }
+  #fade { position: absolute; left: 0; top: 100px; width: 1920px; height: 720px; pointer-events: none;
+          background:
+            linear-gradient(to bottom, #0b0f17, #0b0f1700) 0 0 / 100% 56px no-repeat,
+            linear-gradient(to top, #0b0f17, #0b0f1700) 0 100% / 100% 56px no-repeat,
+            linear-gradient(to right, #0b0f17, #0b0f1700) 0 0 / 56px 100% no-repeat,
+            linear-gradient(to left, #0b0f17, #0b0f1700) 100% 0 / 56px 100% no-repeat; }
+  #txt { position: absolute; left: 0; top: 0; width: 1920px; height: 1080px; pointer-events: none; overflow: visible; }
+  #rail { position: absolute; left: 60px; top: 14px; width: 1800px; height: 76px; display: flex; gap: 14px; }
+  .ph { flex: 1; box-sizing: border-box; padding-top: 4px; border-bottom: 4px solid var(--line); }
+  .ph .pn { font-size: 24px; font-weight: 650; color: var(--muted); white-space: nowrap; }
+  .ph .pd { display: flex; gap: 12px; margin-top: 10px; }
+  .ph .pd i { display: block; width: 16px; height: 16px; border-radius: 8px; background: #2a3447; }
+  .crumb { position: absolute; left: 30px; top: 104px; font-size: 25px; color: var(--muted); opacity: 0; white-space: nowrap; font-weight: 600; }
+  .crumb b { color: var(--text); font-weight: 650; }
+  .chip { position: absolute; left: 1264px; top: 852px; width: 216px; height: 44px; line-height: 44px; box-sizing: border-box; text-align: center;
+          font-size: 24px; font-weight: 650; color: var(--token); border: 2px solid var(--token); border-radius: 22px; background: var(--panel); opacity: 0; }
+  #bandline { position: absolute; left: 0; top: 832px; width: 1920px; height: 2px; background: var(--line); }
+  #band { position: absolute; left: 60px; top: 846px; width: 1420px; height: 224px; }
+  #band .tt { position: absolute; left: 0; top: 0; width: 1420px; font-size: 46px; font-weight: 700; line-height: 56px; white-space: nowrap; opacity: 0; }
+  #band .tt b { color: var(--accent); font-size: 38px; margin-right: 22px; font-weight: 700; }
+  #band .bd { position: absolute; left: 0; top: 68px; width: 1420px; font-size: 32px; line-height: 43px; color: #c4cee0; opacity: 0; }
+  #mm { position: absolute; left: 1530px; top: 862px; width: 340px; height: 128px; opacity: 0; }
+  #pp { position: absolute; left: 1530px; top: 1010px; width: 340px; text-align: right; font-size: 24px; color: var(--muted); display: none; }
+  .nm-caption #band .bd, .nm-caption .co { display: none; }
+  .nm-off #rail, .nm-off #band, .nm-off .crumb, .nm-off #bandline, .nm-off #mm, .nm-off .co { display: none; }
+  #controls { flex: none; height: 76px; box-sizing: border-box; display: flex; align-items: center; gap: 12px; padding: 0 22px;
+              background: #0e1320; border-top: 1px solid var(--line); font-size: 16px; color: var(--muted); }
+  #controls button, #controls select { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px;
+              padding: 9px 12px; font: inherit; font-size: 16px; cursor: pointer; }
+  #controls button:hover, #controls select:hover { border-color: var(--accent); }
+  #bPlay { min-width: 84px; }
+  #scrub { position: relative; flex: 1; height: 44px; }
+  #ticks { position: absolute; left: 0; right: 0; top: 0; height: 100%; pointer-events: none; }
+  #ticks i { position: absolute; top: 6px; width: 2px; height: 14px; margin-left: -1px; background: var(--muted); opacity: .8; }
+  #ticks u { position: absolute; top: 24px; transform: translateX(-50%); font-size: 12px; text-decoration: none; color: var(--muted); white-space: nowrap; }
+  #range { position: absolute; left: 0; right: 0; top: 8px; width: 100%; margin: 0; height: 28px; accent-color: var(--accent); }
+  #clock { min-width: 110px; text-align: right; font-family: var(--mono); font-size: 15px; }
+  body.capture #controls, body.capture #pp { display: none !important; }
+</style>
+</head>
+<body>
+<div id="viewport"><div id="stage">
+  <div id="area"></div>
+  <div id="fade"></div>
+  <svg id="txt" class="sans" width="1920" height="1080" viewBox="0 0 1920 1080"></svg>
+  <div id="rail"></div>
+  <div id="bandline"></div>
+  <div id="band"></div>
+  <div id="crumb" class="crumb"></div>
+  <svg id="mm" viewBox="0 0 340 128" width="340" height="128"></svg>
+  <div id="pp">Presenter: press Right arrow</div>
+</div></div>
+<div id="controls">
+  <button id="bPlay" title="Space">Pause</button>
+  <button id="bPrev" title="Left arrow">&#9664; Step</button>
+  <button id="bNext" title="Right arrow">Step &#9654;</button>
+  <div id="scrub"><div id="ticks"></div><input id="range" type="range" min="0" max="1000" value="0" step="1" aria-label="Timeline"></div>
+  <span id="clock">0.0 / 0.0 s</span>
+  <button id="bNarr" title="N">Narration: full</button>
+  <button id="bPres" title="P">Present: off</button>
+  <label>Speed <select id="speed"><option value="0.5">0.5x</option><option value="1" selected>1x</option><option value="2">2x</option></select></label>
+</div>
+<!--@vendor-->
+<!--@kit-->
+<!--@story-->
+<!--@extra-->
+<!--@boot-->
+</body>
+</html>
