@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Usage: EXPLAINER_BROWSER_DIR=<harness> node check-replay.mjs <replay.html>
+// Usage: EXPLAINER_BROWSER_DIR=<harness> node check-replay.mjs <replay.html> [--json]
 //
 // Browser check of a replay page built by `build.mjs <story> --replay` (modelled on BRIEF-v2 "Checks"):
 // Every probe is chosen from the page's own story and derived data (events, phases, systems, controls),
@@ -26,24 +26,66 @@
 //   behaviour click a system (card, filter), the filters, keyboard, #t= hash, reduced motion, Play,
 //             and the illustrative chip (all / some / none) and the record marks following the story's provenance
 // Exits 1 on any failure. Needs EXPLAINER_BROWSER_DIR (lib/browser.mjs).
+// --json: stdout is one JSON array of findings instead (references/checks.md, Machine-readable output).
 import path from 'node:path';
 import fs from 'node:fs';
 import { pathToFileURL } from 'node:url';
 import { launchBrowser } from './lib/browser.mjs';
 import { loadKit } from './lib/load-kit.mjs';
 import { assemble } from './lib/assemble.mjs';
+import { createReport } from './lib/findings.mjs';
 
-const file = process.argv[2];
-if (!file || process.argv.length > 3) { console.error('usage: node check-replay.mjs <replay.html>'); process.exit(2); }
+const json = process.argv.includes('--json');
+const argv = process.argv.slice(2).filter((a) => a !== '--json');
+const file = argv[0];
+const rep = createReport({ check: 'check-replay', path: file, json, defer: true });
+if (!file || argv.length > 1) {
+  const usage = 'usage: node check-replay.mjs <replay.html> [--json]';
+  rep.add({ rule: 'usage', severity: 'error', message: usage, fix: 'pass one replay page built by build.mjs --replay', human: usage, stream: 'err' });
+  rep.exit(2);
+}
 const url = pathToFileURL(path.resolve(file)).href;
 
 const EXK = loadKit({ bundle: 'replay' });
 const R = EXK.replay;
 let failed = 0;
-const results = [];
+// Every check's rule and fix, matched on the name given to report(); the first match wins.
+const CHECKS = [
+  [/^duration/, 'duration-mismatch', 'the page duration must equal the kit derivation from the story; rebuild the page with build.mjs --replay'],
+  [/^nothing moves/, 'moves-before-play', 'the clock, readouts and views must not change until Play; remove any autoplay or timer started on load'],
+  [/^views agree/, 'views-disagree-with-clock', 'every readout must come from the kit derivations for the clock value (replay/page.js); the first differing field is named in the detail'],
+  [/^displayed totals/, 'displayed-total-mismatch', 'a total on the page differs from the computed one; totals are computed from the events, never typed'],
+  [/^"systems reached"/, 'excluded-not-named', 'when systems are left out of "systems reached", the chip must say "excluding ..." and name them'],
+  [/^activity caption/, 'activity-caption-mismatch', 'the activity caption must state the computed count of unrecorded actions'],
+  [/^lit systems/, 'lit-systems-mismatch', 'the lit systems must be exactly those touched by events at or before the clock; check event nodes against systems'],
+  [/^no graph text/, 'graph-text-too-small', 'run check-layout and raise the full-view scale (regroup zones or apply its advice) so graph text is 11 px or more at 1440 wide'],
+  [/^no overlapping/, 'graph-overlap', 'run check-layout; separate the named cards, link labels or frame titles with layout gap, dir or below hints'],
+  [/^card text/, 'card-text-spill', 'shorten the system name or role so the text stays inside its card'],
+  [/^link labels/, 'label-clipped', 'shorten the link label or move the link so the label fits inside the graph and its pill'],
+  [/^page height/, 'page-height-over-limit', 'cut the story (fewer events, phases or controls) or shorten captions to bring the page under 2,400 px at 1440 wide'],
+  [/^click a system/, 'system-click-broken', 'clicking a system must open its card, filter the stream to it and mark its events on the scrubber'],
+  [/^filters/, 'filters-broken', 'removing the node chip must clear the node filter, and the visibility filters must apply to the stream'],
+  [/^keyboard/, 'keyboard-broken', 'Right goes to the next event, Shift+Right to the next phase, Home restarts; restore these key bindings'],
+  [/^Play advances/, 'play-pause-broken', 'Play must advance the clock and Pause must stop it and write #t= to the address'],
+  [/^dragging the scrubber/, 'scrubber-drag-broken', 'dragging the scrubber must move the clock, backwards too, and pause playback'],
+  [/^sticky mini bar/, 'sticky-bar-missing', 'the sticky bar must appear once the player card scrolls out of view'],
+  [/^sticky bar keeps/, 'banner-missing-sticky', 'the sticky bar must show the reconstruction banner, with the incident time range, while scrolled'],
+  [/^masthead has/, 'banner-missing-masthead', 'the masthead must show the reconstruction banner ("not a live view") with the incident time range'],
+  [/^every control/, 'control-card-missing', 'every story control needs a card; check that controls[] and the page agree'],
+  [/^a control card says/, 'control-card-text', 'a placed control states which attacker action it stops; an unplaced one says it is not on the event log and is disabled'],
+  [/^a control card jumps/, 'control-jump-broken', 'a placed control card must jump the clock to the action it would have refused'],
+  [/^#t=/, 'hash-restore-broken', 'opening the page with #t=<seconds> must restore that moment'],
+  [/^reduced motion/, 'reduced-motion-broken', 'with reduced motion Play must step event by event, never to an in-between clock value'],
+  [/^at 900 wide/, 'narrow-layout-broken', 'at 900 px wide nothing may overflow sideways and the two-panel rows must stack'],
+  [/^illustrative chip/, 'illustrative-marks-mismatch', 'the chip, record marks, footer and banner must follow the sources of the records: all, some or none illustrative']
+];
 function report(name, ok, detail = '') {
   if (!ok) failed++;
-  results.push(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? ': ' + detail : ''}`);
+  const text = `${name}${detail ? ': ' + detail : ''}`;
+  const [, rule, fix] = CHECKS.find(([re]) => re.test(name)) || [null, 'check-failed', ''];
+  // a passing check prints its line but is not a finding (page height adds its own information entry)
+  if (ok) rep.say(`PASS  ${text}`);
+  else rep.add({ rule, severity: 'error', message: text, fix, human: `FAIL  ${text}` });
 }
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
 const sameSet = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
@@ -58,9 +100,10 @@ page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(url);
 await page.waitForFunction(() => window.replay && document.body.getAttribute('data-ready') === 'replay', null, { timeout: 8000 }).catch(() => {});
 if (!(await page.evaluate(() => !!window.replay))) {
-  console.log(`FAIL  the page did not start: ${errors.join(' | ') || 'window.replay is missing'}`);
+  const m = `the page did not start: ${errors.join(' | ') || 'window.replay is missing'}`;
+  rep.add({ rule: 'page-did-not-start', severity: 'error', message: m, fix: 'build the page with build.mjs --replay and read the page errors named here', human: `FAIL  ${m}` });
   await browser.close();
-  process.exit(1);
+  rep.exit(1);
 }
 
 /* ---------- what the kit computes from the story inside the page ---------- */
@@ -227,6 +270,8 @@ report('link labels and the key are not clipped by the graph or by their own pil
 /* ---------- page height ---------- */
 const height = await page.evaluate(() => document.documentElement.scrollHeight);
 report('page height at 1440 wide (2,000px is the target for a story of the example\'s size; fails above 2,400px)', height <= 2400, `${height}px${height > 2000 ? ' (information: over the 2,000px target)' : ''}`);
+if (height <= 2400) rep.add({ rule: height > 2000 ? 'page-height-over-target' : 'page-height', severity: 'info', message: `page height ${height}px at 1440 wide`,
+  fix: height > 2000 ? 'cut the story or shorten captions to get near 2,000 px' : '' });
 
 /* ---------- interaction ---------- */
 await page.evaluate((c) => window.replay.seek(c), midClock);
@@ -371,8 +416,11 @@ for (const [name, v] of variants) {
 
 /* ---------- network and errors ---------- */
 await browser.close();
-console.log(results.join('\n'));
-console.log(`network=${net.length} errors=${errors.length}${net.length ? ' ' + net.slice(0, 3).join(' ') : ''}${errors.length ? ' ' + errors.slice(0, 3).join(' | ') : ''}`);
-if (net.length || errors.length) failed++;
-console.log(failed ? `FAIL (${failed})` : 'PASS');
-process.exit(failed ? 1 : 0);
+const netLine = `network=${net.length} errors=${errors.length}${net.length ? ' ' + net.slice(0, 3).join(' ') : ''}${errors.length ? ' ' + errors.slice(0, 3).join(' | ') : ''}`;
+rep.say(netLine);
+if (net.length || errors.length) {
+  failed++;
+  rep.add({ rule: 'network-or-console-error', severity: 'error', message: netLine, fix: 'the page may load only file:, data: and blob: URLs and must raise no console or page error; build it with build.mjs --replay' });
+}
+rep.say(failed ? `FAIL (${failed})` : 'PASS');
+rep.exit(failed ? 1 : 0);

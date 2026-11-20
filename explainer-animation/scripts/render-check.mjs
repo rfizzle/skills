@@ -1,4 +1,4 @@
-// Usage: node render-check.mjs <page.html>... [--allow-cdn]
+// Usage: node render-check.mjs <page.html>... [--allow-cdn] [--json]
 //
 // Loads each page headless with ?capture=1 and prints one line per check, then PASS or FAIL
 // (exit 1 on any failure; warnings and "hook missing" lines do not fail).
@@ -18,17 +18,22 @@
 //   window.__hops() -> [{ step, rid, mid, ends: [nodeId, ...] }], plus elements marked
 //       data-ov="label:<nodeId>" and window.__overlaps                         optional
 //   packets: the children of [data-layer="packets"] or of #L-packets           optional
+// --json: stdout is one JSON array of findings for all the pages (references/checks.md, Machine-readable output).
 // Needs EXPLAINER_BROWSER_DIR (lib/browser.mjs).
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { launchBrowser } from './lib/browser.mjs';
+import { createReport } from './lib/findings.mjs';
 
 const args = process.argv.slice(2);
 const allowCdn = args.includes('--allow-cdn');
+const json = args.includes('--json');
 const files = args.filter((a) => !a.startsWith('--'));
-if (!files.length || args.some((a) => a.startsWith('--') && a !== '--allow-cdn')) {
-  console.error('usage: node render-check.mjs <page.html>... [--allow-cdn]');
-  process.exit(2);
+const rep = createReport({ check: 'render-check', json });
+if (!files.length || args.some((a) => a.startsWith('--') && a !== '--allow-cdn' && a !== '--json')) {
+  const usage = 'usage: node render-check.mjs <page.html>... [--allow-cdn] [--json]';
+  rep.add({ rule: 'usage', severity: 'error', message: usage, fix: 'pass one or more built pages', human: usage, stream: 'err' });
+  rep.exit(2);
 }
 
 const TOLERATED_PIXELS = 400;       // of 2,073,600; pixels whose largest channel delta exceeds 24
@@ -63,12 +68,13 @@ async function diffPixels(bufA, bufB) {
 let failed = false;
 for (const file of files) {
   const name = path.basename(file);
-  const results = [];
-  const line = (check, status, text) => {
-    results.push(`  ${check}: ${text}`);
+  // one check line: printed as "  <check>: <text>"; f = { rule, severity, message, fix, step? } is its finding
+  const line = (check, status, text, f) => {
     if (status === 'fail') failed = true;
+    if (f) rep.add({ path: file, ...f, human: `  ${check}: ${text}` });
+    else rep.say(`  ${check}: ${text}`);
   };
-  console.log(name);
+  rep.say(name);
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
   const errors = [], badRequests = [];
   let allowed = 0;
@@ -88,9 +94,10 @@ for (const file of files) {
     await page.waitForFunction(() => window.anim && window.anim.duration > 0, null, { timeout: 15000 });
   } catch { ready = false; }
   if (!ready) {
-    line('console', 'fail', `FAIL window.anim never appeared${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`);
-    if (badRequests.length) line('network', 'fail', `FAIL ${badRequests.length} network request(s): ${[...new Set(badRequests)].slice(0, 3).join(' ')}`);
-    results.forEach((l) => console.log(l));
+    const noAnim = `FAIL window.anim never appeared${errors.length ? ': ' + errors.slice(0, 3).join(' | ') : ''}`;
+    line('console', 'fail', noAnim, { rule: 'anim-missing', severity: 'error', message: noAnim.slice(5), fix: 'the page must define window.anim = { duration, seek(t), steps }; build it with build.mjs and read the console errors' });
+    if (badRequests.length) line('network', 'fail', `FAIL ${badRequests.length} network request(s): ${[...new Set(badRequests)].slice(0, 3).join(' ')}`,
+      { rule: 'network-request', severity: 'error', message: `${badRequests.length} network request(s): ${[...new Set(badRequests)].slice(0, 3).join(' ')}`, fix: 'build with build.mjs --inline so nothing loads from the network' });
     await page.close();
     continue;
   }
@@ -138,7 +145,7 @@ for (const file of files) {
   }
 
   // hops
-  let hopLine;
+  let hopLine, hopStep;
   if (!info.hasHops || !info.hasOverlaps || !info.hasLabels) hopLine = ['ok', 'hops: hook missing'];
   else {
     const hops = await page.evaluate(() => window.__hops());
@@ -154,7 +161,7 @@ for (const file of files) {
           return { id, o: +o.toFixed(2), hit: ov.filter((q) => JSON.stringify(q).indexOf('label:' + id) >= 0).length };
         });
       }, { mid: h.mid, ends: h.ends });
-      for (const r of res) if (r.o < 0.95 || r.hit) bad.push(`${h.step}/${h.rid} t=${h.mid.toFixed(1)} ${JSON.stringify(r)}`);
+      for (const r of res) if (r.o < 0.95 || r.hit) { if (!bad.length) hopStep = h.step; bad.push(`${h.step}/${h.rid} t=${h.mid.toFixed(1)} ${JSON.stringify(r)}`); }
     }
     hopLine = bad.length
       ? ['fail', `hops: FAIL ${bad.length} of ${hops.length} hops; first ${bad[0]}`]
@@ -195,20 +202,32 @@ for (const file of files) {
   // rest
   const noRest = info.steps.filter((s) => !Number.isFinite(s.rest)).map((s) => s.id);
 
-  line('console', errors.length ? 'fail' : 'ok', errors.length ? `FAIL ${errors.length} error(s): ${errors.slice(0, 3).join(' | ')}` : 'ok');
+  const E = (rule, message, fix, step) => ({ rule, severity: 'error', message, fix, step });
+  line('console', errors.length ? 'fail' : 'ok', errors.length ? `FAIL ${errors.length} error(s): ${errors.slice(0, 3).join(' | ')}` : 'ok',
+    errors.length ? E('console-error', `${errors.length} error(s): ${errors.slice(0, 3).join(' | ')}`, 'fix the script error the page reports; every console error fails the page') : null);
   const net = [...new Set(badRequests)];
+  const netMsg = `${badRequests.length} network request(s): ${net.slice(0, 3).join(' ')}`;
   line('network', net.length ? 'fail' : 'ok',
-    net.length ? `FAIL ${badRequests.length} network request(s): ${net.slice(0, 3).join(' ')}`
-      : `ok${allowed ? ` (${allowed} GSAP CDN request(s) allowed by --allow-cdn)` : ''}`);
-  line('seek', worst > TOLERATED_PIXELS ? 'fail' : 'ok',
-    `${worst > TOLERATED_PIXELS ? 'FAIL' : 'ok'} (worst diff ${worst}px of ${TOLERATED_PIXELS} tolerated, ${PROBES.length} probes)`);
-  line('overlaps', overlapLine[0], overlapLine[1].replace(/^overlaps: /, ''));
-  line('hops', hopLine[0], hopLine[1].replace(/^hops: /, ''));
-  line('speed', speedLine[0], speedLine[1].replace(/^speed: /, ''));
-  line('rest', 'ok', noRest.length ? `WARN ${noRest.length} of ${info.steps.length} steps have no numeric rest (${noRest.slice(0, 5).join(', ')})` : `ok (${info.steps.length} steps)`);
-  results.forEach((l) => console.log(l));
+    net.length ? `FAIL ${netMsg}` : `ok${allowed ? ` (${allowed} GSAP CDN request(s) allowed by --allow-cdn)` : ''}`,
+    net.length ? E('network-request', netMsg, 'build with build.mjs --inline so nothing loads from the network (--allow-cdn permits only the three GSAP files)') : null);
+  const seekBad = worst > TOLERATED_PIXELS;
+  line('seek', seekBad ? 'fail' : 'ok',
+    `${seekBad ? 'FAIL' : 'ok'} (worst diff ${worst}px of ${TOLERATED_PIXELS} tolerated, ${PROBES.length} probes)`,
+    seekBad ? E('seek-nondeterministic', `worst diff ${worst}px of ${TOLERATED_PIXELS} tolerated, ${PROBES.length} probes`, 'make the picture a pure function of window.anim.seek(t): no wall-clock, random or leftover state; seek(t) must give the same picture forwards, after a jump to the end and after a jump to 0') : null);
+  // a hook that is missing is information; a failed check is an error carrying the text after "<check>: "
+  const hookInfo = (ln) => (/hook missing/.test(ln[1]) ? { rule: 'hook-missing', severity: 'info', message: ln[1], fix: 'expose the hook (references/checks.md, Hooks a page exposes) to have this checked' } : null);
+  const failOf = (ln, rule, fix, step) => (ln[0] === 'fail' ? E(rule, ln[1].replace(/^\w+: FAIL /, ''), fix, step) : hookInfo(ln));
+  line('overlaps', overlapLine[0], overlapLine[1].replace(/^overlaps: /, ''),
+    failOf(overlapLine, 'overlap', 'move or shorten the labels and nodes named in the pair so they never overlap at any time; window.__overlaps() lists the pairs'));
+  line('hops', hopLine[0], hopLine[1].replace(/^hops: /, ''),
+    failOf(hopLine, 'hop-label-hidden', 'keep both end labels of the hop fully visible and clear of other elements at its midpoint', hopStep));
+  line('speed', speedLine[0], speedLine[1].replace(/^speed: /, ''),
+    speedLine[0] === 'fail' ? failOf(speedLine, 'speed-over-cap', `lengthen the hop's time or shorten the path so a packet moves at ${SPEED_CAP} px/s or less`)
+      : hookInfo(speedLine) || { rule: 'peak-speed', severity: 'info', message: speedLine[1].replace(/^speed: /, ''), fix: '' });
+  line('rest', 'ok', noRest.length ? `WARN ${noRest.length} of ${info.steps.length} steps have no numeric rest (${noRest.slice(0, 5).join(', ')})` : `ok (${info.steps.length} steps)`,
+    noRest.length ? { rule: 'rest-missing', severity: 'warning', step: noRest[0], message: `${noRest.length} of ${info.steps.length} steps have no numeric rest (${noRest.slice(0, 5).join(', ')})`, fix: 'give every window.anim.steps[i] a numeric rest (the time the step settles)' } : null);
   await page.close();
 }
 await browser.close();
-console.log(failed ? 'FAIL' : 'PASS');
-process.exit(failed ? 1 : 0);
+rep.say(failed ? 'FAIL' : 'PASS');
+rep.exit(failed ? 1 : 0);

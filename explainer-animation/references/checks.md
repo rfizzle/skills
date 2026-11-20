@@ -7,7 +7,7 @@ wrong; look at frames.
 
 ## Contents
 
-Harness; check-layout; check-replay; render-check; frames; export; per-beat test; equivalence.
+Harness; check-layout; check-replay; render-check; machine-readable output; frames; export; per-beat test; equivalence.
 
 ## Pointing the scripts at a browser harness
 
@@ -142,6 +142,78 @@ painter; `make check` runs it.
   `data-ov="label:<nodeId>"`, and `window.__overlaps`; otherwise `hops: hook missing`.
 - Packets are the children of `[data-layer="packets"]` or of `#L-packets`; otherwise
   `speed: hook missing`. If `#stage` exists its width over 1920 is taken as the stage scale.
+
+## Machine-readable output (`--json`)
+
+`check-story`, `check-layout`, `render-check` and `check-replay` each take `--json`. Stdout is then one JSON
+array and nothing else (the human lines are not printed); exit codes do not change. Without the flag the
+output is as described above. One shared helper, `scripts/lib/findings.mjs`, collects and prints the findings.
+
+```
+{ "check": "check-layout", "rule": "overlap", "severity": "error", "step": "recon", "record": "ns_web",
+  "path": "story.json", "message": "siblings overlap: ns_web / ns_pay", "fix": "separate ns_web and ns_pay with layout gap, dir or below" }
+```
+
+- `check` the script name without `.mjs`; `rule` a stable kebab-case identifier for the kind of finding;
+  `severity` `error`, `warning` or `info`; `step` the step id, `record` the story record (`steps[3]`, a system
+  id), both only when the finding has one; `path` the file checked; `message` what is wrong; `fix` what to do
+  (an empty string when the script has no advice).
+- An empty array is a clean pass with nothing to say. A pass can also carry `info` entries (counts, scale,
+  page height, peak speed); `warning` entries do not fail a check. Filter on `error`: that list is empty
+  exactly when the exit code is 0. A usage mistake (exit 2) or an unreadable file is an `error` too.
+- Several pages in one `render-check` call give one array; tell them apart by `path`.
+
+```
+node scripts/check-story.mjs story.json --json | node -e "console.log(JSON.parse(require('fs').readFileSync(0)).filter((f) => f.severity === 'error').length)"
+```
+
+Rules each script can emit (listed from the code):
+
+- `check-story`: `usage`, `unreadable-json`, `summary` (info: the counts line), and the validator's own `rule`
+  on every problem (`assets/kit/story/validate.js`, fixed where the problem is raised; the closed list):
+  `beat-at-invalid`, `beat-no-kind`, `beat-not-object`, `beat-system-unknown`, `beat-tag-too-long`,
+  `beat-unknown-key`, `beats-not-array`, `block-not-array`, `body-too-long`, `callout-not-object`,
+  `callout-target-unknown`, `callout-text-missing`, `callout-text-too-long`, `callouts-not-array`,
+  `callouts-too-many`, `camera-beat-iso`, `camera-hold-unknown`, `camera-invalid`,
+  `camera-zoom-invalid`, `caption-line-too-long`, `caption-starts-at-screen`, `caption-typed-count`,
+  `caption-unbalanced-backtick`, `card-at-unknown`, `card-beats-iso-skipped`, `card-id-invalid`,
+  `chain-not-link`, `chain-too-short`, `control-name-missing`, `control-on-not-link`,
+  `custom-name-invalid`, `event-actor-invalid`, `event-missing-step`, `event-not-object`,
+  `event-step-unknown`, `event-system-missing`, `event-system-unknown`, `event-time-invalid`,
+  `event-visibility-invalid`, `exchange-malformed`, `exchange-not-link`, `figure-not-object`,
+  `figure-typed-count`, `figure-value-missing`, `figures-not-object`, `frame-grow-unsupported-iso`,
+  `frame-hold-unknown`, `frame-invalid`, `frame-zoom-invalid`, `id-duplicate`, `id-missing`,
+  `link-end-unknown`, `link-not-object`, `meta-audience-invalid`, `meta-field-missing`,
+  `meta-kind-invalid`, `meta-missing`, `meta-scene-invalid`, `meta-starts-at-invalid`, `missing-source`,
+  `pair-malformed`, `pair-system-unknown`, `phase-title-missing`, `record-not-object`,
+  `route-hint-unknown`, `route-not-object`, `shields-control-unknown`, `shields-invalid`,
+  `source-kind-invalid`, `source-ref-missing`, `step-body-missing`, `step-not-object`,
+  `step-phase-unknown`, `step-title-missing`, `step-touch-not-array`, `step-uses-not-array`,
+  `steps-empty`, `story-not-object`, `stream-glyph-invalid`, `stream-not-link`, `stream-too-many-items`,
+  `stream-too-short`, `system-name-missing`, `system-role-missing`, `system-zone-unknown`,
+  `title-too-long`, `touch-unknown-id`, `uses-not-link`, `zone-name-missing`, `zone-parent-self`,
+  `zone-parent-unknown`
+  `step` is set for a step record or an event's step; `record` is `steps[3]`, `events[0]` and so on.
+- `check-layout`: `usage`, `unreadable-json`, `outside-parent`, `overlap`, `zone-parent-unknown`,
+  `system-zone-unknown`, `below-not-sibling`, `cols-ignored`, `cols-flat-ignored`, `layout-hint`,
+  `frame-cuts-container`, `grow-frame-slices-neighbour`, `frame-hold-unknown`, `frame-grow-invalid`,
+  `full-view-scale-low` (warning), `iso-zoom-too-small` and `iso-blocks-overlap` (the iso refusals),
+  `iso-label-ambiguous`, `route-blocked`, `route-through-node`, `route-shared-segment`, `route-near-node`,
+  `route-skims-border`, `route-narrow-gap`, `route-hint-reassigned`, `route-lanes-unsearched`,
+  `route-crossing`; info: `full-view-scale`, `iso-zoom`, `routes`, `zone-auto-dir`, `layout-advice`,
+  `frame-widened`, `route-advice`.
+- `render-check` (per page, `path` is the page): `usage`, `anim-missing`, `console-error`, `network-request`,
+  `seek-nondeterministic`, `overlap`, `hop-label-hidden`, `speed-over-cap`; warning `rest-missing` (with the
+  first step); info `hook-missing` (a hook the page does not expose) and `peak-speed`.
+- `check-replay`: `usage`, `page-did-not-start`, `duration-mismatch`, `moves-before-play`,
+  `views-disagree-with-clock`, `displayed-total-mismatch`, `excluded-not-named`, `activity-caption-mismatch`,
+  `lit-systems-mismatch`, `graph-text-too-small`, `graph-overlap`, `card-text-spill`, `label-clipped`,
+  `page-height-over-limit`, `system-click-broken`, `filters-broken`, `keyboard-broken`, `play-pause-broken`,
+  `scrubber-drag-broken`, `sticky-bar-missing`, `banner-missing-sticky`, `banner-missing-masthead`,
+  `control-card-missing`, `control-card-text`, `control-jump-broken`, `hash-restore-broken`,
+  `reduced-motion-broken`, `narrow-layout-broken`, `illustrative-marks-mismatch`, `network-or-console-error`,
+  `check-failed` (a check with no rule of its own); info: `page-height`, `page-height-over-target`. Passing
+  checks are not findings. `check-replay` has no `step` or `record`; the check's name and numbers are the message.
 
 ## frames
 

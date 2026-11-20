@@ -250,3 +250,27 @@ test('the shipped examples validate with no warnings; the cold-test fixtures val
     eq(probs.filter((p) => p.level === 'error'), []);   /* fixtures stay as the cold-test sessions wrote them: warnings allowed, errors not */
   }
 });
+
+/* ---------- every problem carries a stable rule ---------- */
+const ruleOk = (r) => typeof r === 'string' && /^[a-z]+(-[a-z]+)*$/.test(r);
+const jsonFixtures = (dir) => fs.readdirSync(data(dir)).filter((f) => f.endsWith('.json')).map((f) => [f, readJson(data(dir, f))]);
+
+test('every problem from every invalid and warning fixture has a rule, and the fixture\'s _rule matches it', () => {
+  for (const dir of ['invalid', 'warn']) {
+    for (const [f, story] of jsonFixtures(dir)) {
+      const probs = EXK.validate(story, { style: story._style });
+      assert.ok(probs.length > 0, `${dir}/${f} reports a problem`);
+      for (const p of probs) assert.ok(ruleOk(p.rule), `${dir}/${f}: ${p.path} has a rule`);
+      if (story._rule) eq(probs.map((p) => p.rule), [story._rule], `${dir}/${f}: _rule`);
+    }
+  }
+});
+
+test('rules are unique per kind of problem: each rule is named at one place in validate.js, and carries no author-chosen name', () => {
+  const src = fs.readFileSync(path.join(here, '..', 'assets', 'kit', 'story', 'validate.js'), 'utf8');
+  const named = [...src.matchAll(/\b(?:err|warn|pairProblem|pair)\('([^']*)'/g)].map((m) => m[1]);
+  assert.ok(named.length >= 80, `found ${named.length} rules`);
+  for (const r of named) assert.ok(ruleOk(r), `${r} is kebab-case`);
+  const dup = named.filter((r, i) => named.indexOf(r) !== i);
+  assert.deepEqual(dup, []);
+});

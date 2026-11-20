@@ -125,7 +125,7 @@ say so instead. Detail: [references/patterns.md](references/patterns.md).
 - [references/rules.md](references/rules.md): the design rules, split into what the kit enforces and what you still own.
 - [references/patterns.md](references/patterns.md): the catalogue, executive scenes, adapting a reference.
 - [references/layout.md](references/layout.md): what `check-layout` prints and what to do about it, flat and iso.
-- [references/checks.md](references/checks.md): browser harness, what each check prints, export, equivalence test.
+- [references/checks.md](references/checks.md): browser harness, what each check prints, export, equivalence test; `--json` on the four check scripts prints findings as one JSON array.
 - [references/history.md](references/history.md): how the design got here and why; read when a rule seems arbitrary.
 - `assets/examples/ssrf-attack-chain.story.json`: a complete story (invented, so it shows the chip).
 - `assets/examples/roadmap-risk-burn-down.story.json` and `.scene.js`: a complete custom-pattern story and its scene.
