@@ -391,6 +391,7 @@
             "emails.csv",
             "cards.csv"
           ],
+          "glyph": "file",
           "says": "s3:GetObject",
           "mono": true,
           "tally": "received:"

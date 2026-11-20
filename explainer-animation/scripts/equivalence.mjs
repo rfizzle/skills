@@ -36,7 +36,7 @@ if (!file || style !== 'flat') {
   console.error('usage: node equivalence.mjs <story.json> --style flat [--oracle <page.html>] [--out <dir>]');
   process.exit(2);
 }
-out = out || path.join(ROOT, 'out', 'equivalence-flat');
+out = out || path.resolve('explainer-out', 'equivalence-flat');
 fs.mkdirSync(out, { recursive: true });
 
 const DUR_TOL = 0.20, TOTAL_TOL = 0.15, CENTRE_TOL = 24, SCALE_TOL = 0.15, ORACLE_REST = 0.7;

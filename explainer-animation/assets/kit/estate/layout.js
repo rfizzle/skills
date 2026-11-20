@@ -54,8 +54,12 @@
   function tabW(label, fs, caps) { return label.length * fs * (caps ? 0.68 : 0.56); }
 
   // Builds the tree: zones by parent, systems by zone; zones first then systems, each in story order.
-  function buildTree(story, problems, iso) {
-    function hintOf(r) { var l = r.layout || {}; return iso && l.iso ? l.iso : l; }
+  function buildTree(story, problems, iso, auto) {
+    function hintOf(r) {
+      var l = r.layout || {}, h = iso && l.iso ? l.iso : l;
+      if (auto && auto[r.id] && h.dir == null) { var c = {}, k; for (k in h) c[k] = h[k]; c.dir = auto[r.id]; return c; }
+      return h;
+    }
     var zones = story.zones || [], systems = story.systems || [];
     var T = { root: { id: 'root', type: 'box', kind: 'root', label: null, kids: [], hint: {} } };
     zones.forEach(function (z) {
@@ -85,7 +89,8 @@
     var hasTab = !!(b.label && S.tabs);
     var p = b.pad = isRoot ? { l: 0, r: 0, t: 0, b: 0 } : { l: S.pad, r: S.pad, t: hasTab ? S.topPad : S.pad, b: S.pad };
     if (h.pad) for (var k in h.pad) p[k] = h.pad[k];
-    b.dir = h.dir || (depth % 2 === 0 ? 'row' : 'col');
+    b.dir = h.dir || (S.iso && h.cols > 0 ? 'row' : depth % 2 === 0 ? 'row' : 'col');     /* iso cols wraps a row: it implies one */
+    if (S.iso && h.cols > 0 && h.dir === 'col') problems.push({ path: b.id + '.layout.iso.cols', message: 'cols wraps a row, and ' + b.id + ' is a column, so cols is ignored', fix: 'drop dir "col" (cols implies a row) or drop cols' });
     b.gap = h.gap != null ? h.gap : (isRoot ? S.rootGap : S.gap);
     b.caps = !!h.caps;
     b.kids.forEach(function (c) { measure(c, depth + 1, S, problems); });
@@ -103,9 +108,10 @@
       });
       var A = 0;
       flow.forEach(function (c) { A = Math.max(A, c.a); });
+      if (S.iso && h.cols > 0 && under.length) problems.push({ path: b.id + '.layout.iso.cols', message: 'cols is ignored while a child of ' + b.id + ' uses below', fix: 'drop below from the children of ' + b.id + ' (cols already wraps the row) or drop cols' });
       if (S.iso && h.cols > 0 && !under.length) {
         isoGrid(b, flow, h.cols);
-        cw = b.cw; ch = b.ch; A = b.ga;
+        cw = b.cw; ch = b.ch; A = b.ga; b.rowH = ch;
       } else {
         flow.forEach(function (c, i) {
           if (i) cw += b.gap;
@@ -113,6 +119,7 @@
           cw += S.iso ? Math.max(c.w, underRun(c, under, b.gap)) : c.w;
           ch = Math.max(ch, c.ry + c.h);
         });
+        b.rowH = ch;     /* the row itself, without the runs placed below its members */
         var run = {};   // below-children of one sibling continue in a row
         under.forEach(function (c) {
           var t = ids[c.hint.below], g = c.hint.belowGap != null ? c.hint.belowGap : b.gap;
@@ -164,12 +171,14 @@
     b.cw = n * cwid + (n - 1) * b.gap; b.ch = rows * chei + (rows - 1) * b.gap;
     b.ga = kids.length ? kids[0].ry + kids[0].a : b.ch / 2;     /* anchor line: the first row */
   }
-  /* iso: top-level zones stretched to the root row's height; their padding absorbs the shift, so children stay put */
+  /* iso: top-level zones stretched to the height of the root row (not of the runs placed below its members, which a
+     stretched zone would then cover); their padding absorbs the shift, so children stay put */
   function stretchRoot(b) {
+    var H = b.rowH != null ? b.rowH : b.ch;
     b.kids.forEach(function (c) {
-      if (c.type !== 'box' || c.hint.below != null) return;
-      c.pad.t += c.ry; c.pad.b += b.ch - c.ry - c.h;
-      c.h = b.ch; c.ry = 0;
+      if (c.type !== 'box' || c.hint.below != null || c.h >= H) return;
+      c.pad.t += c.ry; c.pad.b += H - c.ry - c.h;
+      c.h = H; c.ry = 0;
     });
   }
 
@@ -192,10 +201,9 @@
     return o;
   }
 
-  function layoutEstate(story, sizes) {
-    var S = typeof sizes === 'string' ? SIZES[sizes] : merge(SIZES.flat, sizes);
+  function layoutOnce(story, S, auto) {
     var problems = [];
-    var T = buildTree(story, problems, !!S.iso);
+    var T = buildTree(story, problems, !!S.iso, auto);
     measure(T.root, 0, S, problems);
     var B = {}, order = [];
     place(T.root, S.margin, S.margin, B, order, null);
@@ -206,8 +214,47 @@
       B: out,
       boxes: order.filter(function (b) { return b.type === 'box' && b.id !== 'root'; }).map(function (b) { return out[b.id]; }),
       nodes: order.filter(function (b) { return b.type === 'node'; }).map(function (b) { return out[b.id]; }),
-      root: out.root, world: world, full: fullOf(world, S.aspect), sizes: S, problems: problems
+      root: out.root, world: world, full: fullOf(world, S.aspect), sizes: S, problems: problems, auto: []
     };
+  }
+
+  /* how well a laid-out world fills the diagram area (bigger is better). Flat: the full-view scale (stage px per ground
+     unit at 1920 wide). Iso: the projected full view's zoom, which depends on w + h only (a square ground plan is the
+     smallest diamond), with the block height on top */
+  var ISO_C30 = Math.cos(Math.PI / 6), ISO_BH = 62;
+  function fitScore(world, S, area) {
+    area = area || { w: 1920, h: 720 };
+    if (S.iso) { var d = world.w + world.h; return Math.min((area.w - 48) / (d * ISO_C30), (area.h - 40) / (d * 0.5 + ISO_BH)); }
+    return area.w / fullOf(world, area.w / area.h).w;
+  }
+
+  /* Direction by default: a zone with two or more children and no dir of its own (in iso, of its layout.iso when it has
+     one) is laid out as a row or a column, whichever makes the estate fill the area better (fitScore), when that is at least
+     AUTO_GAIN better than the alternating default; greedy, zone by zone, two passes. estate.auto lists the choices. */
+  var AUTO_GAIN = 1.03;
+  function layoutEstate(story, sizes, opts) {
+    var S = typeof sizes === 'string' ? SIZES[sizes] : merge(SIZES.flat, sizes);
+    var base = layoutOnce(story, S, null);
+    if (opts && opts.auto === false) return base;
+    var free = (story.zones || []).filter(function (z) {
+      var l = z.layout || {}, h = S.iso && l.iso ? l.iso : l, b = base.B[z.id];
+      return h.dir == null && h.cols == null && b && b.kids.length >= 2;
+    });
+    if (!free.length) return base;
+    var auto = {}, best = base, bestScore = fitScore(base.world, S);
+    for (var pass = 0; pass < 2; pass++) {
+      var moved = false;
+      free.forEach(function (z) {
+        var cur = auto[z.id] || best.B[z.id].dir, alt = cur === 'row' ? 'col' : 'row', trial = {}, k;
+        for (k in auto) trial[k] = auto[k];
+        trial[z.id] = alt;
+        var e = layoutOnce(story, S, trial), sc = fitScore(e.world, S);
+        if (sc > bestScore * AUTO_GAIN && !checkLayout(e).length) { auto = trial; best = e; bestScore = sc; moved = true; }
+      });
+      if (!moved) break;
+    }
+    best.auto = Object.keys(auto).filter(function (id) { return auto[id] !== base.B[id].dir; }).map(function (id) { return { id: id, dir: auto[id] }; });
+    return best;
   }
 
   // The world centred in a frame of the given aspect (w / h), never cropping it.
@@ -238,5 +285,73 @@
     return out;
   }
 
-  EXK.layout = { SIZES: SIZES, layoutEstate: layoutEstate, fullOf: fullOf, checkLayout: checkLayout };
+  /* ---- isometric audit: can this estate be drawn cleanly in iso? (check-layout --style iso; paint/iso.js uses ISO) ---- */
+  var ISO = { TH: 12, HALF: 34, BH: 62, MIN_ZOOM: 0.45, LABEL_PX: 26 };
+  function isoPt(x, y, z) { return { x: (x - y) * ISO_C30, y: (x + y) * 0.5 - (z || 0) }; }
+  function isoHex(estate, n) {
+    var p = estate.B[n.parent], z0 = p && p.type === 'box' && p.id !== 'root' ? p.depth * ISO.TH : 0, a = ISO.HALF;
+    return [isoPt(n.cx - a, n.cy - a, z0 + ISO.BH), isoPt(n.cx + a, n.cy - a, z0 + ISO.BH), isoPt(n.cx + a, n.cy - a, z0),
+      isoPt(n.cx + a, n.cy + a, z0), isoPt(n.cx - a, n.cy + a, z0), isoPt(n.cx - a, n.cy + a, z0 + ISO.BH)];
+  }
+  function bbOf(pts) {
+    var r = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+    pts.forEach(function (q) { r.x0 = Math.min(r.x0, q.x); r.y0 = Math.min(r.y0, q.y); r.x1 = Math.max(r.x1, q.x); r.y1 = Math.max(r.y1, q.y); });
+    return r;
+  }
+  function convexOverlap(P, Q) {      /* separating axis test, convex polygons; touching is not overlap */
+    var polys = [P, Q];
+    for (var t = 0; t < 2; t++) {
+      var A = polys[t];
+      for (var i = 0; i < A.length; i++) {
+        var p1 = A[i], p2 = A[(i + 1) % A.length], nx = p2.y - p1.y, ny = p1.x - p2.x;
+        var a0 = Infinity, a1 = -Infinity, b0 = Infinity, b1 = -Infinity;
+        P.forEach(function (q) { var v = q.x * nx + q.y * ny; a0 = Math.min(a0, v); a1 = Math.max(a1, v); });
+        Q.forEach(function (q) { var v = q.x * nx + q.y * ny; b0 = Math.min(b0, v); b1 = Math.max(b1, v); });
+        if (a1 <= b0 + 1e-6 || b1 <= a0 + 1e-6) return false;
+      }
+    }
+    return true;
+  }
+  /* isoAudit(estate, story, area?) -> {zoom, problems: [{level, message, fix}]}: estate laid out with 'iso'.
+     error: the projected full view draws a block narrower than about 53 stage px (zoom < MIN_ZOOM): names are wider than
+     two blocks and crowd onto the wrong ones; two blocks overlap when projected (one hides the other).
+     warning: a block whose name has no spot beside it (above, above-left, above-right, left, right, below) that is clear of
+     every other block and nearer its own block than any other, at the full view. */
+  function isoAudit(estate, story, area) {
+    area = area || { w: 1920, h: 720 };
+    var out = [], hex = {}, all = [], name = {};
+    (story.systems || []).forEach(function (q) { name[q.id] = q.name || q.id; });
+    estate.boxes.forEach(function (b) {
+      var z1 = b.depth * ISO.TH, z0 = z1 - ISO.TH;
+      all.push(isoPt(b.x, b.y, z1), isoPt(b.x + b.w, b.y, z1), isoPt(b.x + b.w, b.y + b.h, z1), isoPt(b.x, b.y + b.h, z1), isoPt(b.x, b.y + b.h, z0), isoPt(b.x + b.w, b.y + b.h, z0));
+    });
+    estate.nodes.forEach(function (n) { hex[n.id] = isoHex(estate, n); all = all.concat(hex[n.id]); });
+    var bb = bbOf(all), zoom = Math.min((area.w - 48) / (bb.x1 - bb.x0), (area.h - 40) / (bb.y1 - bb.y0));
+    if (zoom < ISO.MIN_ZOOM) out.push({ level: 'error', kind: 'small', message: 'the isometric full view is at zoom ' + zoom.toFixed(2) + ' (below ' + ISO.MIN_ZOOM + '): a block is ' + Math.round(118 * zoom) + ' px wide and its name crowds onto its neighbours',
+      fix: 'make the ground plan smaller and squarer for iso: layout.iso {"dir": "row"|"col"} or {"cols": n} on the zone with the most children, or build with --style flat' });
+    var ns = estate.nodes;
+    for (var i = 0; i < ns.length; i++) for (var j = i + 1; j < ns.length; j++) {
+      if (convexOverlap(hex[ns[i].id], hex[ns[j].id])) out.push({ level: 'error', kind: 'hidden', message: 'blocks ' + ns[i].id + ' and ' + ns[j].id + ' overlap when projected (one hides the other)',
+        fix: 'move them apart in iso: layout.iso gap on their zone, or layout.iso dx/dy on one of them' });
+    }
+    var k = zoom, R = {};
+    ns.forEach(function (n) { var r = bbOf(hex[n.id]); R[n.id] = { x0: r.x0 * k, y0: r.y0 * k, x1: r.x1 * k, y1: r.y1 * k }; });
+    function gap(r, b) { return Math.hypot(Math.max(b.x0 - r.x1, 0, r.x0 - b.x1), Math.max(b.y0 - r.y1, 0, r.y0 - b.y1)); }
+    function meets(r, b) { return r.x0 < b.x1 && b.x0 < r.x1 && r.y0 < b.y1 && b.y0 < r.y1; }
+    var lost = [];
+    ns.forEach(function (n) {
+      var br = R[n.id], w = String(name[n.id] || n.id).length * ISO.LABEL_PX * 0.6 + 8, h = 30, cx = (br.x0 + br.x1) / 2, cy = (br.y0 + br.y1) / 2;
+      var above = br.y0 - 8 - h / 2, below = br.y1 + 8 + h / 2;
+      var ok = [[cx, above], [cx - w / 2 - 18, above], [cx + w / 2 + 18, above], [br.x0 - 12 - w / 2, cy], [br.x1 + 12 + w / 2, cy], [cx, below]].some(function (c) {
+        var r = { x0: c[0] - w / 2, x1: c[0] + w / 2, y0: c[1] - h / 2, y1: c[1] + h / 2 }, d0 = gap(r, br);
+        return ns.every(function (m) { return m === n || (!meets(r, R[m.id]) && gap(r, R[m.id]) > d0 + 2); });
+      });
+      if (!ok) lost.push(n.id);
+    });
+    if (lost.length) out.push({ level: 'warning', kind: 'labels', message: 'at the full view the name of ' + lost.join(', ') + ' has no spot nearer its own block than another (it may read as another block\'s name)',
+      fix: 'add gap around ' + (lost.length > 1 ? 'them' : 'it') + ' with layout.iso (gap, dx, dy), or give ' + (lost.length > 1 ? 'them' : 'it') + ' a shorter name' });
+    return { zoom: zoom, problems: out };
+  }
+
+  EXK.layout = { SIZES: SIZES, ISO: ISO, layoutEstate: layoutEstate, fullOf: fullOf, checkLayout: checkLayout, fitScore: fitScore, isoAudit: isoAudit };
 })();

@@ -7,7 +7,7 @@ wrong; look at frames.
 
 ## Contents
 
-Harness; check-layout; check-replay; render-check; frames; export; equivalence.
+Harness; check-layout; check-replay; render-check; frames; export; per-beat test; equivalence.
 
 ## Pointing the scripts at a browser harness
 
@@ -19,7 +19,13 @@ export EXPLAINER_BROWSER_DIR=/path/to/harness
 ```
 
 `scripts/lib/browser.mjs` loads Playwright from there, falling back to a plain `import('playwright')`.
-If neither works the scripts exit with a message naming the variable. If the directory also holds
+If neither works the scripts exit with a message naming the variable.
+**A new shell has no `EXPLAINER_BROWSER_DIR`**: it is an environment variable and a shell started
+later (another terminal, another tool call that does not keep state) does not have it, so the first
+browser script prints `No browser available: Playwright was not found. Set EXPLAINER_BROWSER_DIR ...`.
+That is not a failure of the page: export it again (`export EXPLAINER_BROWSER_DIR=<harness>`), or
+put it in front of one command (`EXPLAINER_BROWSER_DIR=<harness> node $SKILL/scripts/render-check.mjs ...`).
+If the directory it named is gone, rebuild the harness (below); never skip the browser checks. If the directory also holds
 `syslibs/root/usr/lib` and `syslibs/fonts.conf`, they are set as `LD_LIBRARY_PATH` and
 `FONTCONFIG_FILE` for the browser process only, so a plain `node` command works from any directory.
 If the directory is missing, say so plainly and rebuild it; scratch directories are often wiped.
@@ -52,6 +58,9 @@ containers a frame slices; `enclosing:` the ones that became the breadcrumb), an
 (shared segments, a route under an unrelated node, a hint that was not honoured). Exit 1 on a
 failure. In iso it also says which camera beats were skipped and which frames widened to the full
 view (`widened for: ...`). A `cut: account (grow)` is the allowed slice of a `grow: "down"` strip.
+It also prints `advice:` lines (the one hint change that raises the scale), `layout:` lines (a
+direction the kit chose), an iso zoom line, and `REFUSED iso:` when the estate cannot be drawn.
+Every kind of line, with real output and the fix for each, is in [layout.md](layout.md).
 
 ## check-replay
 
@@ -59,13 +68,37 @@ view (`widened for: ...`). A `cut: account (grow)` is the allowed slice of a `gr
 node scripts/check-replay.mjs <replay.html>
 ```
 
-Needs the harness. Drives the page through 12 clock values forwards then backwards and compares
-every view (clock readout, stat cards, phase rows, stream length, scrubber, lit systems, control
-cards) with what the kit's own derivation gives; checks totals against the computed ones, graph
-text of at least 11 px, no overlapping cards, page height (target 2,000 px at 1440 wide), no
-overflow at 900 wide, click, filters, keyboard, the `#t=` hash, reduced motion, and that the
-"Illustrative data" chip follows the story's provenance. One `PASS` or `FAIL` line each; exit 1 on
-any failure. It prints `network=0 errors=0` at the end. Then open the page and read it.
+Needs the harness. Works on a replay built from any story that has events (`build.mjs` refuses one
+that has none). Every probe is chosen from the page's own story and derived data: the sampled clock
+values come from the events (before the first, at and just after up to seven of them, inside each
+break, the end), the system clicked is the one with the most events, the control card clicked is a
+placed one (none placed: that line says so and passes), keyboard and drag use fractions of the
+clock. So it handles one control or none, few events, a short clock.
+
+It drives the page forwards then backwards and compares every view (clock readout, stat cards, phase
+rows, stream length, scrubber, lit systems, control cards) with what the kit's own derivation gives;
+checks the displayed totals against the computed ones (the "to first alert" chip only when an event
+raised an alert; "systems reached" with what it excludes), that every control has a card (an unplaced
+one says so), graph text of at least 11 px, no overlapping cards or labels, no card text or link label
+running out of its card or the graph, no overflow at 900 wide, click, filters, keyboard, the `#t=`
+hash, reduced motion, the reconstruction banner, and the illustrative chip and record marks on four variants of the story
+(as written; none, every, and a few records illustrative). Page height at 1440 wide is information
+(2,000 px is the target for a story of the example's size) and fails only above 2,400 px. One
+`PASS` or `FAIL` line each; exit 1 on any failure. It prints `network=0 errors=0` at the end (the page makes no request other than `file:`, `data:` or
+`blob:`). **Banner:** the masthead and the sticky bar (scroll the player away and it appears) each
+carry the line "Reconstruction of recorded events, not a live view" and the incident's time range
+(dates when `meta.startsAt` is set, else the span); the check asserts both, that they are in view,
+and, in the all-illustrative variant, "invented events"; it also asserts the banner never repeats
+the illustrative fact, which the chip owns. Then
+open the page and read it: a pass does not see a graph that is merely ugly.
+
+The graph's automatic layout sizes cards from their text, spaces columns for the labels between
+them, and places each link label by a free-space test against cards, frame borders and titles, other
+labels and other links, falling back to the label's first word and then hiding it (the link keeps
+the full label as a tooltip). `build.mjs --replay` prints `warning: replay: ...` when it hid a
+label, when the graph is wider than the page's graph panel draws at a readable size, or when a
+control is not on the event log. For the first two, add `replay.layout` to the story:
+`{ "replay": { "layout": { "<system id>": [column, row] } } }` moves a system to another cell.
 
 ## render-check
 
@@ -85,6 +118,21 @@ One line per check, then `PASS` or `FAIL` (exit 1 only on a real failure). "hook
 | `hops` | at the midpoint of each hop both end-node labels are at opacity of at least 0.95 and in no overlap pair | A label is dim or covered while a packet is passing it. Show the label earlier, or move what covers it. |
 | `speed` | peak packet speed on the 1920x1080 stage is at most 320 px/s (1 px/s slack for rounding); sampled at 30 fps; jumps over 2000 px/s are ignored as teleports | Lengthen that hop. The time and packet index are printed. |
 | `rest` | every `window.anim.steps[i]` has a numeric `rest` | Warning only: add `rest` (seconds, where the step has finished moving and its labels are still on screen). Without it the export assumes 0.7 s before the step's end. |
+
+**Capture mode repaints.** With `?capture=1` (what `render-check`, `frames` and `export` use) the page
+forces a full repaint of the diagram after every `seek`. Chrome repaints only what changed, and a
+packet moving over a dashed lit link left stale pixels that made `seek` disagree with itself, so a
+screenshot taken after a jump could differ from the same time reached by playing. If you write a
+page that bypasses the shell, do the same or the `seek` line will fail for no reason in the code.
+
+### The per-beat seek and speed test
+
+`node --test scripts/beats.test.mjs` builds one small story for each beat kind (`chain`,
+`exchange`, `stream` (plain, `file`, `push`), `card`, `pulse`, `mark`, `camera` (flat only),
+`shields`) in both styles and, when `EXPLAINER_BROWSER_DIR` is set, runs `render-check` on each page: `seek` and `speed` must
+be `ok` (the card has no packet, so its speed line may say the hook is missing). Without a harness
+it runs the builds and prints that the render half was skipped. Run it after changing a beat or a
+painter; `make check` runs it.
 
 ### Hooks a page exposes
 
@@ -111,7 +159,8 @@ node scripts/export.mjs <page.html> [--out <dir>] [--narration full|caption|off]
      [--gif-width 1280] [--gif-fps 15] [--only full|steps|stills|gif ...] [--range <startSec>,<endSec>]
 ```
 
-Writes, into `--out` (default `out/<page name>/` beside `scripts/`, which is inside the skill: always pass `--out`): `full.mp4` (H.264, yuv420p,
+Writes, into `--out` (default `./explainer-out/<page name>/` under the current directory, never
+inside the skill): `full.mp4` (H.264, yuv420p,
 1920x1080, CRF 16), `steps/NN-<id>.mp4` (a step from its start to its rest frame, held 0.5 s),
 `stills/NN-<id>.png` (rest frames, for PDF decks), `full.gif` and `manifest.json` (per-step id, title,
 start, rest, end, clip, still; plus `kitVersion` when the page has `EXK.BUILD.kitVersion`). Every
@@ -137,8 +186,8 @@ opens both in capture mode, and for each step id present in both seeks each page
 (the oracle has no `rest`: step end minus 0.7 s, as the export does) and to 30% and 60% of the step.
 It writes one contact sheet per step (`NN-<id>.png`: three rows, kit left and oracle right, step id
 and title as the caption), the full-size rest frames (`NN-<id>-kit.png`, `-oracle.png`) and an
-`index.html` that shows everything and repeats the table. Default output `out/equivalence-flat/`
-(git-ignored). Look at the sheets: the table cannot see a label on a border.
+`index.html` that shows everything and repeats the table. Default output `./explainer-out/equivalence-flat/`
+(under the current directory). Look at the sheets: the table cannot see a label on a border.
 
 Structural rows decide the exit code (0 when `structural: PASS`):
 

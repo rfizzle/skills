@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { KIT_DIR, manifestFiles, readManifest } from './load-kit.mjs';
+import { checkScene } from './scene-file.mjs';
 
 const SKILL_DIR = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ASSETS = path.join(SKILL_DIR, 'assets');
@@ -53,6 +54,10 @@ export function assertOffline(html, label = 'output') {
 export function assemble(opts) {
   const { story, style = null, pattern = 'flow', replay = false, extraPath = null, builtAt = new Date().toISOString() } = opts;
   const bundle = replay ? 'replay' : 'scene';
+  if (!replay && pattern === 'custom') {
+    if (!extraPath) throw new Error('--pattern custom needs a scene file: --scene <file.js> registering EXK.scenes.<name> = { build(ctx), step(ctx, step, t0) }');
+    checkScene({ file: extraPath, story });
+  }
   const template = read(path.join(ASSETS, replay ? 'replay.html' : 'page.html'));
   const build = { style: replay ? null : style, pattern: replay ? null : pattern, replay, builtAt, kitVersion: readManifest().version };
   const parts = {

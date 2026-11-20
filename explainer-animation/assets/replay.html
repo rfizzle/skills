@@ -80,6 +80,10 @@
   #sclock { flex: none; font-family: var(--mono); font-size: 16px; font-weight: 700; font-variant-numeric: tabular-nums; width: 126px; white-space: nowrap; }
   #smini { position: relative; flex: 1 1 auto; height: 30px; min-width: 100px; }
   #sbar .chip { padding: 1px 10px; font-size: 11px; }
+  .recon { margin: 0; font-family: var(--mono); font-size: 11.5px; line-height: 16px; letter-spacing: .02em; color: var(--muted); }
+  #mast .recon { margin-top: 10px; }
+  #sbar .rcol { display: block; height: auto; }
+  #sbar .recon { padding: 0 0 7px; margin-top: -3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   #sbar .track { height: 30px; }
   #sbar .rail, #sbar .fill { top: 12px; height: 6px; }
   #sbar .shead { top: 3px; }
@@ -208,6 +212,9 @@
   #ctls .pr { display: block; height: 4px; border-radius: 2px; background: #1d2638; overflow: hidden; }
   #ctls .pr i { display: block; height: 100%; background: var(--secure); opacity: .4; }
   #ctls li.lit .pr i { opacity: 1; }
+  #ctls li.unplaced .cc { opacity: .55; border-style: dashed; cursor: default; }
+  #ctls li.unplaced .cc:hover { border-color: var(--line); }
+  .ilm { color: var(--token); font-size: 12px; font-weight: 700; line-height: 1; margin-left: 6px; flex: none; }
   #ctls .pl2 { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
 
   footer { margin-top: 24px; padding: 18px 0 40px; border-top: 1px solid var(--line); font-size: 13px; line-height: 1.6; color: var(--muted); }
@@ -233,13 +240,14 @@
   <div id="sclock" aria-hidden="true"></div>
   <div id="smini"></div>
   <span class="chip ill" hidden>Illustrative data</span>
-</div></div>
+</div><div class="col rcol"><p class="recon" id="srecon"></p></div></div>
 
 <div class="col">
   <header id="mast">
     <div class="kick"><div id="kick"></div><span class="chip ill" hidden>Illustrative data</span></div>
     <h1 id="ttl"></h1>
     <p id="tag"></p>
+    <p class="recon" id="recon"></p>
     <div id="chips" role="group" aria-label="Incident summary"></div>
   </header>
 

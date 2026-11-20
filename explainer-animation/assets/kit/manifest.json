@@ -82,6 +82,13 @@
       ]
     },
     {
+      "file": "scene/hud.js",
+      "pure": false,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
       "file": "scene/camera.js",
       "pure": false,
       "bundle": [
@@ -111,6 +118,13 @@
     },
     {
       "file": "patterns/flow.js",
+      "pure": true,
+      "bundle": [
+        "scene"
+      ]
+    },
+    {
+      "file": "patterns/custom.js",
       "pure": true,
       "bundle": [
         "scene"

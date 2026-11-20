@@ -38,6 +38,8 @@
        text.plan(cam, {t0, step, active:[ids], full, routes:[linkIds]})   start a placement session (one per step)
        text.label(id, lines, {at, until})                    node label in free space, key 'label:<id>'
        text.say(spec)  text.callout(spec)  text.card(spec)  stationary text beside an anchor, returns an item
+       text.fits(spec)  text.trial(fn)  text.reserve(rect)  placement tests, dry runs, and reserved stage rects (shields)
+       text.legend(spec)                                     a panel of rows in a free corner of the diagram area
        text.tag({packet, label, color}) -> {hop({path,f0,f1,rev,t,dur})}   moving tag that gives way
        text.register(spec)                                    a painter-drawn text element joins emphasis + data-ov
        text.appear(item, t, dur) / text.vanish(item, t, dur)  presence tweens
@@ -99,9 +101,13 @@
           occ.lane.push({ x0: p.x - 96, x1: p.x + 96, y0: p.y - 26, y1: p.y + 26 });
         }
       });
+      /* painter.blockCorner (iso): the loose modes may cover only that fraction of a block's box (a projected block's box has
+         empty corners; more than that covers the block itself) */
+      var corner = painter.blockCorner;
       occ.free = function (r, strict, noLane, withLine) {
         return inside(r, TXT) && occ.text.every(function (t) { return !overlap(r, t, 6); }) &&
           occ.leaders.every(function (b) { return !overlap(r, b, 4); }) &&
+          (strict || !corner || occ.blocks.every(function (b) { return ovArea(r, b) <= corner * (b.x1 - b.x0) * (b.y1 - b.y0); })) &&
           (!strict || (occ.borders.every(function (b) { return !overlap(r, b, 0); }) && occ.act.every(function (b) { return !overlap(r, b, 2); }) &&
             (noLane || occ.lane.every(function (b) { return !overlap(r, b, 0); })))) &&
           (!withLine || !strict || occ.line.every(function (b) { return !overlap(r, b, 0); }));
@@ -110,28 +116,57 @@
       return occ;
     }
     /* a leader line must not run through other text, nor across any block (its own included: it starts on the block's edge) */
-    function leaderClear(a, r, occ) {
-      var n = { x: Math.min(r.x1, Math.max(r.x0, a.x)), y: Math.min(r.y1, Math.max(r.y0, a.y)) };
-      for (var k = 1; k <= 14; k++) {
-        var f = k / 15, p = { x: a.x + (n.x - a.x) * f, y: a.y + (n.y - a.y) * f };
+    function leaderClear(a, r, occ, textOnly) {
+      var n = { x: Math.min(r.x1, Math.max(r.x0, a.x)), y: Math.min(r.y1, Math.max(r.y0, a.y)) }, ns = Math.max(15, Math.ceil(Math.hypot(n.x - a.x, n.y - a.y) / 4));
+      for (var k = 1; k < ns; k++) {      /* every 4 px: a coarser test let a leader clip a block's corner */
+        var f = k / ns, p = { x: a.x + (n.x - a.x) * f, y: a.y + (n.y - a.y) * f };
         if (f * Math.hypot(n.x - a.x, n.y - a.y) < 10) continue;
         if (occ.text.some(function (t) { return p.x > t.x0 - 2 && p.x < t.x1 + 2 && p.y > t.y0 - 2 && p.y < t.y1 + 2; })) return false;
-        if (occ.blocks.some(function (b) { return p.x > b.x0 + 4 && p.x < b.x1 - 4 && p.y > b.y0 + 4 && p.y < b.y1 - 4; })) return false;
+        if (!textOnly && occ.blocks.some(function (b) { return p.x > b.x0 + 4 && p.x < b.x1 - 4 && p.y > b.y0 + 4 && p.y < b.y1 - 4; })) return false;
       }
       return true;
     }
     var DIRS = [[0, -1], [1, 0], [-1, 0], [0, 1], [1, -1], [-1, -1], [1, 1], [-1, 1], [0.5, -1], [-0.5, -1], [1, -0.5], [-1, -0.5], [1, 0.5], [-1, 0.5], [0.5, 1], [-0.5, 1]];
-    /* first free candidate around the anchor (above, right, left, below, then diagonals; near, then far) */
-    function place(a, w, h, occ, dists, force, noLane0, m0, m1) {
-      for (var mode = m0 || 0; mode <= (m1 == null ? 4 : m1); mode++) for (var di = 0; di < (dists || DIST).length; di++) for (var u = 0; u < DIRS.length; u++) {
-        var d = (dists || DIST)[di], ux = DIRS[u][0], uy = DIRS[u][1];
-        var strict = mode < 2, lead = mode === 0 || mode === 2, noLane = noLane0 || mode === 4;   /* prefer clear of blocks and with a clear leader; then drop the leader; then the blocks; the lane last */
-        var cx = a.x + ux * (w / 2 + d), cy = a.y + uy * (h / 2 + d), r = { x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 };
-        if (occ.free(r, strict, noLane) && (!lead || leaderClear(a, r, occ))) { occ.add(r); return { dx: cx - a.x, dy: cy - a.y, w: w, h: h, rect: r }; }
+    function leaderLen(a, r) { return Math.hypot(Math.max(r.x0 - a.x, 0, a.x - r.x1), Math.max(r.y0 - a.y, 0, a.y - r.y1)); }
+    function candRect(a, w, h, d, u) { var cx = a.x + DIRS[u][0] * (w / 2 + d), cy = a.y + DIRS[u][1] * (h / 2 + d); return { x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 }; }
+    function placed(a, r, occ, forced) { occ.add(r); return { dx: (r.x0 + r.x1) / 2 - a.x, dy: (r.y0 + r.y1) / 2 - a.y, w: r.x1 - r.x0, h: r.y1 - r.y0, rect: r, forced: !!forced }; }
+    function ovArea(r, b) { return Math.max(0, Math.min(r.x1, b.x1) - Math.max(r.x0, b.x0)) * Math.max(0, Math.min(r.y1, b.y1) - Math.max(r.y0, b.y0)); }
+    /* first free candidate around the anchor (above, right, left, below, then diagonals; near, then far). Modes: 0-1 clear
+       of blocks, 2-3 may overlap blocks, 4 may also cross the packet lanes. Every candidate whose box is more than 12 px
+       from the anchor gets a leader, and that leader must cross no text and no block in every mode (a leader through the
+       node's own label or block points at the wrong thing); maxLead caps its length. */
+    function place(a, w, h, occ, dists, force, noLane0, m0, m1, maxLead) {
+      dists = dists || DIST;
+      for (var mode = m0 || 0; mode <= (m1 == null ? 4 : m1); mode++) for (var di = 0; di < dists.length; di++) for (var u = 0; u < DIRS.length; u++) {
+        var strict = mode < 2, noLane = noLane0 || mode === 4, r = candRect(a, w, h, dists[di], u);
+        if (maxLead && leaderLen(a, r) > maxLead) continue;
+        if (occ.free(r, strict, noLane) && leaderClear(a, r, occ)) return placed(a, r, occ);
       }
-      if (!force) return null;
-      var fy = a.y - (h / 2 + 14), fr = { x0: a.x - w / 2, x1: a.x + w / 2, y0: fy - h / 2, y1: fy + h / 2 };
-      occ.add(fr); return { dx: 0, dy: fy - a.y, w: w, h: h, rect: fr, forced: true };
+      return force ? fallback([a], w, h, occ, dists, maxLead) : null;
+    }
+    /* no candidate is clean: the least bad one that covers no text at all (a node label above all), within the leader cap,
+       inside the text margin; a leader crossing text or a block costs most, then covering blocks (by area), lanes, length. Only when every candidate covers text does it go
+       directly above the first anchor, flagged forced. */
+    function fallback(as, w, h, occ, dists, maxLead) {
+      var best = null;
+      as.forEach(function (a, ai) {
+        dists.forEach(function (d) {
+          for (var u = 0; u < DIRS.length; u++) {
+            var r = candRect(a, w, h, d, u), ll = leaderLen(a, r);
+            if ((maxLead && ll > maxLead) || !inside(r, TXT) || occ.text.some(function (t) { return overlap(r, t, 2); })) continue;
+            var cost = ll + (leaderClear(a, r, occ, true) ? 0 : 2e6) + (leaderClear(a, r, occ) ? 0 : 1e6) + (occ.leaders.some(function (b) { return overlap(r, b, 0); }) ? 2000 : 0);
+            occ.blocks.forEach(function (b) { cost += ovArea(r, b) / 2; });     /* covering a block costs more than a long leader */
+            occ.lane.forEach(function (b) { if (overlap(r, b, 0)) cost += 40; });
+            if (!best || cost < best.cost) best = { cost: cost, a: a, r: r, ai: ai };
+          }
+        });
+      });
+      var out;
+      if (best) { out = placed(best.a, best.r, occ, best.cost >= 1e6); out.ai = best.ai; return out; }
+      var a0 = as[0], fy = a0.y - (h / 2 + 14);
+      out = placed(a0, { x0: a0.x - w / 2, x1: a0.x + w / 2, y0: fy - h / 2, y1: fy + h / 2 }, occ, true);
+      out.ai = 0;
+      return out;
     }
     var DIST = [14, 40, 80, 130, 190, 260, 340];
 
@@ -200,12 +235,16 @@
        at when none has room (directly above it). spec.sizeWith: other lines the box must also fit (a request label
        sized for its response). spec.sameAs: an earlier item whose box this one takes (the response replaces the
        request in the same place). spec.lineAt: per-line appearance times. */
-    function pill(kind, key, spec, defaults) {
-      var s = need(), lines = linesOf(spec.lines != null ? spec.lines : spec.text), fs = spec.fs || LABEL_PX, mono = !!spec.mono;
+    function pillSize(spec) {
+      var lines = linesOf(spec.lines != null ? spec.lines : spec.text), fs = spec.fs || LABEL_PX, mono = !!spec.mono;
       var sizing = spec.sizeWith ? lines.concat(linesOf(spec.sizeWith)) : lines;
       var nl = Math.max(lines.length, spec.sizeWith ? linesOf(spec.sizeWith).length : 0);
       var pad = spec.pad || { x: 18, y: 11 }, lhf = spec.lh || 1.28;
-      var w = Math.round(widest(sizing, fs, mono, mono ? 400 : 600) + 2 * pad.x), h = nl * Math.round(fs * lhf) + 2 * pad.y;
+      return { lines: lines, fs: fs, mono: mono, pad: pad, lhf: lhf,
+        w: Math.round(widest(sizing, fs, mono, mono ? 400 : 600) + 2 * pad.x), h: nl * Math.round(fs * lhf) + 2 * pad.y };
+    }
+    function pill(kind, key, spec, defaults) {
+      var s = need(), z = pillSize(spec), lines = z.lines, fs = z.fs, mono = z.mono, pad = z.pad, lhf = z.lhf, w = z.w, h = z.h;
       var anchor, a, p = null, prev = spec.sameAs;
       if (prev && prev.box) {
         anchor = prev.anchor; w = prev.box.w; h = prev.box.h;
@@ -214,16 +253,19 @@
       } else {
         var anchors = spec.anchors || [spec.anchor || painter.anchor(spec.node || spec.target, spec.side || 'side')];
         var dists = spec.dists || defaults.dists;
-        /* every anchor with a clear leader and clear of blocks, then every anchor clear of blocks, before any anchor in the loose modes */
-        (painter.placeTiers || [[0, 0], [1, 1], [2, 4]]).forEach(function (tier) {     /* a painter may order the modes (iso: a clear leader first) */
+        /* every anchor clear of blocks, then every anchor in the looser modes; a leader is always clear (place) */
+        (spec.tiers || painter.placeTiers || [[0, 0], [1, 1], [2, 4]]).forEach(function (tier) {     /* a painter may order the modes */
           for (var ai = 0; ai < anchors.length && !p; ai++) {
             anchor = anchors[ai]; a = toStage(anchor, s.cam);
-            p = place(a, w, h, s.occ, dists, false, !!spec.noLane, tier[0], tier[1]);
+            p = place(a, w, h, s.occ, dists, false, !!spec.noLane, tier[0], tier[1], spec.maxLead);
           }
         });
         if (!p && spec.force !== false) {
-          anchor = anchors[spec.forceAt || 0]; a = toStage(anchor, s.cam);
-          p = place(a, w, h, s.occ, dists, true, !!spec.noLane);
+          /* the least bad spot around any anchor (never over text); forceAt orders that anchor first */
+          var fa = anchors.slice(), fi = spec.forceAt || 0;
+          if (fi) fa.unshift(fa.splice(fi, 1)[0]);
+          p = fallback(fa.map(function (q) { return toStage(q, s.cam); }), w, h, s.occ, dists, spec.maxLead);
+          anchor = fa[p.ai]; a = toStage(anchor, s.cam);
         }
       }
       var it = newItem(key, kind, anchor, { target: spec.target || null, edges: spec.edges || null, shield: spec.shield,
@@ -234,20 +276,73 @@
       var near = Math.hypot(Math.max(box.x, -(box.x + box.w), 0), Math.max(box.y, -(box.y + box.h), 0));
       drawPill(it, lines, box, { fs: fs, mono: mono, color: spec.color, title: spec.title, leader: near > 12, kind: kind, lineAt: spec.lineAt,
         pad: pad, lh: lhf, rowBars: spec.rowBars, titleColor: spec.titleColor });
-      if (near > 12 && !prev) {         /* the leader line is an obstacle for text placed after this */
-        var n = { x: Math.min(p.rect.x1, Math.max(p.rect.x0, a.x)), y: Math.min(p.rect.y1, Math.max(p.rect.y0, a.y)) }, steps = Math.ceil(Math.hypot(n.x - a.x, n.y - a.y) / 8);
-        for (var q = 0; q <= steps; q++) { var lx = a.x + (n.x - a.x) * q / steps, ly = a.y + (n.y - a.y) * q / steps; s.occ.leaders.push({ x0: lx - 3, x1: lx + 3, y0: ly - 3, y1: ly + 3 }); }
-      }
+      if (near > 12 && !prev) addLeader(s.occ, a, p.rect);       /* the leader line is an obstacle for text placed after this */
       fixedTransform(it, s.cam);
       if (spec.at != null) { it.pres.setAttribute('opacity', 0); appear(it, spec.at); }
       if (spec.until != null && isFinite(spec.until)) vanish(it, spec.until);
       return it;
     }
+    function addLeader(occ, a, r) {
+      var n = { x: Math.min(r.x1, Math.max(r.x0, a.x)), y: Math.min(r.y1, Math.max(r.y0, a.y)) }, steps = Math.ceil(Math.hypot(n.x - a.x, n.y - a.y) / 8);
+      for (var q = 0; q <= steps; q++) { var lx = a.x + (n.x - a.x) * q / steps, ly = a.y + (n.y - a.y) * q / steps; occ.leaders.push({ x0: lx - 3, x1: lx + 3, y0: ly - 3, y1: ly + 3 }); }
+    }
+    /* fits(spec): would a pill of these lines find a clean place (spec.tiers, default clear of blocks; leader clear and
+       within spec.maxLead) around one of spec.anchors? A fit is committed to the session's occupancy, so a run of fits
+       tests a whole set in order; wrap the run in trial() to undo it. */
+    function fits(spec) {
+      var s = need(), z = pillSize(spec), dists = spec.dists || DIST, p = null;
+      (spec.tiers || [[0, 1]]).forEach(function (tier) {
+        for (var ai = 0; ai < spec.anchors.length && !p; ai++) {
+          var a = toStage(spec.anchors[ai], s.cam);
+          p = place(a, z.w, z.h, s.occ, dists, false, !!spec.noLane, tier[0], tier[1], spec.maxLead);
+          if (p && leaderLen(a, p.rect) > 12) addLeader(s.occ, a, p.rect);
+        }
+      });
+      return !!p;
+    }
+    /* trial(fn) -> fn(): whatever fn places in the current session's occupancy is taken out again afterwards */
+    function trial(fn) {
+      var occ = need().occ, nt = occ.text.length, nl = occ.leaders.length;
+      try { return fn(); } finally { occ.text.length = nt; occ.leaders.length = nl; }
+    }
+    /* reserve(rect): stage rect that later text keeps clear of (a summary shield) */
+    function reserve(r) { need().occ.add(r); }
+    function toScene(p, cam) { var k = area.w / cam.w; return { x: cam.x + (p.x - area.x) / k, y: cam.y + (p.y - area.y) / k }; }
+
+    /* legend: one panel of rows in a free corner of the diagram area, no leader (the summary's numbered shields when their
+       names do not fit beside them). spec: {key, title, rows, at, lineAt, color}. Corners first, then the middles of the
+       top and bottom edges; clear of blocks and text, else the one covering the least of the blocks (never text). */
+    function legend(spec) {
+      var s = need(), lines = [spec.title].concat(spec.rows), fs = 22, pad = { x: 22, y: 14 }, lhf = 1.45;
+      var w = Math.round(widest(lines, fs, false, 600) + 2 * pad.x + 20), h = lines.length * Math.round(fs * lhf) + 2 * pad.y;
+      var X0 = TXT.x0, X1 = TXT.x1 - w, Y0 = TXT.y0, Y1 = TXT.y1 - h, XM = (TXT.x0 + TXT.x1 - w) / 2;
+      var spots = [[X0, Y0], [X1, Y0], [X0, Y1], [X1, Y1], [XM, Y0], [XM, Y1]], pick = null, best = null;
+      spots.forEach(function (q) {
+        var r = { x0: q[0], x1: q[0] + w, y0: q[1], y1: q[1] + h };
+        if (pick || !inside(r, TXT)) return;
+        if (s.occ.free(r, true, true)) { pick = r; return; }
+        if (s.occ.text.some(function (t) { return overlap(r, t, 4); })) return;
+        var cost = 0;
+        s.occ.blocks.forEach(function (b) { cost += ovArea(r, b); });
+        if (!best || cost < best.cost) best = { cost: cost, r: r };
+      });
+      var r = pick || (best && best.r) || { x0: X0, x1: X0 + w, y0: Y0, y1: Y0 + h };
+      s.occ.add(r);
+      var c = { x: (r.x0 + r.x1) / 2, y: (r.y0 + r.y1) / 2 };
+      var it = newItem(uniq(spec.key || 'legend'), 'call', toScene(c, s.cam), { at: spec.at != null ? spec.at : null, until: Infinity, forced: !pick });
+      it.rect = r;
+      it.box = { x: -w / 2, y: -h / 2, w: w, h: h };
+      drawPill(it, lines, it.box, { fs: fs, color: spec.color, title: true, titleColor: spec.color, rowBars: true, pad: pad, lh: lhf, lineAt: spec.lineAt, kind: 'call' });
+      fixedTransform(it, s.cam);
+      if (spec.at != null) { it.pres.setAttribute('opacity', 0); appear(it, spec.at); }
+      return it;
+    }
+
     var keyN = {};
     function uniq(base) { keyN[base] = (keyN[base] || 0) + 1; return keyN[base] > 1 ? base + '#' + keyN[base] : base; }
 
     /* say: the stationary label for what a packet carries. spec: {lines, node|anchor, side, at, until, mono, color} */
-    function say(spec) { return pill('say', uniq(spec.key || 'say:' + (spec.node || '') + ':' + linesOf(spec.lines)[0]), spec, { dists: DIST }); }
+    function say(spec) { return pill('say', uniq(spec.key || 'say:' + (spec.node || '') + ':' + linesOf(spec.lines)[0]), Object.assign({ maxLead: SAY_LEADER_MAX - 10 }, spec), { dists: DIST }); }
     /* callout: 0-2 per step, anchored to a node or link. spec: {text, target|anchor, at, until, color} */
     function callout(spec) { return pill('call', uniq(spec.key || 'call:' + (spec.target || '')), spec, { dists: DIST }); }
     /* tally: lines (strings or segment arrays) beside the receiving end of a stream; spec as say */
@@ -291,10 +386,17 @@
       var cx = (br.x0 + br.x1) / 2, cy = (br.y0 + br.y1) / 2, above = br.y0 - 8 - h / 2, below = br.y1 + 8 + h / 2;
       var cands = [[cx, above], [cx - w / 2 - 18, above], [cx + w / 2 + 18, above], [br.x0 - 12 - w / 2, cy], [br.x1 + 12 + w / 2, cy], [cx, below],
         [cx, above - 44], [cx - w / 2 - 18, above - 44], [cx + w / 2 + 18, above - 44], [cx, below + 44]];
+      /* a label is read as belonging to the nearest block: prefer spots nearer its own block than any other (in a projected
+         scene the spot above a block is often next to the block behind it) */
+      function gap(r, b) { return Math.hypot(Math.max(b.x0 - r.x1, 0, r.x0 - b.x1), Math.max(b.y0 - r.y1, 0, r.y0 - b.y1)); }
+      function owned(r) {
+        var d0 = gap(r, br);
+        return s.occ.blocks.every(function (b) { return (b.x0 === br.x0 && b.y0 === br.y0) || gap(r, b) > d0 + 2; });
+      }
       var pick = null;
-      for (var si = 0; si < 2 && !pick; si++) for (var ci = 0; ci < cands.length && !pick; ci++) {
+      for (var pass = 0; pass < 4 && !pick; pass++) for (var ci = 0; ci < cands.length && !pick; ci++) {
         var r = { x0: cands[ci][0] - w / 2, x1: cands[ci][0] + w / 2, y0: cands[ci][1] - h / 2, y1: cands[ci][1] + h / 2 };
-        if (s.occ.free(r, si === 0, true, true)) { s.occ.add(r); pick = { r: r, cx: cands[ci][0], cy: cands[ci][1] }; }
+        if (s.occ.free(r, pass % 2 === 0, true, true) && (pass > 1 || owned(r))) { s.occ.add(r); pick = { r: r, cx: cands[ci][0], cy: cands[ci][1] }; }
       }
       var forced = false;
       if (!pick) {
@@ -448,6 +550,7 @@
 
     var text = {
       layer: layer, plan: plan, label: label, say: say, callout: callout, card: card, tally: tally, pin: pin, pinW: pinW, tag: tag, register: register,
+      fits: fits, trial: trial, reserve: reserve, legend: legend, toScene: toScene,
       appear: appear, vanish: vanish, emphasis: emphasis, sync: sync, finish: finish,
       logHop: function (h) { hopLog.push({ step: h.step, t0: h.t0, t1: h.t1, mid: (h.t0 + h.t1) / 2, rid: h.rid, ends: h.ends }); },
       items: items, sessions: sessions, tags: tags,

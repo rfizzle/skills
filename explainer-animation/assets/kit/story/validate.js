@@ -1,5 +1,7 @@
 /* Story validation and normalisation. Pure: no DOM, no GSAP, no knowledge of painters.
-   validate(story, {style}) -> [{level, path, message, fix}]   level: 'error' | 'warning'
+   validate(story, {style, pattern}) -> [{level, path, message, fix}]   level: 'error' | 'warning'
+   A story is a custom-pattern story when pattern is 'custom' or meta.scene is set: every record of every
+   top-level array it carries (beyond the core ones) must have a source, like the named pattern blocks.
    formatProblem(p) -> 'path: message. Fix: fix.'              one line
    normalize(story) -> deep copy with defaults filled and `_` keys removed */
 (function () {
@@ -18,14 +20,64 @@
   var BEAT_FIELDS = {
     chain: ['tag', 'color', 'says', 'sayAt', 'trail', 'mark', 'mono'],
     exchange: ['tag', 'req', 'resp', 'respTag', 'respColor', 'mono', 'trail', 'color', 'mark'],
-    stream: ['items', 'says', 'tally', 'mono', 'color', 'tag'],
+    stream: ['items', 'says', 'tally', 'mono', 'color', 'tag', 'glyph'],
     card: ['title', 'rows', 'color', 'then'],
     camera: [], shields: [], pulse: ['color'], mark: []
   };
   var BEAT_COMMON = ['at', 'parallel'];
+  var GLYPHS = ['dot', 'file', 'push', 'mail', 'key'];      /* a stream packet's glyph (paint/flat.js, paint/iso.js) */
   var ROUTE_KEYS = ['exit', 'corridor', 'lane', 'via'];     /* link.route hints; link.route.iso takes the same keys (iso style only) */
-  var PATTERN_BLOCKS = ['runs', 'states', 'objects', 'horizons', 'lanes', 'initiatives', 'risks', 'layers', 'coverage'];
+  var PATTERN_BLOCKS = ['runs', 'states', 'objects', 'horizons', 'lanes', 'initiatives', 'risks', 'dependencies', 'layers', 'coverage'];
+  var CORE_ARRAYS = ['zones', 'systems', 'links', 'phases', 'steps', 'controls', 'events'];
   var MAX_TITLE = 6, MAX_BODY = 30, MAX_CALLOUT = 6, MAX_CALLOUTS = 2, MAX_ITEMS = 4;
+  /* Character caps per text field (warnings), from what fits the 1920x1080 film frame at the kit's sizes: the narrative band is
+     1420 px wide and holds three lines of 32 px body text (about 85 characters a line, 260 characters in all); the title is
+     one line of 46 px bold in about 1340 px (24 px a character); says, callouts and card rows are 26 px labels placed beside a
+     block (about 14 px a character, so 32 characters are about 440 px, a quarter of the diagram area); a moving tag is a 22 px
+     pill (12 px a character). Caps leave about 10% for a wider system font. A `says` line is one line of the label (the text
+     may hold \n). references/rules.md section B lists them. */
+  var CAPS = { title: 48, body: 240, callout: 32, says: 32, req: 32, resp: 32, row: 30, cardTitle: 30, tag: 16, tally: 16 };
+  var STARTERS = ['now', 'here', 'next'];
+  /* typed counts in text: what is exempt (references/rules.md section B lists the same) */
+  var NUM_WORDS = ['two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'twenty', 'thirty', 'forty', 'fifty', 'hundred'];
+  var UNITS = ('second seconds sec secs ms millisecond milliseconds minute minutes min mins hour hours hr hrs day days week weeks month months year years ' +
+    'am pm utc gmt percent kb mb gb tb kib mib gib byte bytes bit bits px hz khz mhz ghz bps kbps mbps gbps usd eur gbp times').split(' ');
+  var NOT_NOUNS = ('and or of to in on at for the a an is are was were be been with by from as than but then so if when while that this these those which who ' +
+    'it its not no nor per via into over under after before is has have had can could will would may might must should more less most least other another ' +
+    'each every all some any both either neither only just also still again later earlier first last next').split(' ');
+  var LABELS = ('step steps phase stage tier level version release rev round option scene slide page figure fig number no http https tls ssl status code error ' +
+    'cve rfc iso aes sha rsa port ports ipv top q v').split(' ');
+  var NOT_X = ['509', '86', '64', '11'];     /* x509, x86, x64, x11 are names, not multipliers */
+
+  function words(t) { return String(t).split(/\s+/).filter(Boolean); }
+  /* a quantity that looks like a count of things in the story, or null: digits and a noun ("3 passages"), a number word and a
+     noun ("three tokens"), "N of M", "x4" or "4x". Not counted: versions, addresses, times and decimals (a dot or colon joins the
+     digits), ports and HTTP codes (a label word before, or 100-599 before a capitalised word), years (1900-2100), paths and
+     identifiers (anything joined to letters, slashes, underscores or =), durations and sizes (a unit noun), text in double quotes. */
+  function typedCount(text) {
+    var t = String(text).replace(/"[^"]*"|\u201c[^\u201d]*\u201d/g, ' ').split(/\s+/).filter(function (w) { return !/[\/\\@_=]/.test(w); }).join(' ');
+    var m, re;
+    re = /(^|[\s(\[])(\d[\d,]*)\s+of\s+(\d[\d,]*)(?![\d.:])/g;
+    if ((m = re.exec(t))) return m[2] + ' of ' + m[3];
+    re = /(^|[\s(\[])(\d[\d,]*)\s+([A-Za-z][A-Za-z']*)/g;
+    while ((m = re.exec(t))) {
+      var n = parseInt(m[2].replace(/,/g, ''), 10), noun = m[3].toLowerCase(), before = t.slice(0, m.index + m[1].length).trim().split(/\s+/).pop().toLowerCase();
+      if (/[.:]$/.test(m[2]) || UNITS.indexOf(noun) >= 0 || NOT_NOUNS.indexOf(noun) >= 0 || LABELS.indexOf(before.replace(/[^a-z]/g, '')) >= 0) continue;
+      if (n >= 1900 && n <= 2100) continue;
+      if (n >= 100 && n <= 599 && /^[A-Z]/.test(m[3])) continue;
+      return m[2] + ' ' + m[3];
+    }
+    re = new RegExp('(^|[\\s(\\[-])(' + NUM_WORDS.join('|') + ')(?:\\s+(of\\s+(?:\\d+|the|our|these|those|them|its|their|' + NUM_WORDS.join('|') + ')\\b)|\\s+([a-z][a-z\']*))', 'gi');
+    while ((m = re.exec(t))) {
+      if (m[3]) return m[2] + ' ' + m[3];
+      var nw = m[4].toLowerCase();
+      if (UNITS.indexOf(nw) >= 0 || NOT_NOUNS.indexOf(nw) >= 0) continue;
+      return m[2] + ' ' + m[4];
+    }
+    re = /(^|\s)(?:[x\u00d7]\s?(\d{1,3})|(\d{1,3})\s?[x\u00d7])(?=$|[\s.,;:)!?])/gi;
+    while ((m = re.exec(t))) if (NOT_X.indexOf(m[2] || m[3]) < 0) return m[0].trim();
+    return null;
+  }
 
   function isObj(v) { return v !== null && typeof v === 'object' && !Array.isArray(v); }
   function wc(s) { return String(s == null ? '' : s).trim().split(/\s+/).filter(Boolean).length; }
@@ -43,6 +95,27 @@
     var out = [];
     function err(path, message, fix) { out.push({ level: 'error', path: path, message: message, fix: fix }); }
     function warn(path, message, fix) { out.push({ level: 'warning', path: path, message: message, fix: fix }); }
+    /* caption rules on one piece of film text (warnings): length cap, typed counts, a first word that points at the screen,
+       balanced backticks. `o`: cap (character cap per line), what (field name), first (check the first word), lit (exempt from
+       the count rule: _literal on the record), mono (machine text: no count rule). */
+    function textWarn(path, value, o) {
+      list(Array.isArray(value) ? value : [value]).forEach(function (v, i) {
+        if (!str(v)) return;
+        var p = Array.isArray(value) ? path + '[' + i + ']' : path;
+        String(v).split('\n').forEach(function (line) {
+          if (o.cap && line.length > o.cap) warn(p, 'has a line of ' + line.length + ' characters (a ' + o.what + ' line fits ' + o.cap + ' in the film frame)', 'cut it to ' + o.cap + ' characters or fewer' + (o.what === 'body' ? ' and move the rest to detail' : ' (split a says over two lines with \\n)'));
+        });
+        if (o.first) {
+          var w = words(v)[0].replace(/[^A-Za-z]/g, '').toLowerCase();
+          if (STARTERS.indexOf(w) >= 0) warn(p, 'starts with "' + words(v)[0] + '", which points at the screen instead of saying what happens', 'start with the subject ("The attacker ...") and say what happens');
+        }
+        if ((String(v).split('`').length - 1) % 2) warn(p, 'has an unbalanced backtick (backticks are drawn as written)', 'remove the backtick, or close it');
+        if (!o.lit && !o.mono) {
+          var c = typedCount(v);
+          if (c) warn(p, 'contains "' + c + '", which looks like a typed count of things in the story', 'remove the number or say it without one; counts are computed, never typed. If the number is part of a name, put it in double quotes or set "_literal": true on this step, beat or callout');
+        }
+      });
+    }
 
     if (!isObj(story)) {
       err('story', 'is not an object', 'make the file a JSON object with meta, zones, systems, links, phases, steps');
@@ -96,7 +169,10 @@
       if (KINDS.indexOf(m.kind) < 0) err('meta.kind', 'is ' + (m.kind === undefined ? 'missing' : q(m.kind)) + ', not one of ' + KINDS.join(', '), 'set kind to one of ' + KINDS.join(', '));
       if (AUDIENCES.indexOf(m.audience) < 0) err('meta.audience', 'is ' + (m.audience === undefined ? 'missing' : q(m.audience)) + ', not one of ' + AUDIENCES.join(', '), 'set audience to technical or executive');
       checkSource('meta', m);
+      if (m.startsAt !== undefined && (!str(m.startsAt) || isNaN(Date.parse(m.startsAt)))) warn('meta.startsAt', 'is not an ISO 8601 date and time', 'write it as "2026-03-09T14:02:00Z" (the time of the first event), or remove it and the replay banner shows the span instead');
+      if (m.scene !== undefined && !str(m.scene)) err('meta.scene', 'is not a scene name', 'set meta.scene to the name the scene file registers as EXK.scenes.<name>, or remove it');
     }
+    var custom = opts.pattern === 'custom' || (isObj(m) && str(m.scene));
 
     collect(story.zones, 'zones', zoneIds, 'zone');
     collect(story.systems, 'systems', systemIds, 'system');
@@ -208,8 +284,12 @@
       checkSource(p, e);
     });
 
-    // pattern blocks: validated only for source
-    PATTERN_BLOCKS.forEach(function (k) {
+    // pattern blocks: validated only for source (a custom story: every extra top-level array of records)
+    var blocks = PATTERN_BLOCKS.slice();
+    if (custom) Object.keys(story).forEach(function (k) {
+      if (k.charAt(0) !== '_' && CORE_ARRAYS.indexOf(k) < 0 && blocks.indexOf(k) < 0 && Array.isArray(story[k])) blocks.push(k);
+    });
+    blocks.forEach(function (k) {
       if (Array.isArray(story[k])) story[k].forEach(function (r, i) {
         if (isObj(r)) checkSource(k + '[' + i + ']', r);
       });
@@ -223,6 +303,9 @@
       else if (wc(s.title) > MAX_TITLE) err(p + '.title', 'has ' + wc(s.title) + ' words (limit ' + MAX_TITLE + ')', 'shorten the title to ' + MAX_TITLE + ' words or fewer');
       if (!str(s.body)) err(p + '.body', 'is missing', 'write a body of ' + MAX_BODY + ' words or fewer');
       else if (wc(s.body) > MAX_BODY) err(p + '.body', 'has ' + wc(s.body) + ' words (limit ' + MAX_BODY + ')', 'cut the body to ' + MAX_BODY + ' words or fewer and move the rest to detail');
+      var lit = s._literal === true;
+      textWarn(p + '.title', s.title, { cap: CAPS.title, what: 'title', first: true, lit: lit });
+      textWarn(p + '.body', s.body, { cap: CAPS.body, what: 'body', first: true, lit: lit });
       if (s.phase !== undefined && !phaseIds[s.phase]) err(p + '.phase', 'refers to unknown phase ' + q(s.phase), 'use an id from phases[]');
       if (s.touch !== undefined && !Array.isArray(s.touch)) err(p + '.touch', 'is not an array', 'make touch a list of system ids');
       list(s.touch).forEach(function (id, k) {
@@ -255,6 +338,7 @@
             if (!holdable(c.target)) err(cp + '.target', c.target === undefined ? 'is missing' : 'refers to unknown zone or system ' + q(c.target), 'use an id from zones[] or systems[]');
             if (!str(c.text)) err(cp + '.text', 'is missing', 'write callout text of ' + MAX_CALLOUT + ' words or fewer');
             else if (wc(c.text) > MAX_CALLOUT) err(cp + '.text', 'has ' + wc(c.text) + ' words (limit ' + MAX_CALLOUT + ')', 'shorten it to ' + MAX_CALLOUT + ' words or fewer');
+            textWarn(cp + '.text', c.text, { cap: CAPS.callout, what: 'callout', lit: lit || c._literal === true });
           });
         }
       }
@@ -290,6 +374,7 @@
             if (!Array.isArray(v) || v.length < 2) err(bp + '.stream', 'needs a path of at least 2 system ids', 'write "stream": ["from-id", "next-id", ...]');
             else for (var jj = 0; jj + 1 < v.length; jj++) pair(bp + '.stream[' + jj + ']', v[jj], v[jj + 1]);
             if (Array.isArray(b.items) && b.items.length > MAX_ITEMS) err(bp + '.items', 'has ' + b.items.length + ' items (limit ' + MAX_ITEMS + ')', 'keep at most ' + MAX_ITEMS + ' items');
+            if (b.glyph !== undefined && GLYPHS.indexOf(b.glyph) < 0) err(bp + '.glyph', 'is not a packet glyph', 'use one of ' + GLYPHS.join(', ') + ' (default dot)');
           } else if (kind === 'card') {
             cards++;
             if (!str(v)) err(bp + '.card', 'is not a card id', 'give the card an id string');
@@ -315,6 +400,12 @@
           // fields that name systems in any beat
           if (b.mark !== undefined && kind !== 'mark') sys(bp + '.mark', b.mark);
           if (b.sayAt !== undefined && b.sayAt !== 'dest') sys(bp + '.sayAt', b.sayAt);
+          var bl = lit || b._literal === true, mono = b.mono === true;
+          if (kind === 'chain' || kind === 'stream') textWarn(bp + '.says', b.says, { cap: CAPS.says, what: 'says', lit: bl, mono: mono });
+          if (kind === 'exchange') { textWarn(bp + '.req', b.req, { cap: CAPS.req, what: 'req', lit: bl, mono: mono }); textWarn(bp + '.resp', b.resp, { cap: CAPS.resp, what: 'resp', lit: bl, mono: mono }); textWarn(bp + '.respTag', b.respTag, { cap: CAPS.tag, what: 'tag', lit: bl }); }
+          if (kind === 'card') { textWarn(bp + '.title', b.title, { cap: CAPS.cardTitle, what: 'card title', lit: bl, mono: mono }); textWarn(bp + '.rows', b.rows, { cap: CAPS.row, what: 'card row', lit: bl, mono: mono }); }
+          if (kind === 'stream') textWarn(bp + '.tally', b.tally, { cap: CAPS.tally, what: 'tally', lit: bl });
+          if (b.tag !== undefined) textWarn(bp + '.tag', b.tag, { cap: CAPS.tag, what: 'tag', lit: bl });
           if (b.tag !== undefined && wc(b.tag) > 2) err(bp + '.tag', 'has ' + wc(b.tag) + ' words (limit 2)', 'move the text to says and keep the tag to 1-2 words');
         });
         if (style === 'iso' && cards > 1) warn(p + '.beats', 'has ' + cards + ' card beats; iso shows the first and skips the rest', 'keep one card or build with --style flat');

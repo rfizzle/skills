@@ -433,7 +433,7 @@
   // spread PORT apart, nested (the run nearer the node turns on the side it turns to), then the
   // whole group slides along the side (12-unit steps) until no end passes under a node or a tab.
   function assignPorts(ctx, plans) {
-    var groups = {}, keys = [];
+    var groups = {}, keys = [], fixed = {};
     plans.forEach(function (p) {
       p.pa = 0; p.pb = 0;
       if (p.viaPts) return;
@@ -442,7 +442,10 @@
         var node = p[e[0]], other = p[e[0] === 'a' ? 'b' : 'a'];
         var side = sideAt(pts, e[1]);
         var crossAxis = p.axis === 'v' ? (side === 'top' || side === 'bottom') : (side === 'left' || side === 'right');
-        if (!crossAxis || pts.length < 2) return;
+        if (pts.length < 2) return;
+        /* an end that leaves along its own run (a straight route, or a run through the node) cannot move: it holds the
+           point m on that side, and the movable ends of the side keep clear of it */
+        if (!crossAxis) { (fixed[node.id + ':' + side] = fixed[node.id + ':' + side] || []).push(p.m - (p.axis === 'v' ? node.cy : node.cx)); return; }
         var depth = Math.abs(p.m - (p.axis === 'v' ? node.cy : node.cx));
         var t = Math.sign(p.axis === 'v' ? other.cx - node.cx : other.cy - node.cy);
         if (pts.length === 2) t = 0;
@@ -456,16 +459,36 @@
       g.sort(function (u, v) { return u.key - v.key || u.p.idx - v.p.idx; });
       var sp = n > 1 ? Math.min(PORT, 2 * half / (n - 1)) : 0;
       g.forEach(function (u, i) { u.off = (i - (n - 1) / 2) * sp; });
-      var room = half - (n - 1) / 2 * sp, shift = 0;
-      for (var step = 0; step <= 2 * Math.floor(room / 12); step++) {
-        var d = (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 12;
-        if (g.every(function (u) { return endClear(ctx, u.p, u.end, u.off + d); })) { shift = d; break; }
+      var room = half - (n - 1) / 2 * sp, shift = null, fx = fixed[k] || [];
+      function apart(d) { return g.every(function (u) { return fx.every(function (o) { return Math.abs(u.off + d - o) >= LANE; }); }); }
+      function clear(d) { return g.every(function (u) { return endClear(ctx, u.p, u.end, u.off + d); }); }
+      /* an end segment must not lie along a segment of another route as last built (they would share it) */
+      function own(d) {
+        return g.every(function (u) {
+          var sg = endSeg(u.p, u.end, u.off + d);
+          return plans.every(function (q) {
+            return q === u.p || !q.lastPts || segsOf(q.lastPts).every(function (v) {
+              return v.h !== sg.h || Math.abs(v.c - sg.c) >= 6 || Math.min(v.hi, sg.hi) - Math.max(v.lo, sg.lo) <= 2;
+            });
+          });
+        });
       }
+      [function (d) { return apart(d) && clear(d) && own(d); }, function (d) { return apart(d) && clear(d); }, clear, apart].forEach(function (ok) {
+        for (var step = 0; shift === null && step <= 2 * Math.floor(room / 12); step++) {
+          var d = (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 12;
+          if (ok(d)) shift = d;
+        }
+      });
+      if (shift === null) shift = 0;
       g.forEach(function (u) { if (u.end === 'a') u.p.pa = u.off + shift; else u.p.pb = u.off + shift; });
     });
   }
 
+  /* ports twice: the second pass keeps each end off the segments the first pass built for the other routes */
   function materialize(ctx, plans) {
+    plans.forEach(function (p) { p.lastPts = null; });
+    assignPorts(ctx, plans);
+    plans.forEach(function (p) { p.lastPts = build(p); });
     assignPorts(ctx, plans);
     return plans.map(function (p) { return build(p); });
   }

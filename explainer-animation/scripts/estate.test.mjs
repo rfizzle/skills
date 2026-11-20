@@ -249,3 +249,59 @@ test('check-layout.mjs: reference passes with scale >= 0.70, a broken layout exi
   assert.match(r2.stdout, /share a segment/);
   fs.rmSync(tmp, { recursive: true, force: true });
 });
+
+// ---- generalisation fixes (cold stories) ----
+const COLD = path.join(here, 'testdata', 'stories');
+const coldModel = (name, style, mutate) => {
+  const raw = readJson(path.join(COLD, name + '.story.json'));
+  if (mutate) mutate(raw);
+  const story = EXK.normalize(raw), estate = EXK.layout.layoutEstate(story, style);
+  return { story, estate, E: EXK.route.routeLinks(estate, story) };
+};
+
+test('iso: a flat below hint no longer makes siblings overlap (the stretched top-level zone stops at its row)', () => {
+  const { estate } = coldModel('cold-ai-flows', 'iso', (r) => { delete r.zones.find((z) => z.id === 'ext').layout.iso; });
+  assert.deepEqual(plain(EXK.layout.checkLayout(estate)), []);
+});
+
+test('router: no two routes share a segment in any cold story, either style', () => {
+  for (const name of ['cold-ai-flows', 'cold-supply-chain', 'cold-phishing']) for (const style of ['flat', 'iso']) {
+    const { estate, E } = coldModel(name, style);
+    const shared = EXK.route.checkRoutes(estate, E, {}).filter((c) => c.kind === 'shared');
+    assert.deepEqual(plain(shared), [], `${name} ${style}`);
+  }
+});
+
+test('layout: a zone with no dir gets the direction that fills the area better; explicit dir is kept', () => {
+  const deep = path.join(here, 'testdata', 'estates', 'deep.story.json');
+  const story = EXK.normalize(readJson(deep));
+  const fixed = EXK.layout.layoutEstate(story, 'flat', { auto: false }), auto = EXK.layout.layoutEstate(story, 'flat');
+  assert.ok(EXK.layout.fitScore(auto.world, auto.sizes) > EXK.layout.fitScore(fixed.world, fixed.sizes) * 1.03);
+  assert.ok(auto.auto.length > 0);
+  const ref = EXK.layout.layoutEstate(EXK.normalize(readJson(REF)), 'flat');
+  assert.deepEqual(plain(ref.auto), []);
+});
+
+test('iso audit: refuses an estate whose full view is too small, accepts the cold stories', () => {
+  const src = { kind: 'illustrative' };
+  const systems = Array.from({ length: 22 }, (_, i) => ({ id: 's' + i, name: 'System ' + i, role: 'r', zone: 'z', icon: 'chip', source: src }));
+  const big = EXK.normalize({ meta: { id: 'big', title: 'Big', kind: 'architecture', audience: 'technical', redaction: 'none', source: src },
+    zones: [{ id: 'z', name: 'Zone', layout: { dir: 'row' }, source: src }], systems, links: [], phases: [{ id: 'p', title: 'P', source: src }],
+    steps: [{ id: 'a', phase: 'p', title: 'T', body: 'B.', touch: ['s0'], uses: [], source: src }], controls: [], figures: {} });
+  const a = EXK.layout.isoAudit(EXK.layout.layoutEstate(big, 'iso'), big);
+  assert.ok(a.problems.some((p) => p.level === 'error' && p.kind === 'small'));
+  for (const name of ['cold-ai-flows', 'cold-supply-chain', 'cold-phishing']) {
+    const { story, estate } = coldModel(name, 'iso');
+    assert.deepEqual(plain(EXK.layout.isoAudit(estate, story).problems.filter((p) => p.level === 'error').map((p) => p.message)), [], name);
+  }
+});
+
+test('check-layout: a hint that makes a route worse is named, with the fix', () => {
+  const raw = readJson(REF);
+  raw.links.find((l) => l.from === 'lb' && l.to === 'storefront').route = { exit: 'top', corridor: 'above:internet' };
+  const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'exk-cl-')), 'bad.story.json');
+  fs.writeFileSync(f, JSON.stringify(raw));
+  const r = spawnSync(process.execPath, [path.join(here, 'check-layout.mjs'), f], { encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /advice lb-storefront: the hint .* makes it worse.*remove links\[2\]\.route/);
+});

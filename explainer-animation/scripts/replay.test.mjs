@@ -6,6 +6,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadKit } from './lib/load-kit.mjs';
+import { replayChecks } from './lib/replay-warnings.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const storyPath = path.join(here, '..', 'assets', 'examples', 'ssrf-attack-chain.story.json');
@@ -260,4 +261,162 @@ test('a large estate asks for layout hints', () => {
   const events = [{ t: 0, step: 's', from: 's0', to: 's1', action: 'a', count: 1, visibility: 'blind', actor: 'attacker' }];
   const s = tiny({ systems, links, events });
   assert.equal(R.layoutGraph(s, R.derive(s)).warnings.length, 1);
+});
+
+/* ---------- what would have stopped it: every control has a card ---------- */
+const withControls = (controls, stops) => tiny({
+  steps: [{ id: 's', phase: 'p', title: 'S', body: 'b', touch: [], uses: [] }, { id: 's2', phase: 'p', title: 'S2', body: 'b', touch: [], uses: [] }],
+  events: [
+    { t: 0, step: 's', from: 'x', to: 'y', action: 'a', visibility: 'blind', actor: 'attacker' },
+    { t: 10, step: 's2', from: 'y', to: 'z', action: 'b', visibility: 'logged', actor: 'attacker' },
+    { t: 20, step: 's2', from: 'y', to: 'z', action: 'c', visibility: 'logged', actor: 'attacker' }
+  ],
+  controls: controls.map((c, i) => Object.assign({ id: 'c' + i, name: 'C' + i, why: 'w', source: { kind: 'provided', ref: 'x' } }, c))
+});
+
+test('controls with the same cut point both get a card, in story order', () => {
+  const s = withControls([{ on: ['y', 'z'], stops: ['s2'] }, { on: ['y', 'z'], stops: ['s2'] }, { on: ['x', 'y'], stops: ['s'] }]);
+  const d = R.derive(s);
+  eq(d.cards.map((c) => c.id), ['c2', 'c0', 'c1']);
+  eq(d.cards.map((c) => c.at), [1, 2, 2]);
+  assert.equal(d.cuts.length, 3);
+  assert.equal(d.unplaced.length, 0);
+});
+
+test('a control whose link is only crossed before the steps it stops is cut at its last crossing, and says so', () => {
+  const d = R.derive(withControls([{ on: ['x', 'y'], stops: ['s2'] }]));
+  assert.equal(d.cuts.length, 1);
+  assert.equal(d.cuts[0].how, 'before');
+  assert.equal(d.cuts[0].at, 1);
+  assert.equal(d.cuts[0].later, 2);
+});
+
+test('a control that no attacker action crosses is listed as unplaced with a reason, never dropped', () => {
+  const s = withControls([{ on: ['x', 'y'], stops: ['s'] }, { on: ['z', 'y'], stops: ['s'] }]);
+  s.events = s.events.filter((e) => !(e.from === 'y' && e.to === 'z'));          // nothing crosses y-z any more
+  s.events.push({ t: 30, step: 's2', from: 'z', to: 'y', action: 'd', visibility: 'blind', actor: 'defender' });
+  const d = R.derive(s);
+  eq(d.cards.map((c) => [c.id, c.placed]), [['c0', true], ['c1', false]]);
+  assert.match(d.unplaced[0].reason, /no attacker action/);
+  assert.equal(d.cards.length, s.controls.length);
+});
+
+test('the cold stories: every control appears, and the example\'s cut points are unchanged', () => {
+  eq(D.cards.map((c) => c.id), ['waf', 'imdsv2', 'least-privilege', 'bucket-policy', 'netpol']);
+  assert.ok(D.cards.every((c) => c.placed && c.how === 'at'));
+  for (const name of ['cold-supply-chain', 'cold-phishing']) {
+    const st = EXK.normalize(JSON.parse(fs.readFileSync(path.join(here, 'testdata', 'stories', name + '.story.json'), 'utf8')));
+    const d = R.derive(st);
+    eq(d.cards.map((c) => c.id).sort(), st.controls.map((c) => c.id).sort());
+    assert.ok(d.cards.every((c) => c.placed), name);
+    assert.ok(d.cards.some((c) => c.how === 'before'), name);
+  }
+});
+
+/* ---------- systems reached: what is left out is named ---------- */
+test('systems reached excludes the attacker\'s own system and says so; a compromised system counts', () => {
+  assert.equal(D.excludedLabel, 'excluding the attacker');
+  eq(D.excludedIds, ['attacker']);
+  const sc = EXK.normalize(JSON.parse(fs.readFileSync(path.join(here, 'testdata', 'stories', 'cold-supply-chain.story.json'), 'utf8')));
+  const d = R.derive(sc);
+  assert.equal(sc.systems.length, 9);
+  eq([d.totals.systemsReached, d.totals.systemsTotal], [8, 8]);          // 9 defined, minus the attacker
+  assert.ok(d.reachedIds.includes('payments'));                        // acts for the attacker, but was reached
+  const ph = EXK.normalize(JSON.parse(fs.readFileSync(path.join(here, 'testdata', 'stories', 'cold-phishing.story.json'), 'utf8')));
+  eq([R.derive(ph).totals.systemsReached, R.derive(ph).totals.systemsTotal], [6, 8]);
+  // a system not called "attacker" is named
+  const s = tiny({ systems: [{ id: 'x', name: 'Red team box', zone: 'a' }, { id: 'y', name: 'Y', zone: 'b' }, { id: 'z', name: 'Z', zone: 'b' }] });
+  assert.equal(R.derive(s).excludedLabel, 'excluding the attacker (Red team box)');
+});
+
+/* ---------- the illustrative chip follows the records ---------- */
+test('chip wording: all illustrative, some, none', () => {
+  const mark = (s, pred, kind) => {
+    [s.meta, ...['zones', 'systems', 'links', 'phases', 'steps', 'controls', 'events'].flatMap((k) => s[k])].filter(pred).forEach((r) => { r.source = { kind, ref: 'x' }; });
+    return s;
+  };
+  const none = tiny();
+  mark(none, () => true, 'provided');
+  assert.equal(R.provenanceChip(R.derive(none).prov), null);
+  assert.equal(R.derive(none).prov.mixed, false);
+  const all = mark(tiny(), () => true, 'illustrative');
+  assert.equal(R.provenanceChip(R.derive(all).prov), 'Illustrative data');
+  assert.equal(R.derive(all).prov.mixed, false);
+  const some = mark(tiny(), () => true, 'provided');
+  some.events[0].source = { kind: 'illustrative' }; some.links[0].source = { kind: 'illustrative' };
+  const dp = R.derive(some);
+  assert.equal(R.provenanceChip(dp.prov), 'Includes illustrative records (2)');
+  assert.equal(dp.prov.mixed, true);
+  assert.equal(dp.events.filter((e) => e.ill).length, 1);
+  assert.equal(dp.links.filter((l) => l.ill).length, 1);
+  // the example is entirely illustrative; the phishing story is mostly provided
+  eq([D.prov.all, D.prov.mixed, R.provenanceChip(D.prov)], [true, false, 'Illustrative data']);
+  const ph = EXK.normalize(JSON.parse(fs.readFileSync(path.join(here, 'testdata', 'stories', 'cold-phishing.story.json'), 'utf8')));
+  assert.equal(R.provenanceChip(R.derive(ph).prov), 'Includes illustrative records (4)');
+});
+
+/* ---------- the graph on other stories ---------- */
+test('graph on the cold stories: nothing overlaps, no label clipped, text fits its card', () => {
+  const hit = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+  for (const name of ['cold-supply-chain', 'cold-phishing']) {
+    const st = EXK.normalize(JSON.parse(fs.readFileSync(path.join(here, 'testdata', 'stories', name + '.story.json'), 'utf8')));
+    const d = R.derive(st), g = R.layoutGraph(st, d);
+    const cards = Object.values(g.S), pills = Object.values(g.L).filter((l) => l.lab).map((l) => ({ id: l.link.id, x: l.lab.x - l.lab.w / 2, y: l.lab.y - 8, w: l.lab.w, h: 16 }));
+    cards.forEach((a, i) => cards.slice(i + 1).forEach((b) => assert.ok(!hit(a, b), `${name}: ${a.id} / ${b.id}`)));
+    pills.forEach((p) => {
+      cards.forEach((c) => assert.ok(!hit(p, c), `${name}: label ${p.id} on ${c.id}`));
+      assert.ok(p.x >= 0 && p.y >= 0 && p.x + p.w <= g.W && p.y + p.h <= g.H, `${name}: label ${p.id} inside the graph`);
+      pills.forEach((q) => { if (q !== p) assert.ok(!hit(p, q), `${name}: labels ${p.id} / ${q.id}`); });
+      g.Z.forEach((z) => { if (!z.label) return; assert.ok(!hit(p, z.labelRect), `${name}: label ${p.id} on the title of ${z.id}`); });
+    });
+    assert.ok(g.W <= 719, `${name}: ${g.W} wide`);
+    // a label that was dropped is said so, naming the hint
+    if (g.dropped.length) assert.ok(g.warnings.some((w) => /replay\.layout/.test(w) && /hidden/.test(w)), name);
+  }
+});
+
+test('graph: a long name or tag widens the card, then wraps or is cut; it never runs out of the card', () => {
+  const systems = [
+    { id: 'x', name: 'X', tag: 'a tag that is far too long to fit on one line of a card', zone: 'a' },
+    { id: 'y', name: 'A very long system name that cannot fit any card', tag: 'short', zone: 'b' },
+    { id: 'z', name: 'Z', zone: 'b' }
+  ];
+  const s = tiny({ systems });
+  const g = R.layoutGraph(s, R.derive(s));
+  assert.ok(g.S.x.w > 110 && g.S.x.w <= 150);
+  assert.equal(g.S.x.sub.length, 2);
+  assert.ok(g.S.x.h > 50 && Object.values(g.S).every((n) => n.h === g.S.x.h));
+  assert.ok(/…$/.test(g.S.y.label) && g.S.y.name.startsWith('A very long'));
+  eq(g.S.z.sub, []);
+  // ordinary short text keeps the example's 110x50 card
+  assert.ok(Object.values(G.S).every((n) => n.w === 110 && n.h === 50));
+});
+
+test('graph: a gap holds the pill of a labelled link between neighbouring columns', () => {
+  const s = tiny({ links: [{ from: 'x', to: 'y', label: 'a long label here' }, { from: 'y', to: 'z' }] });
+  const g = R.layoutGraph(s, R.derive(s));
+  const gapXY = g.S.y.x - (g.S.x.x + g.S.x.w);
+  assert.ok(gapXY > 29, `gap ${gapXY}`);
+  assert.equal(Object.values(g.L)[0].lab.text, 'a long label here');
+});
+
+test('graph: too wide an estate warns, naming replay.layout', () => {
+  const zones = Array.from({ length: 8 }, (_, i) => ({ id: 'z' + i, name: 'Zone ' + i }));
+  const systems = Array.from({ length: 8 }, (_, i) => ({ id: 's' + i, name: 'S' + i, zone: 'z' + i }));
+  const links = systems.slice(1).map((s, i) => ({ from: 's' + i, to: s.id }));
+  const events = [{ t: 0, step: 's', from: 's0', to: 's1', action: 'a', count: 1, visibility: 'blind', actor: 'attacker' }];
+  const s = tiny({ zones, systems, links, events });
+  const g = R.layoutGraph(s, R.derive(s));
+  assert.ok(g.W > 719);
+  assert.ok(g.warnings.some((w) => /replay\.layout/.test(w) && /wide/.test(w)), g.warnings.join('|'));
+});
+
+test('the build refuses a story with no events and warns about what the layout could not place', () => {
+  const none = replayChecks(tiny({ events: [] }));
+  assert.match(none.refusal, /no events, so there is nothing to replay/);
+  const ph = EXK.normalize(JSON.parse(fs.readFileSync(path.join(here, 'testdata', 'stories', 'cold-phishing.story.json'), 'utf8')));
+  const r = replayChecks(ph);
+  assert.equal(r.refusal, null);
+  assert.ok(r.warnings.every((w) => /replay\.layout/.test(w)));
+  eq(replayChecks(story).warnings, []);                       // the example lays out cleanly
 });

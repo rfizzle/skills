@@ -12,10 +12,12 @@
      onScreenRange(linkId, cam, proxyW) {f0, f1, aOff, bOff}: the part of the link inside the frame
      anchor(id, side)                   'top' | 'side' (top-right corner, beyond the marker badge) | 'left' | 'right' | 'bottom' | 'center'
      stageRect(id, cam)                 a system's block in stage px
-     packet({color, chip, file})        a new packet group (direct child of [data-layer="packets"]), hidden; a dot, a
-                                        file glyph (file), or empty when chip (text.tag draws the chip into it)
+     packet({color, chip, glyph})       a new packet group (direct child of [data-layer="packets"]), hidden; a dot, a
+                                        glyph (EXK.GLYPHS: file, push, mail, key), or empty when chip (text.tag draws
+                                        the chip into it)
      portLight(m, color)                a new highlight over port marker m, hidden
      shield(point, num) -> {g, icon}    a shield for the summary step, hidden
+     shieldLift, shieldBox(cam)         scene px a shield stands above its link; its stage rect as half extents
      traceLink(linkId)                  a new summary trace over the link, hidden
      markedIds() / trailIds()           the ids that have a marker / a trail
      tagLift                            stage px from the packet centre up to its tag's bottom (text.tag)
@@ -34,8 +36,8 @@
   var FADE = 56;            /* stage px: the soft edge of the diagram area (page.html #fade) */
   var TAB_FS = 34;          /* container tab label, scene px (flat v3 LFS) */
   var BADGE_CLEAR = 20;     /* 'side' anchors sit this far out from a node's top-right corner, clear of its marker badge */
-  var TAG_HALF = 17;
-  var FILE_SCALE = 1.1;     /* the stream file glyph, scene units (the flat reference's size in its close-up) */        /* half the moving tag's height (text.js TAG_H 34), stage px */
+  var TAG_HALF = 17;        /* half the moving tag's height (text.js TAG_H 34), stage px */
+  var FILE_SCALE = 1.1;     /* stream packet glyphs, scene units (the flat reference's file size in its close-up) */
   var NODE_R = 20, PACKET_R = 15, TRAIL_OPACITY = 0.42, LIT_W = 8, PORT_MERGE = 36;
 
   var ICONS = {
@@ -72,6 +74,31 @@
     return KIND.ns;
   }
 
+  /* stream packet glyphs, drawn in a box of about 48 x 52 around the packet point: what a stream carries when it is not
+     a plain message (a stream beat's `glyph`; story/validate.js GLYPHS). Shared with the iso painter. */
+  var GLYPHS = {
+    file: function (g, col) {
+      var d = 'M-20,-26 H8 L20,-14 V26 H-20 Z';
+      el('path', { d: d, fill: C.panel, stroke: col, 'stroke-width': 5, 'stroke-linejoin': 'round' }, g);
+      el('path', { d: d, fill: col, 'fill-opacity': 0.25 }, g);
+      el('path', { d: 'M8,-26 V-14 H20 M-10,0 H10 M-10,10 H10', fill: 'none', stroke: col, 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+    },
+    push: function (g, col) {     /* a phone with a notification badge */
+      el('rect', { x: -15, y: -26, width: 30, height: 52, rx: 7, fill: C.panel, stroke: col, 'stroke-width': 5 }, g);
+      el('path', { d: 'M-6,18 H6', fill: 'none', stroke: col, 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+      el('circle', { cx: 15, cy: -24, r: 10, fill: col, stroke: C.bg, 'stroke-width': 3 }, g);
+    },
+    mail: function (g, col) {     /* an envelope */
+      el('rect', { x: -24, y: -17, width: 48, height: 34, rx: 5, fill: C.panel, stroke: col, 'stroke-width': 5, 'stroke-linejoin': 'round' }, g);
+      el('path', { d: 'M-22,-14 L0,4 L22,-14', fill: 'none', stroke: col, 'stroke-width': 4, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, g);
+    },
+    key: function (g, col) {      /* a key */
+      el('circle', { cx: -12, cy: 0, r: 11, fill: C.panel, stroke: col, 'stroke-width': 5 }, g);
+      el('path', { d: 'M-1,0 H24 M16,0 V9 M22,0 V7', fill: 'none', stroke: col, 'stroke-width': 5, 'stroke-linecap': 'round' }, g);
+    }
+  };
+  EXK.GLYPHS = GLYPHS;
+
   function el(tag, attrs, parent) {
     var e = document.createElementNS(NS, tag);
     for (var k in attrs || {}) e.setAttribute(k, attrs[k]);
@@ -98,7 +125,7 @@
     var area = ctx.area, tl = ctx.tl;
     var B = null, E = null, svg = null, world = null, L = {};
     var ports = [], nodeG = {}, boxG = {}, edgeG = {}, edgeP = {}, portG = [], trailP = {}, markG = {};
-    var labelEls = {}, labelBox = {}, tabEls = {}, tabBox = {}, focusCur = new Map();
+    var labelEls = {}, labelBox = {}, tabEls = {}, tabBox = {}, focusCur = new Map(), D = {};
 
     function k(cam) { return area.w / cam.w; }
     function toStage(x, y, cam) { var s = k(cam); return { x: area.x + (x - cam.x) * s, y: area.y + (y - cam.y) * s }; }
@@ -142,12 +169,27 @@
           tabBox[b.id] = { x0: b.x, y0: b.y, x1: Math.max(b.x + tw, tb.x + tb.width), y1: Math.max(b.y + th, tb.y + tb.height) };
         });
 
-        /* links, port rings (merged within 36 units, one ring per crossing point), trails */
+        /* links run from the centre of one node to the centre of the other: a route ends inside its node on the line it
+           enters by, and two routes of one node end at different points, so a packet going on to its next hop jumped
+           between them (up to about 110 stage px in one frame). The parts under a node are never seen: the link layers
+           are masked by the node boxes, which also keeps a link from showing through its own end node when that is
+           dimmed. Port fractions are re-measured on the drawn path, which is the one packets travel. */
+        var mask = el('mask', { id: 'exk-node-mask', maskUnits: 'userSpaceOnUse', x: estate.world.x - 4000, y: estate.world.y - 4000,
+          width: estate.world.w + 8000, height: estate.world.h + 8000 }, el('defs', {}, svg));
+        el('rect', { x: estate.world.x - 4000, y: estate.world.y - 4000, width: estate.world.w + 8000, height: estate.world.h + 8000, fill: '#fff' }, mask);
+        estate.nodes.forEach(function (b) { el('rect', { x: b.x, y: b.y, width: b.w, height: b.h, rx: NODE_R, fill: '#000' }, mask); });
+        ['edges', 'trail', 'fx'].forEach(function (n) { L[n].setAttribute('mask', 'url(#exk-node-mask)'); });
         Object.keys(E).forEach(function (id) {
-          var r = E[id], g = el('g', { 'data-link': id }, L.edges);
+          var r = E[id], g = el('g', { 'data-link': id }, L.edges), a = B[r.a], b = B[r.b], pts = r.pts.slice(), lead = 0;
+          if (Math.hypot(pts[0][0] - a.cx, pts[0][1] - a.cy) > 0.5) { lead = Math.abs(pts[0][0] - a.cx) + Math.abs(pts[0][1] - a.cy); pts.unshift([a.cx, a.cy]); }
+          var q = pts[pts.length - 1];
+          if (Math.hypot(q[0] - b.cx, q[1] - b.cy) > 0.5) pts.push([b.cx, b.cy]);
+          D[id] = EXK.route.roundedPath(pts);
           edgeG[id] = g;
-          edgeP[id] = el('path', { d: r.d, fill: 'none', stroke: '#33405a', 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
-          trailP[id] = el('path', { d: r.d, fill: 'none', stroke: C.danger, 'stroke-width': 9, 'stroke-linecap': 'round', opacity: 0 }, L.trail);
+          edgeP[id] = el('path', { d: D[id], fill: 'none', stroke: '#33405a', 'stroke-width': 4, 'stroke-linecap': 'round' }, g);
+          trailP[id] = el('path', { d: D[id], fill: 'none', stroke: C.danger, 'stroke-width': 9, 'stroke-linecap': 'round', opacity: 0 }, L.trail);
+          var tot = EXK.route.polyLen(pts);
+          r.ports.forEach(function (pq) { pq.f = tot ? (lead + pq.s) / tot : 0; });
         });
         ports = estate.ports || EXK.route.markers(E, PORT_MERGE);
         ports.forEach(function (m) {
@@ -241,16 +283,13 @@
         return rectToStage({ x0: b.x, y0: b.y, x1: b.x + b.w, y1: b.y + b.h }, cam);
       },
 
-      /* spec.chip: the packet is a chip carrying a tag (text.tag draws it into the group); otherwise a plain dot */
+      /* spec.chip: the packet is a chip carrying a tag (text.tag draws it into the group); spec.glyph: a stream item's
+         glyph (file, push, mail, key); otherwise a plain dot */
       packet: function (spec) {
         var g = el('g', { opacity: 0 }, L.packets);
         var col = colorOf(spec && spec.color, C.accent);
-        if (spec && spec.file) {          /* a document: a stream item (flat reference mkFile) */
-          var f = el('g', { transform: 'scale(' + FILE_SCALE + ')' }, g), d = 'M-20,-26 H8 L20,-14 V26 H-20 Z';
-          el('path', { d: d, fill: C.panel, stroke: col, 'stroke-width': 5, 'stroke-linejoin': 'round' }, f);
-          el('path', { d: d, fill: col, 'fill-opacity': 0.25 }, f);
-          el('path', { d: 'M8,-26 V-14 H20 M-10,0 H10 M-10,10 H10', fill: 'none', stroke: col, 'stroke-width': 4, 'stroke-linecap': 'round' }, f);
-        } else if (!spec || !spec.chip) el('circle', { r: PACKET_R, fill: col, stroke: C.bg, 'stroke-width': 4 }, g);
+        if (spec && GLYPHS[spec.glyph]) GLYPHS[spec.glyph](el('g', { transform: 'scale(' + FILE_SCALE + ')' }, g), col);
+        else if (!spec || !spec.chip) el('circle', { r: PACKET_R, fill: col, stroke: C.bg, 'stroke-width': 4 }, g);
         return g;
       },
       /* a new highlight over port marker m (estate.ports index), hidden: lit while a packet crosses it */
@@ -258,23 +297,26 @@
         var q = ports[m];
         return el('circle', { cx: q.x, cy: q.y, r: 11, fill: color, 'fill-opacity': 0.35, stroke: color, 'stroke-width': 4, opacity: 0 }, L.portfx);
       },
+      shieldLift: 0,          /* scene px a shield stands above its link's line (on it) */
+      /* the stage rect a shield occupies around its point, as half extents (it scales with the camera) */
+      shieldBox: function (cam) { var z = k(cam); return { l: 31 * z, r: 31 * z, t: 37 * z, b: 41 * z }; },
       /* a shield (summary step) at a scene point, hidden; returns {g, icon} (icon is scaled in by the runner) */
       shield: function (pt, num) {
         var g = el('g', { transform: 'translate(' + pt.x + ',' + pt.y + ')', opacity: 0 }, L.top), ic = el('g', {}, g);
         var d = 'M0,-34 L28,-24 V0 C28,18 14,30 0,38 C-14,30 -28,18 -28,0 V-24 Z';
         el('path', { d: d, fill: C.panel, stroke: C.secure, 'stroke-width': 5 }, ic);
         el('path', { d: d, fill: C.secure, 'fill-opacity': 0.25 }, ic);
-        txt(ic, num, { x: 0, y: 10, 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': num.length > 1 ? 24 : 30, 'font-weight': 800 });
+        txt(ic, num, { x: 0, y: 10, 'text-anchor': 'middle', class: 'sans', fill: C.text, 'font-size': num.length > 2 ? 20 : num.length > 1 ? 24 : 30, 'font-weight': 800 });
         return { g: g, icon: ic };
       },
       /* a new full-width trace of a link for the summary step, hidden (DrawSVG target) */
       traceLink: function (id) {
-        return el('path', { d: E[id].d, fill: 'none', stroke: C.danger, 'stroke-width': 11, 'stroke-linecap': 'round', opacity: 0 }, L.fx);
+        return el('path', { d: D[id], fill: 'none', stroke: C.danger, 'stroke-width': 11, 'stroke-linecap': 'round', opacity: 0 }, L.fx);
       },
       markedIds: function () { return Object.keys(markG); },
       trailIds: function () { return Object.keys(trailP); },
       lightLink: function (id, color) {
-        return el('path', { d: E[id].d, fill: 'none', stroke: color, 'stroke-width': LIT_W, 'stroke-linecap': 'butt', opacity: 0 }, L.fx);
+        return el('path', { d: D[id], fill: 'none', stroke: color, 'stroke-width': LIT_W, 'stroke-linecap': 'butt', opacity: 0 }, L.fx);
       },
       ring: function (id, color) {
         var b = B[id], hw = b.w / 2, hh = b.h / 2;

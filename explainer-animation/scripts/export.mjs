@@ -9,7 +9,7 @@
 // diagram alone), seeks window.anim to i/fps for every frame, screenshots each frame ONCE into a temp
 // directory, and builds every output from those frames. The temp directory is removed at the end.
 //
-// Outputs, default directory <this script's dir>/../out/<html basename>/:
+// Outputs, default directory ./explainer-out/<html basename>/ under the current working directory:
 //   full.mp4            whole timeline, H.264 yuv420p 1920x1080, +faststart, CRF 16
 //   steps/NN-<id>.mp4   one clip per step, from its start to its rest frame, plus a 0.5 s hold of that frame
 //   stills/NN-<id>.png  the rest frame of each step (for PDF decks)
@@ -65,7 +65,7 @@ for (const k of kinds) if (!allKinds.includes(k)) fail(`--only: unknown output "
 if (opts.range && (opts.range.length !== 2 || opts.range.some((x) => !Number.isFinite(x)) || opts.range[0] >= opts.range[1])) fail('--range must be <startSec>,<endSec> with start < end');
 const htmlPath = path.resolve(file);
 if (!fs.existsSync(htmlPath)) fail(`no such file: ${htmlPath}`);
-const outDir = path.resolve(opts.out ?? path.join(here, '..', 'out', path.basename(htmlPath, path.extname(htmlPath))));
+const outDir = path.resolve(opts.out ?? path.join('explainer-out', path.basename(htmlPath, path.extname(htmlPath))));
 
 // ---- ffmpeg ----
 const ffmpeg = await findFfmpeg();

@@ -1,0 +1,92 @@
+{
+ "meta":{"id":"cold-phishing","title":"Account takeover through MFA push fatigue","tagline":"How one approved prompt became mailbox forwarding and file access, and how it was closed.","kind":"incident","audience":"technical","incidentRef":"inc-0412","accent":"MFA push fatigue",
+  "redaction":"User, analysts and on-call named by role only. Source address shown as a hosting provider, not an IP. External forwarding address and file names omitted. No passwords or tokens appear.",
+  "source":{"kind":"provided","ref":"#inc-0412 channel export, 12 March UTC; IdP log export summary rows"}},
+ "zones":[
+  {"id":"outside","name":"Outside","short":"Outside","source":{"kind":"provided","ref":"channel 09:40: attacker session from a hosting provider ASN"}},
+  {"id":"staff","name":"Staff","short":"Staff","source":{"kind":"provided","ref":"channel 09:14: finance user"}},
+  {"id":"tenant","name":"Identity and collaboration tenant","short":"Tenant","source":{"kind":"provided","ref":"IdP log export; channel 09:47, 09:58, 10:30"}},
+  {"id":"secops","name":"Security operations","short":"SecOps","source":{"kind":"provided","ref":"channel 09:15, 09:31, 10:05"}}
+ ],
+ "systems":[
+  {"id":"attacker","name":"Attacker","role":"Runs the phishing page and signs in from a hosting provider on an unknown device.","zone":"outside","icon":"attacker","tint":"danger","source":{"kind":"provided","ref":"channel 09:40; IdP log 08:50:12"}},
+  {"id":"fakesso","name":"Fake sign-in page","short":"Fake SSO","role":"A look-alike single sign-on page that collects the password.","zone":"outside","icon":"cdn","tint":"danger","source":{"kind":"provided","ref":"channel 11:10"}},
+  {"id":"user","name":"Finance user","short":"User","role":"The finance employee who received the email and approved one prompt.","zone":"staff","icon":"payments","source":{"kind":"provided","ref":"channel 09:14, 11:10"}},
+  {"id":"idp","name":"Identity provider","short":"IdP","role":"Authenticates people, sends MFA pushes and issues sessions.","zone":"tenant","icon":"iam","tint":"identity","source":{"kind":"provided","ref":"IdP log export"}},
+  {"id":"mailbox","name":"Finance mailbox","short":"Mailbox","role":"The user's mail, where a forwarding rule was created.","zone":"tenant","icon":"store","source":{"kind":"provided","ref":"channel 09:47"}},
+  {"id":"app","name":"Doc Viewer app","short":"Doc Viewer","role":"An unverified-publisher app granted mail and file read scopes.","zone":"tenant","icon":"chip","tint":"danger","source":{"kind":"provided","ref":"channel 09:58; IdP log 09:22:41"}},
+  {"id":"share","name":"Finance file share","short":"File share","role":"Holds finance files; files were opened here during the incident.","zone":"tenant","icon":"bucket","source":{"kind":"provided","ref":"channel 10:30"}},
+  {"id":"logs","name":"Identity provider logs","short":"IdP logs","role":"The sign-in and consent record the responders used.","zone":"tenant","icon":"eye","tint":"secure","source":{"kind":"provided","ref":"channel 09:15; IdP log export"}},
+  {"id":"responders","name":"Response team","short":"Responders","role":"On-call engineer and analysts who investigated and contained it.","zone":"secops","icon":"lock","tint":"secure","source":{"kind":"provided","ref":"channel 09:15 to 10:05"}}
+ ],
+ "links":[
+  {"from":"attacker","to":"user","label":"phishing email","source":{"kind":"provided","ref":"channel 11:10"}},
+  {"from":"user","to":"fakesso","label":"password entered","source":{"kind":"provided","ref":"channel 11:10"}},
+  {"from":"attacker","to":"idp","label":"sign-in","source":{"kind":"provided","ref":"IdP log 08:50:12"}},
+  {"from":"idp","to":"user","label":"MFA push","source":{"kind":"provided","ref":"IdP log 08:52:03"}},
+  {"from":"attacker","to":"mailbox","label":"mailbox rule","source":{"kind":"provided","ref":"channel 09:47"}},
+  {"from":"idp","to":"app","label":"consent","source":{"kind":"provided","ref":"IdP log 09:22:41"}},
+  {"from":"app","to":"share","label":"file access","source":{"kind":"illustrative"}},
+  {"from":"idp","to":"logs","label":"sign-in record","kind":"audit","source":{"kind":"provided","ref":"channel 09:15"}},
+  {"from":"user","to":"responders","label":"report","source":{"kind":"provided","ref":"channel 09:14"}},
+  {"from":"responders","to":"idp","label":"revoke","source":{"kind":"provided","ref":"channel 10:05; IdP log 10:05:20"}},
+  {"from":"responders","to":"logs","label":"review","kind":"audit","source":{"kind":"provided","ref":"channel 09:15, 09:31"}}
+ ],
+ "phases":[
+  {"id":"p-lure","title":"Lure","descriptor":"Password taken","source":{"kind":"derived","ref":"grouping of events by what the attacker needed"}},
+  {"id":"p-bypass","title":"Bypass","descriptor":"Prompt approved","source":{"kind":"derived","ref":"grouping of events"}},
+  {"id":"p-persist","title":"Persist and reach","descriptor":"Rule, app, files","source":{"kind":"derived","ref":"grouping of events"}},
+  {"id":"p-contain","title":"Contain","descriptor":"Report to revoke","source":{"kind":"derived","ref":"grouping of events"}}
+ ],
+ "steps":[
+  {"id":"lure","phase":"p-lure","title":"Fake sign-in page takes password","short":"Phish","body":"A phishing email sends the finance user to a fake single sign-on page. The user enters a password there, and the attacker signs in with it from a hosting provider.","touch":["attacker","user","fakesso","idp"],"uses":[["attacker","user"],["user","fakesso"],["attacker","idp"]],"color":"danger",
+   "beats":[{"chain":["attacker","user"],"tag":"email","color":"danger","says":"Phishing email delivered","sayAt":"user"},{"chain":["user","fakesso"],"tag":"password","color":"danger","says":"Password entered on fake page","sayAt":"fakesso"},{"chain":["attacker","idp"],"tag":"sign-in","color":"danger","says":"Password sign-in succeeds","sayAt":"idp"}],
+   "source":{"kind":"derived","ref":"events at 08:47, 08:50, 08:50:12"}},
+  {"id":"fatigue","phase":"p-bypass","title":"Repeated pushes until one is approved","short":"Push spam","body":"The identity provider sends push after push to the user. Most are denied, then the user approves one to make the prompts stop.","touch":["idp","user","attacker"],"uses":[["idp","user"]],"color":"token",
+   "beats":[{"stream":["idp","user"],"items":["push","push","push","push"],"says":"MFA push requests","tally":"pushes:"},{"exchange":["idp","user"],"tag":"push","respTag":"approved","req":"Approve sign-in?","resp":"Approved","color":"token","respColor":"danger"}],
+   "source":{"kind":"derived","ref":"events 08:52:03 to 09:13:05"}},
+  {"id":"session","phase":"p-bypass","title":"A medium-risk session is issued","short":"Session","body":"The provider issues a session to an unknown device. It rates the risk medium and does not block it, so the attacker is in.","touch":["idp","attacker","logs"],"uses":[["idp","attacker"],["idp","logs"]],"color":"danger",
+   "beats":[{"chain":["idp","attacker"],"tag":"session","color":"danger","says":["Session issued","risk medium, not blocked"],"sayAt":"idp"}],
+   "source":{"kind":"derived","ref":"event 09:13:06"}},
+  {"id":"persist","phase":"p-persist","title":"Forwarding rule and a rogue app","short":"Persist","body":"The attacker adds a rule forwarding invoices to an outside address. They also consent to an unverified app that can read mail and all files.","touch":["attacker","mailbox","idp","app"],"uses":[["attacker","mailbox"],["idp","app"]],"color":"danger",
+   "beats":[{"chain":["attacker","mailbox"],"tag":"rule","color":"danger","says":"Forward invoices externally","sayAt":"mailbox","mark":"mailbox"},{"chain":["idp","app"],"tag":"consent","color":"danger","says":["Doc Viewer consent","mail.read, files.read.all"],"sayAt":"app","mark":"app"}],
+   "source":{"kind":"derived","ref":"events 09:19, 09:22:41"}},
+  {"id":"reach","phase":"p-persist","title":"Finance files are opened","short":"Files","body":"Files in the finance share are opened while the session is live. The record does not say how many were downloaded.","touch":["app","share"],"uses":[["app","share"]],"color":"danger",
+   "beats":[{"stream":["app","share"],"items":["file","file","file"],"says":"Files opened","tally":"opened:","color":"danger"},{"mark":"share"}],
+   "source":{"kind":"derived","ref":"event 09:24 to 10:04, channel 10:30"}},
+  {"id":"contain","phase":"p-contain","title":"The user reports, responders revoke","short":"Contain","body":"The user reports the prompt soon after approving it. Responders confirm the push spam in the logs, then revoke sessions, reset the password and remove the app consent.","touch":["user","responders","logs","idp"],"uses":[["user","responders"],["responders","logs"],["responders","idp"]],"color":"secure",
+   "beats":[{"chain":["user","responders"],"tag":"report","color":"secure","says":"Unrequested prompt reported","sayAt":"responders"},{"chain":["responders","logs"],"tag":"review","color":"secure","says":"Push spam confirmed","sayAt":"responders"},{"chain":["responders","idp"],"tag":"revoke","color":"secure","says":["Sessions revoked","Password reset","App consent removed"],"sayAt":"idp"}],
+   "source":{"kind":"derived","ref":"events 09:14 to 10:05:20"}},
+  {"id":"summary","phase":"p-contain","title":"Where the chain could be cut","short":"Controls","body":"These settings sit where the attacker got through. They are illustrative, not findings from the incident record.","touch":[],"uses":[],"all":true,"color":"secure",
+   "beats":[{"shields":"controls"}],
+   "source":{"kind":"illustrative"}}
+ ],
+ "controls":[
+  {"id":"c-risk","name":"Block medium-risk sessions","why":"The session was issued at medium risk and was not blocked.","on":["attacker","idp"],"stops":["session","persist","reach"],"source":{"kind":"illustrative","ref":"suggested from IdP log 09:13:06 risk=medium; not stated by the owner"}},
+  {"id":"c-consent","name":"Block unverified app consent","why":"The consent was granted to an app with an unverified publisher.","on":["idp","app"],"stops":["reach"],"source":{"kind":"illustrative","ref":"suggested from IdP log 09:22:41 publisher=unverified; not stated by the owner"}}
+ ],
+ "figures":{},
+ "events":[
+  {"t":0,"step":"lure","from":"attacker","to":"user","action":"phishing email delivered","note":"An email with a link to a fake sign-in page reaches the finance user.","visibility":"blind","actor":"attacker","source":{"kind":"provided","ref":"channel 11:10, 08:47 UTC"}},
+  {"t":180,"step":"lure","from":"user","to":"fakesso","action":"password entered on fake page","note":"The user types their password into the fake page.","visibility":"blind","actor":"attacker","source":{"kind":"provided","ref":"channel 11:10, 08:50 UTC"}},
+  {"t":192,"step":"lure","from":"attacker","to":"idp","action":"password auth success","note":"The password works from a hosting provider address on an unknown device.","visibility":"logged","actor":"attacker","source":{"kind":"provided","ref":"IdP log 08:50:12"}},
+  {"t":303,"step":"fatigue","from":"idp","to":"user","action":"mfa push denied","note":"Pushes reach the user and are denied.","count":22,"visibility":"logged","actor":"attacker","source":{"kind":"provided","ref":"IdP log 08:52:03 to 09:12:40, denied x22; channel 09:31"}},
+  {"t":1565,"step":"fatigue","from":"user","to":"idp","action":"mfa push approved","note":"The user approves a prompt they did not start.","visibility":"logged","actor":"system","source":{"kind":"provided","ref":"IdP log 09:13:05; channel 09:14"}},
+  {"t":1566,"step":"session","from":"idp","to":"attacker","action":"session issued","note":"A session is issued to an unknown device at medium risk and is not blocked.","visibility":"logged","actor":"system","source":{"kind":"provided","ref":"IdP log 09:13:06; channel 09:40"}},
+  {"t":1620,"step":"contain","from":"user","to":"responders","action":"user reports unrequested prompt","note":"The user tells on-call about a login prompt they did not start.","visibility":"alerted","actor":"defender","source":{"kind":"provided","ref":"channel 09:14"}},
+  {"t":1920,"step":"persist","from":"attacker","to":"mailbox","action":"mailbox rule created","note":"A rule forwards invoices to an external address.","visibility":"logged","actor":"attacker","source":{"kind":"provided","ref":"channel 09:47 (rule created 09:19)"}},
+  {"t":2141,"step":"persist","from":"idp","to":"app","action":"oauth consent granted","note":"An unverified app receives mail and file read scopes.","visibility":"logged","actor":"attacker","source":{"kind":"provided","ref":"IdP log 09:22:41; channel 09:58"}},
+  {"t":2220,"step":"reach","from":"app","to":"share","action":"files opened","note":"Files are opened in the finance share; downloads are not known.","count":41,"visibility":"logged","actor":"attacker","source":{"kind":"provided","ref":"channel 10:30, 09:24 to 10:04"}},
+  {"t":2640,"step":"contain","from":"responders","to":"logs","action":"push spam confirmed","note":"Analysts confirm the push requests in the identity logs.","visibility":"alerted","actor":"defender","source":{"kind":"provided","ref":"channel 09:31"}},
+  {"t":4680,"step":"contain","from":"responders","to":"idp","action":"password reset and app consent removed","note":"The password is reset and the app consent is taken away.","visibility":"logged","actor":"defender","source":{"kind":"provided","ref":"channel 10:05"}},
+  {"t":4700,"step":"contain","from":"responders","to":"idp","action":"sessions revoked","note":"An admin revokes the sessions.","visibility":"logged","actor":"defender","source":{"kind":"provided","ref":"IdP log 10:05:20"}}
+ ],
+ "_gaps":[
+  "Who opened the 41 files (attacker session or the app) is not stated; the app-to-share link is illustrative.",
+  "Download count is unknown (channel 10:30).",
+  "Whether the 09:13:05 approval is the 23rd push or a 24th is unclear; 22 denied plus 1 approved matches the 23 in the channel.",
+  "Why a medium-risk session was not blocked (policy) is not stated.",
+  "Whether the forwarded invoices were actually delivered externally is not stated.",
+  "Conflict: channel 11:10 gives phishing delivery 08:47 after the 09:31 push-spam finding; ordering is by timestamp, not message time."
+ ]
+}

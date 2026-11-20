@@ -31,7 +31,11 @@
     steps.forEach(function (s) { stepsBy[s.id] = s; });
     D.phases.forEach(function (p) { phaseBy[p.id] = p; });
     var ATT_TOTAL = D.totals.attacker, N_TOTAL = D.totals.actions, SYS_TOTAL = D.totals.systemsTotal;
-    var ILL = EXK.provenance.illustrative(story), ILL_ALL = !!(meta.source && meta.source.kind === 'illustrative');
+    /* provenance mix, computed from the records: the chip's wording, and whether single records are marked */
+    var PROV = D.prov, ILL_N = PROV.illustrative, ILL_ALL = PROV.all, MARKS = PROV.mixed;
+    var ILL_MARK = '\u25C7';                                      // the diamond that marks an illustrative record
+    function ilMark() { var m = h('span', 'ilm', ILL_MARK); m.title = 'Illustrative record'; m.setAttribute('aria-hidden', 'true'); return m; }
+    var EXCL = D.excludedLabel ? ', ' + D.excludedLabel : '';
     var NONE_PHASE = { title: '', tag: '', desc: '', hue: '#8b98ad' };
     function phaseOf(e) { return e && e.pi >= 0 ? D.phases[e.pi] : NONE_PHASE; }
 
@@ -88,8 +92,12 @@
     function restart() { pause(); setClock(0); writeHash(); }
 
     /* ======== static page parts ======== */
-    var illTitle = ILL_ALL ? 'Every event, time and number on this page is invented for illustration' : 'Some of the records on this page are illustrative';
-    Array.prototype.forEach.call(document.querySelectorAll('.chip.ill'), function (c) { c.hidden = !ILL.length; c.title = illTitle; });
+    var illTitle = ILL_ALL ? 'Every event, time and number on this page is invented for illustration'
+      : ILL_N + ' of the ' + PROV.total + ' records on this page are illustrative, marked ' + ILL_MARK + '; the rest come from the source';
+    Array.prototype.forEach.call(document.querySelectorAll('.chip.ill'), function (c) {
+      c.hidden = !ILL_N; c.title = illTitle;
+      c.textContent = R.provenanceChip(PROV) || '';
+    });
     $('kick').textContent = 'Incident replay' + (meta.incidentRef ? ' · ' + meta.incidentRef : '') + ' · reconstructed from ' + fmt.n(N_TOTAL) + ' actions';
     (function () {
       var t = $('ttl'), title = meta.title || '', i = meta.accent ? title.indexOf(meta.accent) : -1;
@@ -98,11 +106,27 @@
         t.appendChild(document.createTextNode(title.slice(0, i))); t.appendChild(h('em', null, meta.accent));
         t.appendChild(document.createTextNode(title.slice(i + meta.accent.length)));
       }
-      document.title = 'Incident replay: ' + title + (ILL.length ? ' (illustrative)' : '');
+      document.title = 'Incident replay: ' + title + (ILL_ALL ? ' (illustrative)' : ILL_N ? ' (includes illustrative records)' : '');
     })();
     $('tag').textContent = meta.tagline || '';
     $('tag').hidden = !meta.tagline;
-    [['span', fmt.short(D.span)], ['actions', fmt.n(N_TOTAL)], ['systems reached', D.totals.systemsReached + ' of ' + SYS_TOTAL]]
+    /* the reconstruction banner: this page replays recorded events, it is not a live view. The time range is the span of the
+       events, or dates when meta.startsAt (an ISO 8601 time, the first event's) is given. Whether records are illustrative is
+       the chip's to say (count and marks); the banner only changes "recorded" to "invented" when every record is. */
+    (function recon() {
+      var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      function p2(n) { return (n < 10 ? '0' : '') + n; }
+      var t0 = meta.startsAt ? Date.parse(meta.startsAt) : NaN, when;
+      if (!isNaN(t0)) {
+        var a = new Date(t0), b = new Date(t0 + D.span * 1000);
+        var da = a.getUTCDate() + ' ' + MON[a.getUTCMonth()] + ' ' + a.getUTCFullYear(), db = b.getUTCDate() + ' ' + MON[b.getUTCMonth()] + ' ' + b.getUTCFullYear();
+        var ta = p2(a.getUTCHours()) + ':' + p2(a.getUTCMinutes()), tb = p2(b.getUTCHours()) + ':' + p2(b.getUTCMinutes());
+        when = da === db ? da + ', ' + ta + ' to ' + tb + ' UTC' : da + ' ' + ta + ' to ' + db + ' ' + tb + ' UTC';
+      } else when = 'covers ' + fmt.long(D.span) + ' of the incident';
+      var txt = 'Reconstruction of ' + (ILL_ALL ? 'invented' : 'recorded') + ' events, not a live view \u00b7 ' + when;
+      $('recon').textContent = txt; $('srecon').textContent = txt;
+    })();
+    [['span', fmt.short(D.span)], ['actions', fmt.n(N_TOTAL)], ['systems reached' + EXCL, D.totals.systemsReached + ' of ' + SYS_TOTAL]]
       .concat(D.firstAlertSeconds != null ? [['to first alert', fmt.short(D.firstAlertSeconds)]] : []).forEach(function (c) {
         var s = h('span', 'sc'); s.appendChild(h('b', null, c[1])); s.appendChild(document.createTextNode(c[0])); $('chips').appendChild(s);
       });
@@ -124,9 +148,12 @@
     (function foot() {
       var f = $('foot');
       var redaction = meta.redaction && !/^none\.?$/i.test(meta.redaction) ? ' Redacted: ' + meta.redaction : '';
-      if (ILL.length) f.appendChild(h('p', null, (ILL_ALL ? 'Illustrative data. This record is invented to explain how an incident of this kind unfolds; no real organisation, system, address or time is shown.'
-        : 'Some of the records on this page are illustrative and are marked as such in the story file.') + redaction));
-      else if (redaction) f.appendChild(h('p', null, redaction.trim()));
+      if (ILL_ALL) f.appendChild(h('p', null, 'Illustrative data. This record is invented to explain how an incident of this kind unfolds; no real organisation, system, address or time is shown.' + redaction));
+      else if (ILL_N) {
+        var ip = h('p'); ip.appendChild(ilMark());
+        ip.appendChild(document.createTextNode(' marks an illustrative record: ' + ILL_N + ' of the ' + PROV.total + ' records on this page are invented to complete the picture, the rest are provided or derived from the source. Marked on control cards, in the stream and on graph links.' + redaction));
+        f.appendChild(ip);
+      } else if (redaction) f.appendChild(h('p', null, redaction.trim()));
       f.appendChild(h('p', null, 'Marks: a hollow circle is an action nothing recorded, a half circle one that was logged but not looked at, a solid circle one that raised an alert. The hatched break is a long silence compressed on screen; the clock runs through it at speed.'));
     })();
 
@@ -273,7 +300,7 @@
       setStat('sAct', 'Attacker actions replayed', fmt.n(p.att), 'of ' + fmt.n(ATT_TOTAL) + ' total · ' + (ci + 1) + ' of ' + EV.length + ' log lines', p.att ? '' : 'zero');
       var ph = ci >= 0 ? phaseOf(EV[ci]) : null;
       setStat('sPhase', 'Active phase', ph ? ph.title : 'Not started', ph ? ph.desc : 'press Play to start the clock');
-      setStat('sBlast', 'Blast radius', p.reached ? boundaryOf(p) : 'nothing yet', p.reached + ' of ' + SYS_TOTAL + ' systems reached');
+      setStat('sBlast', 'Blast radius', p.reached ? boundaryOf(p) : 'nothing yet', p.reached + ' of ' + SYS_TOTAL + ' systems reached' + EXCL);
     }
     function stepText(s) { return s ? (s.detail || s.body || '') : ''; }
     function renderNarr() {
@@ -325,10 +352,11 @@
         var e = EV[j]; if (!visible(e)) continue;
         shown++;
         var li = h('li', j === ci ? 'cur' : ''), b = h('button', 'ln'); b.type = 'button';
-        b.setAttribute('aria-label', 'Jump to ' + fmt.T(e.t) + ', ' + VLAB[e.visibility] + ', ' + nameOf(e.from) + ' to ' + nameOf(e.to) + ': ' + e.action + '. ' + (e.note || ''));
+        b.setAttribute('aria-label', 'Jump to ' + fmt.T(e.t) + ', ' + VLAB[e.visibility] + ', ' + nameOf(e.from) + ' to ' + nameOf(e.to) + ': ' + e.action + '. ' + (e.note || '') + (MARKS && e.ill ? ' Illustrative record.' : ''));
         var r1 = h('span', 'r1'); r1.appendChild(h('span', 'when', fmt.T(e.t)));
         var ph = phaseOf(e), tg = h('span', 'ptag', ph.tag); tg.style.setProperty('--h', ph.hue); r1.appendChild(tg);
         r1.appendChild(h('span', 'act', e.action));
+        if (MARKS && e.ill) r1.appendChild(ilMark());
         if (e.count > 1) r1.appendChild(h('span', 'cnt', '×' + fmt.n(e.count)));
         var vm = h('span', 'vm'); vm.appendChild(vmark(e.visibility)); vm.appendChild(document.createTextNode(e.visibility === 'alerted' ? 'alert' : e.visibility)); r1.appendChild(vm);
         b.appendChild(r1); if (e.note) b.appendChild(h('span', 'r2', '↳ ' + e.note));
@@ -382,19 +410,28 @@
       for (var s = 0; s <= duration; s += stepS) { var sp = h('span', null, s + 's'); sp.style.left = (s / duration * 100) + '%'; cax.appendChild(sp); }
     })();
 
-    /* controls panel */
+    /* controls panel: every control in the story has a card. Placed ones are in event order and jump to their cut;
+       one whose link no attacker action crosses is listed after them and says so. */
     var ctlEls = [];
     (function buildControls() {
       var ul = $('ctls');
-      if (!D.cuts.length) $('stop').hidden = true;
-      D.cuts.forEach(function (c) {
+      if (!D.cards.length) $('stop').hidden = true;
+      D.cards.forEach(function (c) {
         var li = h('li'), b = h('button', 'cc'); b.type = 'button';
-        var nm = h('span', 'nm'); if (c.badge) nm.appendChild(h('span', 'sh', c.badge)); nm.appendChild(document.createTextNode(c.name)); b.appendChild(nm);
+        var nm = h('span', 'nm'); if (c.badge) nm.appendChild(h('span', 'sh', c.badge)); nm.appendChild(document.createTextNode(c.name));
+        if (MARKS && c.ill) nm.appendChild(ilMark());
+        b.appendChild(nm);
         b.appendChild(h('span', 'why', c.why));
-        var at = h('span', 'at'); at.appendChild(document.createTextNode('stops it at attacker action ')); at.appendChild(h('b', 'num', fmt.n(c.at))); at.appendChild(document.createTextNode(' of ' + fmt.n(ATT_TOTAL))); b.appendChild(at);
-        var pr = h('span', 'pr'), pi = h('i'); pi.style.width = (c.prevented / ATT_TOTAL * 100).toFixed(1) + '%'; pr.appendChild(pi); b.appendChild(pr);
-        b.appendChild(h('span', 'pl2', fmt.n(c.later) + ' later actions prevented'));
-        b.addEventListener('click', function () { openEv = c.ev.i; jumpTo(c.ev.r); });
+        if (c.placed) {
+          var at = h('span', 'at'); at.appendChild(document.createTextNode('stops it at attacker action ')); at.appendChild(h('b', 'num', fmt.n(c.at))); at.appendChild(document.createTextNode(' of ' + fmt.n(ATT_TOTAL))); b.appendChild(at);
+          var pr = h('span', 'pr'), pi = h('i'); pi.style.width = (c.prevented / ATT_TOTAL * 100).toFixed(1) + '%'; pr.appendChild(pi); b.appendChild(pr);
+          b.appendChild(h('span', 'pl2', fmt.n(c.later) + ' later actions prevented' + (c.how === 'before' ? '; its link is last used before the steps it stops' : '')));
+          b.addEventListener('click', function () { openEv = c.ev.i; jumpTo(c.ev.r); });
+        } else {
+          li.className = 'unplaced';
+          b.appendChild(h('span', 'at', 'Not placed on the event log: ' + c.reason + '.'));
+          b.disabled = true;
+        }
         li.appendChild(b); ul.appendChild(li); ctlEls.push({ li: li, btn: b, cut: c });
       });
     })();
@@ -420,14 +457,16 @@
       if (changed) {
         renderStats(); renderNarr();
         ctlEls.forEach(function (c) {
-          var lit = c.cut.ev.i <= ci; c.li.classList.toggle('lit', lit);
-          c.btn.setAttribute('aria-label', c.cut.name + '. Stops it at attacker action ' + c.cut.at + ' of ' + ATT_TOTAL + (lit ? '. Reached.' : '. Not reached yet.'));
+          var cc = c.cut, lit = cc.placed && cc.ev.i <= ci; c.li.classList.toggle('lit', lit);
+          c.btn.setAttribute('aria-label', cc.name + (MARKS && cc.ill ? ' (illustrative record)' : '') + (cc.placed
+            ? '. Stops it at attacker action ' + cc.at + ' of ' + ATT_TOTAL + (lit ? '. Reached.' : '. Not reached yet.')
+            : '. Not placed on the event log: ' + cc.reason + '.'));
         });
         var st = ci >= 0 ? EV[ci].stepIndex : 0;
         if (st !== lastStep) { lastStep = st; if (st) $('live').textContent = 'Step ' + st + ' of ' + NSTEP + ': ' + steps[st - 1].title; }
         Object.keys(gH.nodes).forEach(function (id) {
           var on = !!lastLight.nodes[id], n = G.S[id];
-          gH.nodes[id].g.setAttribute('aria-label', n.name + ', ' + n.tag + (on ? '. Reached.' : '. Not reached yet.') + ' Show details and filter the stream.');
+          gH.nodes[id].g.setAttribute('aria-label', n.name + (n.tag ? ', ' + n.tag : '') + (on ? '. Reached.' : '. Not reached yet.') + ' Show details and filter the stream.');
         });
       }
       renderStream();
@@ -533,7 +572,9 @@
     var derived = {
       totals: D.totals, spanSeconds: D.span, attackSpanSeconds: D.attackSpan, firstAlertSeconds: D.firstAlertSeconds, days: D.days,
       phases: D.phases.length, steps: NSTEP, breaks: BREAKS.map(function (b) { return { r0: b.r0, r1: b.r1, gap: b.t1 - b.t0 }; }),
-      cuts: D.cuts.map(function (c) { return { id: c.id, at: c.at, prevented: c.prevented, later: c.later }; })
+      cuts: D.cuts.map(function (c) { return { id: c.id, at: c.at, prevented: c.prevented, later: c.later }; }),
+      unplaced: D.unplaced.map(function (c) { return c.id; }),
+      provenance: { illustrative: ILL_N, total: PROV.total, all: ILL_ALL }, excluded: D.excludedIds, excludedLabel: D.excludedLabel
     };
     window.replay = {
       duration: duration, events: EV, derived: derived,

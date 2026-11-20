@@ -15,7 +15,7 @@
   /* ---- mountShell({story, search?}) -> shell ----
      shell.stage, .viewport, .area {x,y,w,h,el}, .layers {world, text}, .rail, .band, .minimap, .crumb, .fade,
      .reserved [stage rects text must keep clear of], .state {narr, present, capture},
-     .stepChrome(tl, i, t0, tEnd, {bodyAt}), .mountChip(tl, steps, duration), .onTick(fn) */
+     .stepChrome(tl, i, t0, tEnd, {bodyAt}), .mountChip(tl, steps, duration, windows?), .onTick(fn) */
   function mountShell(opts) {
     var story = opts.story, search = opts.search != null ? opts.search : location.search;
     var QS = new URLSearchParams(search);
@@ -95,8 +95,8 @@
     /* The "Illustrative" chip: shown on the master timeline in the windows provenance.chipWindows gives.
        steps: [{id, time}]. Returns the windows. It sits in the narrative band at the right end of the title row
        (page.html .chip), outside the diagram area, so no layout or text can collide with it. */
-    shell.mountChip = function (tl, stepList, duration) {
-      var wins = EXK.provenance.chipWindows(story, stepList, duration);
+    shell.mountChip = function (tl, stepList, duration, windows) {
+      var wins = windows || EXK.provenance.chipWindows(story, stepList, duration);     /* windows: a custom scene's own, from what it reported on screen */
       if (!wins.length) return wins;
       var chip = document.createElement('div');
       chip.id = 'chip'; chip.className = 'chip'; chip.setAttribute('data-ov', 'chip'); chip.textContent = 'Illustrative';
@@ -162,10 +162,23 @@
       }
       syncUI();
     }
+    /* Capture mode repaints the diagram whole after a seek. The DOM after a seek is a pure function of t, but Chrome
+       repaints only what changed: a packet moving over a DrawSVG-dashed lit link has the dashed stroke re-rastered
+       inside the packet's old rectangle, and that partial raster differs from a full one by a few antialiased pixels.
+       Stepping through time (export, render-check) then gave frames that depended on the path taken to t. */
+    function repaint() {
+      [shell.layers.world, shell.layers.text].forEach(function (el) {
+        if (!el) return;
+        el.style.display = 'none';
+        void el.offsetHeight;
+        el.style.display = '';
+      });
+    }
     function seek(t, o) {
       tl.pause(); tl.time(clamp(t, 0, duration), false); guard = guardFor(tl.time());
       if (shell.cameraOverride) shell.cameraOverride(o && o.camera ? o.camera : null);
       render(); syncUI();
+      if (S.capture) repaint();
     }
     function play() { if (shell.cameraOverride) shell.cameraOverride(null); if (tl.time() >= duration - 1e-6) tl.time(0, true); guard = guardFor(tl.time()); tl.play(); syncUI(); }
     function pause() { tl.pause(); syncUI(); }
@@ -224,7 +237,7 @@
      ctx = {story, style, pattern, tl, shell, area, estate, painter, text, camera, timing: EXK.timing, THEME} */
   function boot() {
     var raw = EXK.STORY, build = EXK.BUILD || {};
-    var problems = EXK.validate(raw, { style: build.style || null });
+    var problems = EXK.validate(raw, { style: build.style || null, pattern: build.pattern || null });
     EXK.problems = problems;
     var errors = problems.filter(function (p) { return p.level === 'error'; });
     var stage = $('stage');
@@ -236,6 +249,7 @@
     }
     var story = EXK.story = EXK.normalize(raw);
     var style = build.style, pattern = build.pattern || 'flow';
+    if (pattern === 'custom') return bootCustom(story, style, stage);
     var makePainter = EXK.painters && EXK.painters[style];
     if (!makePainter || typeof EXK.runSteps !== 'function') {
       console.error('boot: no ' + (!makePainter ? 'painter for style "' + style + '"' : 'step runner (EXK.runSteps)') + ' in this build');
@@ -263,6 +277,26 @@
     tl.set({}, {}, duration);     /* the timeline lasts exactly the scene */
     shell.mountChip(tl, out.steps, duration);
     publishAnim(tl, out.steps, shell.phases, out.moments || [], { onTick: [camera.render] });
+    if (stage) stage.setAttribute('data-ready', 'scene');
+    return story;
+  }
+
+  /* --pattern custom: no estate and no painter; the scene file (EXK.scenes.<name>) draws and choreographs through ctx */
+  function bootCustom(story, style, stage) {
+    var shell = EXK.shell = mountShell({ story: story });
+    var tl = gsap.timeline({ paused: true });
+    var out;
+    try {
+      out = EXK.patterns.custom.run({ story: story, style: style, shell: shell, tl: tl });
+    } catch (e) {
+      console.error('custom scene: ' + e.message);
+      if (stage) stage.setAttribute('data-ready', 'invalid');
+      return null;
+    }
+    var duration = Math.max(out.duration, tl.duration());
+    tl.set({}, {}, duration);     /* the timeline lasts exactly the scene */
+    shell.mountChip(tl, out.steps, duration, out.chip);
+    publishAnim(tl, out.steps, shell.phases, out.moments);
     if (stage) stage.setAttribute('data-ready', 'scene');
     return story;
   }

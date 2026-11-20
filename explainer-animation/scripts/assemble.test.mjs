@@ -112,8 +112,14 @@ test('build.mjs refuses an invalid story and a missing --style', () => {
 
 test('build.mjs --replay and --inline', () => {
   const rp = path.join(tmp, 'r.html');
-  assert.equal(spawnSync(process.execPath, [build, storyPath, '--replay', '-o', rp], { encoding: 'utf8' }).status, 0);
+  const example = path.join(here, '..', 'assets', 'examples', 'ssrf-attack-chain.story.json');
+  assert.equal(spawnSync(process.execPath, [build, example, '--replay', '-o', rp], { encoding: 'utf8' }).status, 0);
   assert.doesNotMatch(fs.readFileSync(rp, 'utf8'), /registerPlugin|gsap\.min/);
+  // a story with no events has no replay: refused with a message, nothing written
+  const none = spawnSync(process.execPath, [build, storyPath, '--replay', '-o', path.join(tmp, 'none.html')], { encoding: 'utf8' });
+  assert.equal(none.status, 1);
+  assert.match(none.stderr, /no events, so there is nothing to replay/);
+  assert.ok(!fs.existsSync(path.join(tmp, 'none.html')));
   const src = path.join(tmp, 'page.html');
   fs.writeFileSync(src, '<script src="https://cdn.jsdelivr.net/npm/gsap@3.13.0/dist/gsap.min.js"></script>');
   const out = path.join(tmp, 'page.inline.html');

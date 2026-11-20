@@ -45,6 +45,7 @@
       },
       stageRect: function (id, cam) {
         var b = nodes[id], k = area.w / cam.w;
+        if (!b) return null;     /* zones: the text layer asks for them too; the stub draws none */
         return { x0: area.x + (b.x - cam.x) * k, y0: area.y + (b.y - cam.y) * k, x1: area.x + (b.x + b.w - cam.x) * k, y1: area.y + (b.y + b.h - cam.y) * k };
       },
       packet: function (spec) {

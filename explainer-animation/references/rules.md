@@ -70,6 +70,24 @@ A. Enforced by the kit. B. Owned by the author. C. Page contract. D. Theme.
 - Iso: a node label shows only when the node is part of the current step; container names are
   small upright tags at the slab's front corner; nothing is painted skewed on slabs.
 
+### The summary step (`shields`)
+
+- **Placement.** Each control's shield stands on its own link (`controls[].on`), at the clearest
+  point along it: sampled every 8 stage px, off the end blocks, clear of every block and of every
+  label, tag and shield already placed. Shields that would land together stagger. You set none of it.
+- **Number.** The shield shows the steps the control would have stopped, computed from `stops`
+  (1-based step numbers, in story order): `3` one step, `3/4` two in a row, `2-6` (an en dash) three
+  or more in a row, `2/5` separate ones. Longer than three characters becomes the first and a plus
+  (`2+`). A control with no `stops` shows a bullet. Controls are shown in order of their first step.
+- **Names.** The control's `name` stands beside its shield on one line, or folds onto two lines when
+  the name is wide. A leader from shield to name never crosses text or a block (iso may run it over
+  the empty corner of a block, never over text). In iso, each protected system is named only
+  when its label has room; otherwise its name is folded into the shield's label.
+- **Degrade.** When a name still does not fit, or the story has more than six controls, every
+  shield carries a letter (A, B, ...) and the names go into one "Controls" panel in a free corner:
+  `A  name  (steps)`. The page logs `shields are lettered and named in a legend`. Not a defect;
+  fewer controls or shorter names bring the numbers back ([layout.md](layout.md) section 5).
+
 ### Honesty
 
 - Illustrative records raise the "Illustrative" chip while visible (film and replay); the chip is
@@ -83,6 +101,23 @@ A. Enforced by the kit. B. Owned by the author. C. Page contract. D. Theme.
    security architect talking a mixed audience through it. Callouts: 0 to 2 per step, 6 words or
    fewer, only when a pointer adds something the body does not. Tags 1 to 2 words. The body is
    read beside the replay clock too: it must not need the animation to make sense.
+   `check-story` also warns (never refuses) about these caption rules:
+   - **Length.** Characters per line, measured at the kit's sizes on the 1920x1080 stage (about 14 px
+     a character at 26 px, 24 px at 46 px bold, 12 px at 22 px) with about 10% left for a wider system font:
+     title 48 (one line of 46 px in the 1420 px band); body 240 (three lines of 32 px; a fourth
+     line runs out of the band); callout, `says`, `req`, `resp` 32 per line (about 440 px, a quarter of
+     the diagram area; split a `says` over two lines with `\n`); card row and card title 30; tag,
+     `respTag` and `tally` 16.
+   - **First word.** A title or body does not start with "Now", "Here" or "Next": they point at the
+     screen and say nothing; say what happens ("The attacker enters...").
+   - **Backticks** are drawn as written, so they must be balanced (better: absent).
+   - **Typed counts.** Digits and a noun ("3 passages"), a number word and a noun ("three tokens"),
+     "N of M", "x4" or "4x" in a title, body, callout, `says`, `req`, `resp`, card row or tag. Not
+     flagged: a version (`2.4.1`, `TLS 1.3`), an address, a time (`14:02`), a decimal, a port or a
+     number after a label word (`port 443`, `Step 3`, `HTTP 200`), an HTTP code before a capitalised
+     word (`403 Forbidden`), a year (1900 to 2100), a path or identifier (`/shop?id=7`, `s3`, `sha256`,
+     `x509`), a duration or size (`15 minutes`, `10 GB`), text in double quotes, and all text in a `mono`
+     beat. Where a number is part of a name, set `"_literal": true` on the step, the beat or the callout.
 2. **What each step touches and uses.** `touch` and `uses` drive dimming and focus; list only what
    the step is about, so the dim has something to dim. A summary step has both empty and `all`.
 3. **Choosing frames.** `frame: "full"` unless the action sits in one container; then `hold` the

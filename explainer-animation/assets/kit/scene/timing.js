@@ -32,6 +32,9 @@
   T.CARD_HOLD_MIN = 2.5;        /* a text card holds max(2.5, words x 0.35) after it has appeared */
   T.CARD_HOLD_WPW = 0.35;
   T.FINAL_HOLD = 3.0;           /* the final step ends this long after its last motion */
+  T.QUANTITY_MIN = 1.2;         /* executive scenes: a change to a quantity (bar, tile, meter, headline) takes at least this long ... */
+  T.RESULT_HOLD_MIN = 2.0;      /* ... and its result holds for max(2.0, words x 0.35) */
+  T.RESULT_HOLD_WPW = 0.35;
 
   /* ---- chrome and fade timings that belong to the same rhythm ---- */
   T.LABEL_FADE_IN = 0.35;
@@ -79,6 +82,10 @@
   T.FOLD = 0.9;                 /* s: a card folds into its system */
   T.PROXY_LEAD = 0.6;           /* s: a proxy badge appears this long before the first packet uses it */
   T.PROXY_IN = 0.5;             /* s */
+  T.PROXY_PASS = 0.3;           /* s: a packet going on through an off-frame system is hidden this long between the badge
+                                   it went into and the one it comes out of (it never jumps across the frame) */
+  T.JUMP_PX = 2;                /* stage px: a hop that starts farther than this from where the packet's last hop ended
+                                   starts hidden (PROXY_PASS) */
   T.TRACE_DRAW = 0.7;           /* s: each link of the summary trace draws in this long ... */
   T.TRACE_GAP = 0.45;           /* ... the next one starting this much later */
   T.TRACE_AFTER = 0.4;          /* s: the first shield lands this long after the last trace starts */
@@ -127,6 +134,9 @@
   T.lastHoldFor = function (text) { return Math.max(T.LAST_HOLD_MIN, wordCount(text) * T.LAST_HOLD_WPW); };
   /* A text card (a finding, a credential) after it has appeared. */
   T.cardHold = function (text) { return Math.max(T.CARD_HOLD_MIN, wordCount(text) * T.CARD_HOLD_WPW); };
+
+  /* How long the result of a quantity change stays readable after the motion ends (executive scenes). text: what it says. */
+  T.resultHold = function (text) { return Math.max(T.RESULT_HOLD_MIN, wordCount(text) * T.RESULT_HOLD_WPW); };
 
   /* First motion of a step, relative to the step start: 1.0 s, or 1.8 s after a camera move. */
   T.motionStart = function (afterCamera) { return afterCamera ? T.MOTION_START_AFTER_CAMERA : T.MOTION_START; };

@@ -1,0 +1,825 @@
+{
+ "meta": {
+  "id": "cold-supply-chain",
+  "title": "Poisoned dependency reaches production",
+  "accent": "reaches production",
+  "incidentRef": "ILLUSTRATIVE-001",
+  "tagline": "A trusted library turns hostile, passes every build step, and only controls on hashes, provenance and admission would have stopped it.",
+  "kind": "incident",
+  "audience": "technical",
+  "redaction": "No real incident. All names, versions and times are invented; no hostnames, accounts or keys appear.",
+  "source": {
+   "kind": "illustrative"
+  }
+ },
+ "zones": [
+  {
+   "id": "upstream",
+   "name": "Open-source ecosystem",
+   "short": "Open source",
+   "layout": {
+    "caps": true,
+    "pad": {
+     "t": 80
+    }
+   },
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "company",
+   "name": "Company",
+   "layout": {
+    "dir": "row",
+    "gap": 60
+   },
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "build",
+   "name": "Build",
+   "parent": "company",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "release",
+   "name": "Release",
+   "parent": "company",
+   "layout": {
+    "below": "build",
+    "belowGap": 60
+   },
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "prod",
+   "name": "Production cluster",
+   "short": "Production",
+   "parent": "company",
+   "layout": {
+    "dir": "col",
+    "gap": 40,
+    "iso": {
+     "dir": "row",
+     "gap": 40
+    }
+   },
+   "source": {
+    "kind": "illustrative"
+   }
+  }
+ ],
+ "systems": [
+  {
+   "id": "attacker",
+   "name": "Attacker",
+   "role": "Takes over a maintainer account and publishes a poisoned release.",
+   "zone": "upstream",
+   "icon": "attacker",
+   "tint": "danger",
+   "short": "Attacker",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "registry",
+   "name": "Package registry",
+   "role": "Public registry that serves dependency versions.",
+   "zone": "upstream",
+   "icon": "store",
+   "short": "Registry",
+   "tag": "public registry",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "repo",
+   "name": "Source repo",
+   "role": "Holds app code and the dependency manifest.",
+   "zone": "build",
+   "icon": "store",
+   "short": "Repo",
+   "tag": "source code",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "ci",
+   "name": "CI runner",
+   "role": "Resolves dependencies, builds and tests the service.",
+   "zone": "build",
+   "icon": "chip",
+   "short": "CI",
+   "tag": "build runner",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "signer",
+   "name": "Signing service",
+   "role": "Signs images and attests how they were built.",
+   "zone": "release",
+   "icon": "iam",
+   "short": "Signer",
+   "tint": "identity",
+   "tag": "signing",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "artifacts",
+   "name": "Image registry",
+   "role": "Stores built container images.",
+   "zone": "release",
+   "icon": "bucket",
+   "short": "Images",
+   "tag": "artifact store",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "admission",
+   "name": "Admission controller",
+   "role": "Cluster gate that checks images before they run.",
+   "zone": "prod",
+   "icon": "lock",
+   "short": "Admission",
+   "tint": "secure",
+   "tag": "deploy gate",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "payments",
+   "name": "Payments service",
+   "role": "Production service that handles card requests.",
+   "zone": "prod",
+   "icon": "payments",
+   "short": "Payments",
+   "tag": "production",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "db",
+   "name": "Customer database",
+   "role": "Customer records and tokens.",
+   "zone": "prod",
+   "icon": "db",
+   "short": "Database",
+   "tag": "data store",
+   "source": {
+    "kind": "illustrative"
+   }
+  }
+ ],
+ "links": [
+  {
+   "from": "attacker",
+   "to": "registry",
+   "label": "publish",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "registry",
+   "to": "ci",
+   "label": "dependency pull",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "repo",
+   "to": "ci",
+   "label": "source checkout",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "ci",
+   "to": "signer",
+   "label": "sign request",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "ci",
+   "to": "artifacts",
+   "label": "image push",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "artifacts",
+   "to": "admission",
+   "label": "image pull",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "admission",
+   "to": "payments",
+   "label": "deploy",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "payments",
+   "to": "db",
+   "label": "data access",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "from": "payments",
+   "to": "attacker",
+   "label": "outbound call",
+   "source": {
+    "kind": "illustrative"
+   }
+  }
+ ],
+ "phases": [
+  {
+   "id": "poison",
+   "title": "Poisoning",
+   "short": "Poison",
+   "descriptor": "malicious release published",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "build",
+   "title": "Build and release",
+   "short": "Build",
+   "descriptor": "pulled, built, signed",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "run",
+   "title": "Production",
+   "short": "Run",
+   "descriptor": "deployed, stealing data",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "review",
+   "title": "Controls",
+   "short": "Review",
+   "descriptor": "where it would have stopped",
+   "source": {
+    "kind": "illustrative"
+   }
+  }
+ ],
+ "steps": [
+  {
+   "id": "publish",
+   "phase": "poison",
+   "title": "Maintainer account is taken over",
+   "body": "The attacker phishes a maintainer of a small utility library and publishes version 2.4.1. It carries a hidden install script that runs when the package is built.",
+   "short": "Poisoned release",
+   "touch": [
+    "attacker",
+    "registry"
+   ],
+   "uses": [
+    [
+     "attacker",
+     "registry"
+    ]
+   ],
+   "beats": [
+    {
+     "chain": [
+      "attacker",
+      "registry"
+     ],
+     "tag": "publish",
+     "color": "danger",
+     "says": "util-lib 2.4.1",
+     "sayAt": "attacker"
+    }
+   ],
+   "color": "danger",
+   "frame": "full",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "pull",
+   "phase": "build",
+   "title": "Build pulls the new version",
+   "body": "The build asks for util-lib with a loose version range. The registry returns 2.4.1, and nothing compares it with a known hash.",
+   "short": "Dependency pull",
+   "touch": [
+    "registry",
+    "ci",
+    "repo"
+   ],
+   "uses": [
+    [
+     "registry",
+     "ci"
+    ],
+    [
+     "repo",
+     "ci"
+    ]
+   ],
+   "beats": [
+    {
+     "chain": [
+      "repo",
+      "ci"
+     ],
+     "tag": "checkout",
+     "color": "accent",
+     "says": "package manifest",
+     "sayAt": "repo"
+    },
+    {
+     "exchange": [
+      "ci",
+      "registry"
+     ],
+     "tag": "resolve",
+     "respTag": "package",
+     "req": "util-lib ^2.4",
+     "resp": "2.4.1 (new)",
+     "mono": true,
+     "color": "accent",
+     "respColor": "danger"
+    }
+   ],
+   "color": "accent",
+   "frame": "full",
+   "callouts": [
+    {
+     "target": "ci",
+     "text": "Range, not pinned hash"
+    }
+   ],
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "build",
+   "phase": "build",
+   "title": "The hidden script runs in CI",
+   "body": "The install script runs with the runner's permissions and rewrites a source file. Tests still pass, so the build looks healthy.",
+   "short": "Script runs",
+   "touch": [
+    "ci"
+   ],
+   "uses": [],
+   "beats": [
+    {
+     "card": "hook",
+     "at": "ci",
+     "title": "Install script",
+     "rows": [
+      "Runs at build time",
+      "Patches a source file",
+      "Tests still pass"
+     ],
+     "color": "danger",
+     "then": "fold"
+    },
+    {
+     "pulse": "ci",
+     "color": "danger"
+    }
+   ],
+   "color": "danger",
+   "frame": {
+    "hold": [
+     "build"
+    ]
+   },
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "sign",
+   "phase": "build",
+   "title": "The image is built and signed",
+   "body": "The CI signer signs the image, so it looks trusted. The signature proves who built it, not that its inputs were safe.",
+   "short": "Signed anyway",
+   "touch": [
+    "ci",
+    "signer",
+    "artifacts"
+   ],
+   "uses": [
+    [
+     "ci",
+     "signer"
+    ],
+    [
+     "ci",
+     "artifacts"
+    ]
+   ],
+   "beats": [
+    {
+     "exchange": [
+      "ci",
+      "signer"
+     ],
+     "tag": "sign",
+     "respTag": "signature",
+     "req": "sign image",
+     "resp": "signed",
+     "color": "identity",
+     "mono": true
+    },
+    {
+     "chain": [
+      "ci",
+      "artifacts"
+     ],
+     "tag": "push",
+     "color": "accent",
+     "says": "payments:build-482",
+     "sayAt": "artifacts"
+    }
+   ],
+   "color": "identity",
+   "frame": "full",
+   "callouts": [
+    {
+     "target": "signer",
+     "text": "Signs the poisoned build"
+    }
+   ],
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "deploy",
+   "phase": "run",
+   "title": "The cluster accepts the image",
+   "body": "The admission controller only checks that a signature exists. It does not check provenance or the dependency hashes, so the image is deployed.",
+   "short": "Deployed",
+   "touch": [
+    "artifacts",
+    "admission",
+    "payments"
+   ],
+   "uses": [
+    [
+     "artifacts",
+     "admission"
+    ],
+    [
+     "admission",
+     "payments"
+    ]
+   ],
+   "beats": [
+    {
+     "chain": [
+      "artifacts",
+      "admission",
+      "payments"
+     ],
+     "tag": "deploy",
+     "color": "accent",
+     "says": "signature present: allow",
+     "sayAt": "admission"
+    }
+   ],
+   "color": "accent",
+   "frame": "full",
+   "callouts": [
+    {
+     "target": "admission",
+     "text": "Checks presence only"
+    }
+   ],
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "steal",
+   "phase": "run",
+   "title": "Payments service sends data out",
+   "body": "Injected code reads customer records and calls the attacker's server. Egress is open and nothing alerts, so the leak continues unseen.",
+   "short": "Data leaves",
+   "touch": [
+    "payments",
+    "db",
+    "attacker"
+   ],
+   "uses": [
+    [
+     "payments",
+     "db"
+    ],
+    [
+     "payments",
+     "attacker"
+    ]
+   ],
+   "beats": [
+    {
+     "exchange": [
+      "payments",
+      "db"
+     ],
+     "tag": "query",
+     "respTag": "records",
+     "req": "read customers",
+     "resp": "rows",
+     "color": "danger",
+     "mono": true,
+     "mark": "db"
+    },
+    {
+     "stream": [
+      "payments",
+      "attacker"
+     ],
+     "items": [
+      "customers.csv",
+      "tokens.csv",
+      "orders.csv"
+     ],
+     "says": "outbound HTTPS",
+     "tally": "received:",
+     "mono": true,
+     "color": "danger"
+    }
+   ],
+   "color": "danger",
+   "frame": "full",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "controls",
+   "phase": "review",
+   "title": "Where controls would have cut it",
+   "body": "Each shield marks a link where a control breaks the chain. Pinned hashes stop it first; provenance and admission policy stop it before production.",
+   "short": "Review",
+   "touch": [],
+   "uses": [],
+   "beats": [
+    {
+     "shields": "controls"
+    }
+   ],
+   "color": "secure",
+   "frame": "full",
+   "all": true,
+   "source": {
+    "kind": "illustrative"
+   }
+  }
+ ],
+ "controls": [
+  {
+   "id": "pin",
+   "name": "Pinned hashes",
+   "why": "A lockfile with hashes refuses any version that was not reviewed.",
+   "on": [
+    "registry",
+    "ci"
+   ],
+   "stops": [
+    "pull",
+    "build",
+    "sign",
+    "deploy",
+    "steal"
+   ],
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "prov",
+   "name": "Signed provenance",
+   "why": "The signer attests the exact inputs of each build, so an unexpected dependency is visible.",
+   "on": [
+    "ci",
+    "signer"
+   ],
+   "stops": [
+    "deploy",
+    "steal"
+   ],
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "id": "adm",
+   "name": "Admission policy",
+   "why": "The cluster refuses images whose provenance does not match policy.",
+   "on": [
+    "artifacts",
+    "admission"
+   ],
+   "stops": [
+    "deploy",
+    "steal"
+   ],
+   "source": {
+    "kind": "illustrative"
+   }
+  }
+ ],
+ "figures": {},
+ "events": [
+  {
+   "t": 0,
+   "step": "publish",
+   "from": "attacker",
+   "to": "registry",
+   "action": "PUT util-lib 2.4.1",
+   "note": "New release published from a taken-over maintainer account.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "attacker",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 40,
+   "step": "pull",
+   "from": "repo",
+   "to": "ci",
+   "action": "git checkout",
+   "note": "The build starts and reads the manifest.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "system",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 46,
+   "step": "pull",
+   "from": "ci",
+   "to": "registry",
+   "action": "GET util-lib ^2.4",
+   "note": "The build resolves a loose range.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "system",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 48,
+   "step": "pull",
+   "from": "registry",
+   "to": "ci",
+   "action": "200 util-lib 2.4.1",
+   "note": "The poisoned version is returned.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "system",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 55,
+   "step": "build",
+   "from": "ci",
+   "to": "ci",
+   "action": "postinstall script",
+   "note": "The hidden script patches a source file.",
+   "count": 1,
+   "visibility": "blind",
+   "actor": "attacker",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 80,
+   "step": "sign",
+   "from": "ci",
+   "to": "signer",
+   "action": "sign image",
+   "note": "The image is signed as normal.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "system",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 84,
+   "step": "sign",
+   "from": "ci",
+   "to": "artifacts",
+   "action": "push build-482",
+   "note": "The image is stored.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "system",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 300,
+   "step": "deploy",
+   "from": "artifacts",
+   "to": "admission",
+   "action": "pull build-482",
+   "note": "The cluster pulls the image.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "system",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 302,
+   "step": "deploy",
+   "from": "admission",
+   "to": "payments",
+   "action": "allow",
+   "note": "Signature present, so the image is admitted.",
+   "count": 1,
+   "visibility": "logged",
+   "actor": "system",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 900,
+   "step": "steal",
+   "from": "payments",
+   "to": "db",
+   "action": "read customers",
+   "note": "Injected code reads records.",
+   "count": 12,
+   "visibility": "blind",
+   "actor": "attacker",
+   "source": {
+    "kind": "illustrative"
+   }
+  },
+  {
+   "t": 905,
+   "step": "steal",
+   "from": "payments",
+   "to": "attacker",
+   "action": "POST outbound",
+   "note": "Data is sent to the attacker.",
+   "count": 3,
+   "visibility": "blind",
+   "actor": "attacker",
+   "source": {
+    "kind": "illustrative"
+   }
+  }
+ ]
+}

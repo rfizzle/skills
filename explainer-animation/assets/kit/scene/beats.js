@@ -60,9 +60,93 @@
       rects.forEach(function (q) {
         if (q.key.indexOf('tab:') === 0) text.items.push({ key: 'obstacle:' + q.key, kind: 'obstacle', session: s, rect: q.rect, at: null, until: null });
       });
+      /* a summary's shields stand before any label or tag of the session is placed: those keep clear of them */
+      var sb = (st.beats || []).filter(function (b) { return pattern.kindOf(b) === 'shields'; })[0];
+      s.shields = sb ? planShields(sb.shields, s) : null;
       /* labelPolicy 'touched' (iso): the painter places the step's labels and container tags; they fade with the step's extras */
       if (painter.stepText) painter.stepText(text, frame, { t: t, step: st, nodes: inv.nodes }).forEach(function (it) { c.extras.push(it); });
       return s;
+    }
+
+    /* ---- the summary's shields (P§8): where each stands, and whether the names fit beside them ---- */
+    function controlsOf(spec) {
+      function first(k) { return Math.min.apply(null, (k.stops || []).map(function (s) { return stepIndex[s]; }).concat([Infinity])); }
+      return (story.controls || []).filter(function (k) { return spec === 'controls' || (Array.isArray(spec) && spec.indexOf(k.id) >= 0); })
+        .sort(function (a, b) { return first(a) - first(b); });
+    }
+    /* the step numbers a control would have prevented, as a shield shows them: runs compressed (2-6), at most three
+       characters (more becomes the first and a plus: 2+) */
+    function stopsText(k) {
+      var n = (k.stops || []).map(function (s) { return stepIndex[s] + 1; }).filter(function (x) { return x > 0; })
+        .sort(function (a, b) { return a - b; }).filter(function (x, i, a) { return !i || x !== a[i - 1]; });
+      if (!n.length) return '';
+      var parts = [], i = 0;
+      while (i < n.length) { var j = i; while (j + 1 < n.length && n[j + 1] === n[j] + 1) j++; parts.push(j > i + 1 ? n[i] + '\u2013' + n[j] : j === i + 1 ? n[i] + '/' + n[j] : String(n[i])); i = j + 1; }
+      var t = parts.join('/');
+      return t.length <= 3 ? t : n[0] + '+';
+    }
+    function rectsMeet(a, b, pad) { return a.x0 < b.x1 + pad && b.x0 < a.x1 + pad && a.y0 < b.y1 + pad && b.y0 < a.y1 + pad; }
+    function overArea(a, b) { return Math.max(0, Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0)) * Math.max(0, Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0)); }
+    /* planShields(spec, session) -> [{k, link, pt (scene), rect (stage), clean}]: each control's shield stands on its own link,
+       at the sampled point (every SHIELD_STEP stage px, off its end blocks) that is clear of every block and every piece of
+       text placed or reserved so far (tabs, node labels, earlier shields with SHIELD_PAD around them), inside the text
+       margin, crossing as few other links as it can, nearest the middle of its link. When no point is clear, the one
+       covering least. Each shield's rect is reserved as it is chosen, so shields that would land together stagger
+       along their links. */
+    var SHIELD_STEP = 8, SHIELD_PAD = 10, SHIELD_LEAD = 220, LEGEND_AT = 6;
+    function planShields(spec, s) {
+      var cam = s.cam, occ = s.occ, kz = area.w / cam.w, box = painter.shieldBox(cam), lift = painter.shieldLift || 0, lines = {}, out = [];
+      Object.keys(estate.routes).forEach(function (id) {
+        var el = painter.pathEl(id), L = el.getTotalLength(), n = Math.max(2, Math.ceil(L * kz / 12)), pts = [];
+        for (var m = 0; m <= n; m++) pts.push(text.toStage(el.getPointAtLength(L * m / n), cam));
+        lines[id] = pts;
+      });
+      controlsOf(spec).forEach(function (k) {
+        var lk = k.on && EXK.route.findLink(estate.routes, k.on[0], k.on[1]);
+        if (!lk) return;
+        var r = estate.routes[lk.id], el = painter.pathEl(lk.id), L = el.getTotalLength(), n = Math.max(8, Math.ceil(L * kz / SHIELD_STEP));
+        var ends = [painter.stageRect(r.a, cam), painter.stageRect(r.b, cam)], best = null;
+        for (var m = 1; m < n; m++) {
+          var f = m / n, q = el.getPointAtLength(L * f), on = text.toStage(q, cam);
+          if (ends.some(function (e) { return e && on.x > e.x0 && on.x < e.x1 && on.y > e.y0 && on.y < e.y1; })) continue;
+          var pt = { x: q.x, y: q.y - lift }, p = text.toStage(pt, cam);
+          var rect = { x0: p.x - box.l, x1: p.x + box.r, y0: p.y - box.t, y1: p.y + box.b };
+          if (rect.x0 < text.TXT.x0 || rect.x1 > text.TXT.x1 || rect.y0 < text.TXT.y0 || rect.y1 > text.TXT.y1) continue;
+          var hard = 0, cost = Math.abs(f - 0.5) * L * kz * 0.25;
+          occ.blocks.forEach(function (b) { if (rectsMeet(rect, b, 4)) hard += 1000 + overArea(rect, b); });
+          occ.text.forEach(function (t) { if (rectsMeet(rect, t, SHIELD_PAD)) hard += 100000 + overArea(rect, t); });
+          Object.keys(lines).forEach(function (id) {
+            if (id === lk.id) return;
+            lines[id].forEach(function (lp) { if (lp.x > rect.x0 - 4 && lp.x < rect.x1 + 4 && lp.y > rect.y0 - 4 && lp.y < rect.y1 + 4) cost += 25; });
+          });
+          cost += hard;
+          if (!best || cost < best.cost) best = { cost: cost, hard: hard, pt: pt, rect: rect };
+        }
+        if (!best) {        /* the whole link is off the text area or under its blocks: its middle */
+          var qm = el.getPointAtLength(L / 2), pm = { x: qm.x, y: qm.y - lift }, sm = text.toStage(pm, cam);
+          best = { hard: 1, pt: pm, rect: { x0: sm.x - box.l, x1: sm.x + box.r, y0: sm.y - box.t, y1: sm.y + box.b } };
+        }
+        text.reserve({ x0: best.rect.x0 - SHIELD_PAD / 2, x1: best.rect.x1 + SHIELD_PAD / 2, y0: best.rect.y0 - SHIELD_PAD / 2, y1: best.rect.y1 + SHIELD_PAD / 2 });
+        out.push({ k: k, link: lk.id, pt: best.pt, rect: best.rect, clean: !best.hard });
+      });
+      return out;
+    }
+    /* a name folded onto two lines at the word break nearest its middle */
+    function fold(name) {
+      var w = String(name).split(/\s+/);
+      if (w.length < 2) return [name];
+      var best = null;
+      for (var i = 1; i < w.length; i++) {
+        var a = w.slice(0, i).join(' '), b = w.slice(i).join(' '), d = Math.max(a.length, b.length);
+        if (!best || d < best.d) best = { d: d, lines: [a, b] };
+      }
+      return best.lines;
+    }
+    /* the label anchors of a shield: the middles of its rect's sides, in scene coordinates (a leader starts at the shield's
+       edge, never across it) */
+    function shieldAnchors(sp, cam) {
+      var r = sp.rect, cx = (r.x0 + r.x1) / 2, cy = (r.y0 + r.y1) / 2;
+      return [[r.x1, cy], [r.x0, cy], [cx, r.y0], [cx, r.y1]].map(function (q) { return text.toScene({ x: q[0], y: q[1] }, cam); });
     }
 
     var marks = {}, trails = {}, traced = [], finals = [], out = [], t0 = 0;
@@ -209,9 +293,10 @@
 
       c.link = function (from, to) { return EXK.route.findLink(estate.routes, from, to); };
 
-      /* packet(color, tag?, mono?) -> {el, tag, hide}: a hidden packet, a chip when it carries a tag, else a dot */
-      c.packet = function (color, tag, mono, file) {
-        var el = painter.packet({ color: color, chip: !!tag, file: !!file });
+      /* packet(color, tag?, mono?, glyph?) -> {el, tag, hide}: a hidden packet, a chip when it carries a tag, else the
+         glyph when one is named (EXK.GLYPHS), else a dot */
+      c.packet = function (color, tag, mono, glyph) {
+        var el = painter.packet({ color: color, chip: !!tag, glyph: tag ? null : glyph || null });
         return { el: el, hide: [], tag: tag ? text.tag({ packet: el, label: tag, color: color, mono: !!mono }) : null };
       };
       c.show = function (pk, t) { tl.fromTo(pk.el, { opacity: 0 }, { opacity: 1, duration: T.INSTANT, immediateRender: false }, t); };
@@ -281,6 +366,15 @@
         if (pw) rg = painter.onScreenRange(id, cam, pw);
         var dur = T.hopDuration((rg.f1 - rg.f0) * Lp * area.w / cam.w);
         var s0 = rev ? rg.f1 : rg.f0, s1 = rev ? rg.f0 : rg.f1;
+        /* the speed cap holds across hops too: a hop that starts away from where this packet's last hop ended (it went into
+           one proxy badge and comes out of another) starts PROXY_PASS later, the packet hidden in between */
+        var kz = area.w / cam.w, q0 = path.getPointAtLength(s0 * Lp), q1 = path.getPointAtLength(s1 * Lp);
+        if (pk.last && Math.hypot((q0.x - pk.last.x) * kz, (q0.y - pk.last.y) * kz) > T.JUMP_PX) {
+          tl.fromTo(pk.el, { opacity: 1 }, { opacity: 0, duration: T.INSTANT, immediateRender: false }, t);
+          t += T.PROXY_PASS;
+          tl.fromTo(pk.el, { opacity: 0 }, { opacity: 1, duration: T.INSTANT, immediateRender: false }, t);
+        }
+        pk.last = { x: q1.x, y: q1.y };
         if (rg.aOff) c.proxy(route.a, id, 'a', rg, t);
         if (rg.bOff) c.proxy(route.b, id, 'b', rg, t);
         /* motion: a fromTo on a progress proxy; onUpdate places the packet on the path */
@@ -365,13 +459,14 @@
 
       /* stream(path, t, o) -> last arrival. Up to STREAM_MAX plain packets STREAM_SPACING apart along the path; the
          `says` label at the sender; a tally at the receiver whose lines appear as each packet lands. o: {items, says,
-         tally, mono, color, tag} */
+         tally, mono, color, tag, glyph} */
       c.stream = function (ids, t, o) {
         var color = c.colorOf(o.color), items = (o.items || []).slice(0, T.STREAM_MAX), n = Math.max(1, items.length);
-        /* plain packets: no text; each is a small file glyph (P§6), or a chip when the stream has a tag */
+        /* plain packets: no text; each is the beat's glyph (file, push, mail, key; default a dot), or a chip when the
+           stream has a tag */
         var t1 = o.says ? t + T.STREAM_SAY_LEAD : t, arrs = [], h0 = c.hops.length;
         for (var k = 0; k < n; k++) {
-          var pk = c.packet(color, o.tag, o.mono, !o.tag), ts = t1 + k * T.STREAM_SPACING;
+          var pk = c.packet(color, o.tag, o.mono, o.glyph || 'dot'), ts = t1 + k * T.STREAM_SPACING;
           c.show(pk, ts);
           var tr = c.travel(pk, ids, ts, color, { noLine: k > 0, noRing: k < n - 1 });
           c.hide(pk, tr.end);
@@ -488,11 +583,14 @@
       };
 
       /* shields(spec, t) -> end of the summary: the chain traced link by link, a shield landing on each control's link
-         (number from controls[].stops), the chain fading back, then everything named at full strength (P§8) */
+         (planShields; number from controls[].stops), the chain fading back, then everything named at full strength (P§8).
+         Names: each beside its shield, on one line or folded onto two, clear of blocks (painter.shieldTiers: iso may cover the
+         empty corners of a block's projected box, never text), with a leader that crosses nothing
+         (a dry run of the whole set first). When one does not fit, or there are more than LEGEND_AT controls, every shield
+         carries a letter instead and the names go into one legend panel (the stated degrade rule). */
       c.shields = function (spec, t) {
-        var ctl = (story.controls || []).filter(function (k) { return spec === 'controls' || (Array.isArray(spec) && spec.indexOf(k.id) >= 0); });
-        ctl.sort(function (a, b) { return first(a) - first(b); });
-        function first(k) { return Math.min.apply(null, (k.stops || []).map(function (s) { return stepIndex[s]; }).concat([Infinity])); }
+        var s = text.sessions[text.sessions.length - 1];
+        var plan = s.shields || planShields(spec, s);
         var traces = [];
         traced.forEach(function (id, n) {
           var ln = painter.traceLink(id), ts = t + n * T.TRACE_GAP;
@@ -500,21 +598,35 @@
           tl.fromTo(ln, { drawSVG: '0% 0%' }, { drawSVG: '0% 100%', duration: T.TRACE_DRAW, ease: 'power2.inOut', immediateRender: false }, ts);
           traces.push(ln);
         });
-        var tTrace = t + Math.max(0, traced.length - 1) * T.TRACE_GAP + T.TRACE_AFTER, tLast = tTrace, named = [];
-        ctl.forEach(function (k, n) {
-          var lk = k.on && c.link(k.on[0], k.on[1]);
-          if (!lk) { console.warn('step "' + st.id + '": control ' + k.id + ' is not on a link; shield skipped'); return; }
-          var r = estate.routes[lk.id], pt = painter.anchor(lk.id);     /* the link's midpoint, in the painter's scene space */
-          var num = (k.stops || []).map(function (s) { return stepIndex[s] + 1; }).filter(function (x) { return x > 0; }).sort(function (a, b) { return a - b; }).join('/');
-          var ts = tTrace + (n === 0 ? 0 : T.SHIELD_SECOND + (n - 1) * T.SHIELD_GAP), sh = painter.shield(pt, num || '•');
+        controlsOf(spec).forEach(function (k) {
+          if (!plan.some(function (q) { return q.k === k; })) console.warn('step "' + st.id + '": control ' + k.id + ' is not on a link; shield skipped');
+        });
+        var names = plan.map(function (sp) { return painter.shieldName ? painter.shieldName(sp.k) : sp.k.name; }), shapes = [], misfit = null;
+        var legend = plan.length > LEGEND_AT || !text.trial(function () {
+          return plan.every(function (sp, n) {
+            var o = { anchors: shieldAnchors(sp, s.cam), maxLead: SHIELD_LEAD, tiers: painter.shieldTiers || [[0, 1]] };
+            if (text.fits(Object.assign({ lines: [names[n]] }, o))) { shapes[n] = [names[n]]; return true; }
+            var two = fold(names[n]);
+            if (two.length > 1 && text.fits(Object.assign({ lines: two }, o))) { shapes[n] = two; return true; }
+            misfit = sp.k.id;
+            return false;
+          });
+        });
+        if (legend) console.warn('step "' + st.id + '": ' + (plan.length > LEGEND_AT ? plan.length + ' controls (more than ' + LEGEND_AT + ')' : 'the name of control ' + misfit + ' does not fit beside its shield') + '; shields are lettered and named in a legend');
+        var tTrace = t + Math.max(0, traced.length - 1) * T.TRACE_GAP + T.TRACE_AFTER, tLast = tTrace, named = [], rows = [], rowAt = [];
+        plan.forEach(function (sp, n) {
+          var k = sp.k, r = estate.routes[sp.link], num = stopsText(k), letter = String.fromCharCode(65 + n);
+          var ts = tTrace + (n === 0 ? 0 : T.SHIELD_SECOND + (n - 1) * T.SHIELD_GAP), sh = painter.shield(sp.pt, legend ? letter : num || '\u2022');
           tl.fromTo(sh.g, { opacity: 0 }, { opacity: 1, duration: T.SHIELD_IN, ease: 'power2.out', immediateRender: false }, ts);
           tl.fromTo(sh.icon, { scale: 2.2 }, { scale: 1, svgOrigin: '0 0', duration: T.SHIELD_POP, ease: 'back.out(1.6)', immediateRender: false }, ts);
-          var it = text.callout({ text: painter.shieldName ? painter.shieldName(k) : k.name, anchors: [pt], shield: n, at: ts + T.SHIELD_IN, color: C.secure, key: 'shield:' + k.id });
-          c.extras.push(it);
+          if (legend) { rows.push(letter + '  ' + names[n] + (num ? '  (' + num + ')' : '')); rowAt.push(ts + T.SHIELD_IN); }
+          else c.extras.push(text.callout({ lines: shapes[n], anchors: shieldAnchors(sp, s.cam), tiers: painter.shieldTiers || [[0, 1]], maxLead: SHIELD_LEAD, shield: n,
+            at: ts + T.SHIELD_IN, color: C.secure, key: 'shield:' + k.id }));
           text.emphasis(ts + T.SHIELD_IN, null, [r.a, r.b], [n]);
           named.push(r.a, r.b);
           tLast = ts;
         });
+        if (legend && rows.length) c.extras.push(text.legend({ key: 'legend:controls', title: 'Controls', rows: rows, at: rowAt[0] - T.SHIELD_IN, lineAt: [rowAt[0] - T.SHIELD_IN].concat(rowAt), color: C.secure }));
         var tAll = tLast + T.SHIELD_IN + T.SUMMARY_ALL_AFTER;
         if (named.length) text.emphasis(tAll, null, named, 'all');
         var tFade = tTrace + T.SUMMARY_FADE_AFTER;

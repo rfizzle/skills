@@ -24,16 +24,15 @@
   var EXK = window.EXK, C = EXK.THEME, T = EXK.timing;
   var NS = 'http://www.w3.org/2000/svg';
   var C30 = Math.cos(Math.PI / 6);
-  var TH = 12;              /* slab thickness per nesting level, ground units */
-  var HALF = 34;            /* half the block's side (the footprint plate is the layout's node box, 100) */
-  var BH = 62;              /* block height */
+  var TH = EXK.layout.ISO.TH;       /* slab thickness per nesting level, ground units (estate/layout.js ISO, shared with isoAudit) */
+  var HALF = EXK.layout.ISO.HALF;   /* half the block's side (the footprint plate is the layout's node box, 100) */
+  var BH = EXK.layout.ISO.BH;       /* block height */
   var RING_R = 17, RING_LIT_R = 21, PORT_MERGE = 70;   /* port rings, ground units; crossings closer than PORT_MERGE share one */
   var LIFT = 30;            /* stage px: the packet's dot floats this far above its shadow on the floor */
   var DOT_R = 13;           /* stage px */
   var TAG_GAP = 8;          /* stage px between the dot and its tag */
   var SHIELD_LIFT = 44;     /* ground units: a summary shield stands this far above its link */
   var SHIELD_AHEAD = 50;    /* ground units */
-  var BADGE_CLEAR = 30;     /* scene px: a block's 'side' anchor sits this far out from its top face's right corner, past the badge */
   var ZMAX = 1.3;           /* stage px per scene px: the closest a step frame gets (the reference's ZMAX) */
   var FADE = 56;            /* stage px: the diagram area's soft edge (page.html #fade) */
   var FIT = { x: 120, top: 96, bottom: 90 };       /* stage px around a step's held content: a label above the top block clears the
@@ -248,10 +247,12 @@
       maxCards: 1,
       cardFold: false,       /* a card's then:'fold' fades it where it stands, as the reference's card does: folding into the
                                 block sweeps it across the labels and tags around a projected block */
-      /* placement modes in order (text.js place): a clear leader before clearing blocks, as the reference's placer does.
-         Blocks crowd a projected scene (their boxes are hexagons' bounds), and a leader across a label or a block
-         reads worse than a pill over a corner of a block */
+      /* placement modes in order (text.js place; every leader is clear in every mode): clear of blocks, then over a block's
+         box, before the lanes. Blocks crowd a projected scene (their boxes are hexagons' bounds, with empty corners), and
+         a long leader reads worse than a pill over a corner of a block's box */
       placeTiers: [[0, 0], [2, 2], [1, 1], [3, 4]],
+      shieldTiers: [[0, 1], [2, 3]],     /* summary shield labels: clear of block boxes, then over their empty corners; never text */
+      blockCorner: 0.05,                 /* the loose modes cover at most this fraction of a block's box (text.js occ.free): each empty corner of a cube's projected box is about 6.5% of it */
       tagLift: LIFT + DOT_R + TAG_GAP,     /* stage px from the floor point up to the tag's bottom: the tag rides above the dot */
       TRAIL_OPACITY: 0.42,
 
@@ -388,7 +389,7 @@
         return { f0: f0, f1: f1v, aOff: aOff, bOff: bOff };
       },
 
-      /* scene points: a block's 'top' is the apex of its top face, 'side' its right corner (says, callouts, cards),
+      /* scene points: a block's 'top' is the apex of its top face, 'side' a point on its right edge (says, callouts, cards),
          'bottom' its front foot; a zone's are its slab's corners; a link id is its midpoint, raised for a shield */
       anchor: function (id, side) {
         var b = B[id];
@@ -396,7 +397,8 @@
         if (b.type === 'node') {
           var x = b.cx, y = b.cy, z0 = nodeZ(id), a = HALF;
           switch (side) {
-            case 'side': var q = iso(x + a, y - a, z0 + BH); return { x: q.x + BADGE_CLEAR, y: q.y - BADGE_CLEAR / 2 };   /* beyond the marker badge, as flat's */
+            case 'side': var q = iso(x + a, y - a, z0 + BH * 0.6); return { x: q.x + 2, y: q.y };   /* on the block's right edge, under its marker
+                                                    badge: a point off the block can be nearer a neighbour, and a leader from it points there */
             case 'left': return iso(x - a, y + a, z0 + BH / 2);
             case 'right': return iso(x + a, y - a, z0 + BH / 2);
             case 'bottom': return iso(x + a, y + a, z0);
@@ -424,8 +426,8 @@
         return r;
       },
 
-      /* a dot floating LIFT px above its shadow on the floor (both a fixed stage size); a document for a stream item;
-         the tag (text.tag) rides above the dot */
+      /* a dot floating LIFT px above its shadow on the floor (both a fixed stage size); a stream item's glyph instead of
+         the dot when it names one; the tag (text.tag) rides above the dot */
       packet: function (spec) {
         var g = el('g', { opacity: 0 }, L.packets), col = colorOf(spec && spec.color, C.accent), inner = el('g', {}, g);
         cs.push(inner);
@@ -433,12 +435,8 @@
         if (lastCam) inner.setAttribute('transform', 'scale(' + (lastCam.w / area.w).toFixed(5) + ')');
         el('ellipse', { cx: 0, cy: 0, rx: 13, ry: 6, fill: '#000', 'fill-opacity': 0.5 }, inner);
         var d = el('g', { transform: 'translate(0,' + (-LIFT) + ')' }, inner);
-        if (spec && spec.file) {
-          var f = el('g', { transform: 'scale(0.62)' }, d), fd = 'M-20,-26 H8 L20,-14 V26 H-20 Z';
-          el('path', { d: fd, fill: C.panel, stroke: col, 'stroke-width': 5, 'stroke-linejoin': 'round' }, f);
-          el('path', { d: fd, fill: col, 'fill-opacity': 0.25 }, f);
-          el('path', { d: 'M8,-26 V-14 H20 M-10,0 H10 M-10,10 H10', fill: 'none', stroke: col, 'stroke-width': 4, 'stroke-linecap': 'round' }, f);
-        } else {
+        if (spec && EXK.GLYPHS[spec.glyph]) EXK.GLYPHS[spec.glyph](el('g', { transform: 'scale(0.62)' }, d), col);    /* a stream item's glyph */
+        else {
           el('circle', { r: DOT_R, fill: C.bg, stroke: col, 'stroke-width': 4 }, d);
           el('circle', { r: 5, fill: col }, d);
         }
@@ -447,6 +445,8 @@
       portLight: function (m, color) {
         return el('polygon', { points: ringPts(ports[m], RING_LIT_R), fill: 'none', stroke: color, 'stroke-width': 6, 'stroke-linejoin': 'round', opacity: 0 }, L.portfx);
       },
+      shieldLift: SHIELD_LIFT,     /* scene px (one ground unit of height is one scene px) */
+      shieldBox: function () { return { l: 25, r: 25, t: 29, b: 32 }; },    /* counter-scaled: a fixed stage size */
       shield: function (pt, num) {
         var g = el('g', { transform: 'translate(' + f1(pt.x) + ',' + f1(pt.y) + ')', opacity: 0 }, L.top), c2 = el('g', {}, g), ic = el('g', {}, c2);
         cs.push(c2);
@@ -454,7 +454,7 @@
         var d = 'M0,-27 L23,-19 V3 Q23,21 0,30 Q-23,21 -23,3 V-19 Z';
         el('path', { d: d, fill: C.panel, stroke: C.secure, 'stroke-width': 3.5, 'stroke-linejoin': 'round' }, ic);
         el('path', { d: d, fill: C.secure, 'fill-opacity': 0.3 }, ic);
-        txt(ic, num, { x: 0, y: 8, 'text-anchor': 'middle', class: 'mono', fill: C.text, 'font-size': num.length > 1 ? 17 : 21, 'font-weight': 800 });
+        txt(ic, num, { x: 0, y: 8, 'text-anchor': 'middle', class: 'mono', fill: C.text, 'font-size': num.length > 2 ? 14 : num.length > 1 ? 17 : 21, 'font-weight': 800 });
         return { g: g, icon: ic };
       },
       traceLink: function (id) {
@@ -499,10 +499,9 @@
         });
         /* the summary (a shields beat): each shield's protected system (the end its link leads to) is named when its label
            fits clear of blocks, lanes and the shields themselves; otherwise its name is folded into the shield's label
-           (shieldName). The shields' places are reserved first, as the reference does */
+           (shieldName). The shields' places are reserved before this runs, as the reference does */
         var shielded = shieldTargets(o.step);
-        if (shielded.length) {
-          shielded.forEach(function (q) { var a = toStage(linkPoint(q.link, SHIELD_LIFT), s.cam); s.occ.add({ x0: a.x - 30, x1: a.x + 30, y0: a.y - 34, y1: a.y + 38 }); });
+        if (shielded.length) {       /* the shields' places are already reserved (scene/beats.js planShields) */
           var named = {};
           shielded.forEach(function (q) {
             if (named[q.to] != null) return;

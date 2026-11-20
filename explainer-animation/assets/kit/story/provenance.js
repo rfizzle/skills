@@ -12,8 +12,12 @@
     var out = [];
     function add(path, r) { if (isIll(r)) out.push({ path: path, id: r.id === undefined ? null : r.id }); }
     add('meta', story.meta);
-    ['zones', 'systems', 'links', 'phases', 'steps', 'controls', 'events',
-      'runs', 'states', 'objects', 'horizons', 'lanes', 'initiatives', 'risks', 'layers', 'coverage'].forEach(function (k) {
+    var keys = ['zones', 'systems', 'links', 'phases', 'steps', 'controls', 'events',
+      'runs', 'states', 'objects', 'horizons', 'lanes', 'initiatives', 'risks', 'dependencies', 'layers', 'coverage'];
+    Object.keys(story).forEach(function (k) {   /* a custom scene's own blocks */
+      if (k.charAt(0) !== '_' && keys.indexOf(k) < 0 && Array.isArray(story[k])) keys.push(k);
+    });
+    keys.forEach(function (k) {
       arr(story[k]).forEach(function (r, i) { add(k + '[' + i + ']', r); });
     });
     var f = story.figures || {};
@@ -73,5 +77,20 @@
     return out;
   }
 
-  EXK.provenance = { illustrative: illustrative, chipWindows: chipWindows };
+  // The custom pattern: the scene reports when each figure and record is on screen, [{from, to, source}] (seconds;
+  // to may be Infinity). -> [{from, to}] merged windows clipped to [0, duration] in which an illustrative one is
+  // visible. Windows closer together than `gap` merge so the chip does not flicker between them.
+  function shownWindows(shown, duration, gap) {
+    var g = gap === undefined ? 0.8 : gap, out = [];
+    arr(shown).filter(function (s) { return isIll(s); }).map(function (s) {
+      return { from: Math.max(0, s.from), to: Math.min(duration, s.to) };
+    }).filter(function (w) { return w.to > w.from; }).sort(function (a, b) { return a.from - b.from; }).forEach(function (w) {
+      var last = out[out.length - 1];
+      if (last && w.from <= last.to + g) last.to = Math.max(last.to, w.to);
+      else out.push({ from: w.from, to: w.to });
+    });
+    return out;
+  }
+
+  EXK.provenance = { illustrative: illustrative, chipWindows: chipWindows, shownWindows: shownWindows };
 })();

@@ -6,8 +6,8 @@ systems".
 
 ## Contents
 
-1. Catalogue. 2. Kit modules. 3. Hand-adapt references (one paragraph each). 4. Executive scenes.
-5. Adapting a reference. 6. One custom beat inside a flow story.
+1. Catalogue. 2. Kit modules. 3. The custom scene seam, and the hand-adapt references (one paragraph
+each). 4. Executive scenes. 5. Adapting a reference. 6. One custom beat inside a flow story.
 
 ## 1. Catalogue
 
@@ -22,7 +22,7 @@ systems".
 | 7 | Timeline with overlay | not built (the replay is a timeline of one incident, not this) |
 | 8 | Ownership or coverage overlay | the `shields` beat on a flow's last step is a start |
 | 8b | Coverage over time (control roll-out) | reference `08b-coverage-over-time--control-rollout.iso.html` |
-| 9 | Roadmap: time is the scene, with lanes, horizons, dependencies | reference `09-roadmap--risk-burn-down.flat.html` |
+| 9 | Roadmap: time is the scene, with lanes, horizons, dependencies | custom scene `assets/examples/roadmap-risk-burn-down.scene.js` (reference page also kept) |
 | 10 | Cascade: a hierarchy read down and up | reference `10-cascade--crown-jewels-impact.flat.html` |
 | 11 | Quantities over time: bars, meters, flows | parts of 9 (risk bars) and 8b (meters); no dedicated page |
 
@@ -42,7 +42,74 @@ consolidation (3), accountability gaps (8), legacy retirement (3), investment al
   trust-zone frames, lit as a pure function of the events at or before the clock), and computes
   every number from the events.
 
-## 3. Hand-adapt references
+## 3. The custom scene seam
+
+`--pattern custom --scene <file.js>` builds a page whose picture is drawn by your scene file and
+everything else is the kit's: stage, phase rail, narrative band with counter, controls, narration,
+presenter and capture modes, the master timeline, step sequencing and length (the step-end rule),
+`rest`, `window.anim` with `moments`, the "Illustrative" chip, the overlap hook, seek rules. Use it
+when the scenario is not "a path through nested systems" and no pattern module covers it.
+
+```
+node $SKILL/scripts/build.mjs story.json --style flat --pattern custom --scene roadmap.scene.js -o film.html
+```
+
+The story names the scene (`meta.scene`) and carries its pattern blocks ([story.md](story.md)
+section 7). The file registers `EXK.scenes.<name> = { build(ctx), step(ctx, step, t0) }`. `build`
+runs once and draws everything in its first-state look; `step` runs once per story step in order,
+adds tweens at times from `t0`, and returns `{ end, firstMotion?, hold?, labelEnd?, rest? }`, all
+in seconds from `t0`: `end` is the last motion, `firstMotion` is when the first motion starts (the
+body appears after it; default `end`), `hold` is how long the result must stay readable after
+`end` (an executive step returns `ctx.timing.resultHold()`, 2.0 s). The kit turns these into the step
+length and `rest`; the scene never computes either (`rest` is an override, rarely needed).
+
+`ctx` (all the scene may touch):
+
+| | |
+|---|---|
+| `ctx.tl` | the master timeline, only `fromTo(target, from, to, position)` (always `immediateRender:false`) and `addLabel`; `to`, `from`, `set`, `call` throw. The build refuses `gsap.timeline(` |
+| `ctx.layers.world`, `ctx.layers.hud` | an svg `<g>` in the diagram area (area px, 1920 x 720, origin at the area's top-left) and one in the text layer above it (stage px, 1920 x 1080; the area starts at `ctx.area.y`). `ctx.el(tag, attrs, parent)` makes svg elements |
+| `ctx.area`, `ctx.timing`, `ctx.THEME`, `ctx.story`, `ctx.stepIndex`, `ctx.isLast` | the diagram rectangle, the pacing constants (use `QUANTITY_MIN` for a change to a quantity, `resultHold()`), the colour tokens |
+| `ctx.text.add(parent, str, attrs, key)` | an svg `<text>` registered with the text layer: it gets `data-ov` (so `__overlaps` sees it) and joins emphasis. `.also(els)` dims other elements with it, `.keep()` exempts it. `ctx.text.register({key, el, dim})` registers one you drew |
+| `ctx.emphasise(items, t)` | the dimming rule: `items` stay at full, every other registered item goes to 45 % over 0.4 s; `'all'` restores. Call it at each step start, in time order |
+| `ctx.figure(key)` | `{ value, unit, label, source, shown(t0, t1) }` from `story.figures`; an unknown key throws |
+| `ctx.shown(item, t0, t1)` | a figure or a story record is on screen from `t0` to `t1` (`Infinity` allowed) |
+| `ctx.count(n, of)` | a computed count, `{ n, of, text: "9 of 12", derived: true }` |
+| `ctx.block(name)` | `story[name]`, throws if absent |
+| `ctx.moment(name, t)` | adds a named moment to `window.anim.moments` |
+| `ctx.hud.panel(rect)` | a panel in stage px; draw its content in `.body` at local coordinates; `.show/.hide/.border(color, t)` |
+| `ctx.hud.measure({label, key \| value, of?, suffix?, sub?, color?, rect?})` | a 54 px headline that stays in one place; `.to(n, t, dur)` counts to `n` (default 1.2 s); `value` may be a `ctx.count`; `.show/.hide` |
+| `ctx.hud.banner(text, color)`, `ctx.hud.legend(rows, {title, staged})` | a state pill; a swatch list whose rows can appear one by one |
+
+HUD primitives start hidden; fade them in with `show(t)`. They sit in stage space with the theme's
+tokens and are never dimmed.
+
+**The chip follows the scene.** "Illustrative" shows only while illustrative figures or records
+are on screen: report each with `ctx.figure(key).shown(t0, t1)` or `ctx.shown(record, t0, t1)` at
+the time the scene makes it visible (a headline built with `key` reports itself). Windows close
+together merge. A scene that reports nothing while the story carries illustrative figures keeps
+the chip up for the whole scene (with a console warning), never off. Only `shown` drives it:
+`source` on steps, phases and `meta` does not.
+
+**The figure rule.** A number typed into a scene file instead of read through `ctx.figure` cannot be
+detected in general, so the rule is yours: nothing shown is a literal. Positions that are layout
+(pixels, durations) are fine; quantities (an index, a count, a span) come from `figures`, `ctx.count`
+or the blocks. (An unknown figure key stops the page at start-up: the console shows `custom scene:
+ctx.figure("key"): no such key in story.figures (known: ...)` and `render-check` reports it.) The build warns about a digit inside a string literal passed to `ctx.hud.banner`,
+`measure`, `legend` or `panel` and about `value: 12` in them, unless the string is a figure key.
+Read the warning list; derived text (`fig.value + ' ' + fig.unit`) has no literal and passes.
+
+**Checks.** `render-check` applies as to any page (`hops` and `speed` print "hook missing": there
+are no packets). `check-story` accepts the story and requires sources; an unknown scene, a file
+that registers nothing, or `--pattern custom` without `--scene` is a build error naming the fix.
+Seek determinism is yours to keep: every visual is a `fromTo` on `ctx.tl`, state set once at build
+time is only the first-state look (use element attributes, not `gsap.set`).
+
+Example: `assets/examples/roadmap-risk-burn-down.{story.json,scene.js}` (the roadmap pattern ported).
+Not yet in the seam: camera or zoom, estate layout, packets and tags, a second scene in one page,
+HUD content that changes text mid-step (cross-fades), and anything isometric.
+
+### Hand-adapt references
 
 Seven working pages in `assets/patterns/`. Each is a complete scene (stage, phase rail,
 narrative band, `window.anim`, hooks) with its scenario data in one block at the top of the
@@ -98,7 +165,7 @@ unlabelled blocks), `CONTROLS` (array position is the band's fixed slot on every
 pure function of time, so seeking shows the right number), `focus()`, `gapStep()` and
 `assertSchedule()`, which checks at build time that the schedule tells the story.
 
-**Roadmap with risk burn-down (09, flat).** Time is the scene. Initiatives sit in lanes on a time
+**Roadmap with risk burn-down (09, flat; ported to the custom seam).** Time is the scene. Initiatives sit in lanes on a time
 axis; a playhead sweeps it, one horizon per step; a bar fills as the playhead crosses it, and when
 it lands a thin link flashes to the risks it reduces and those bars shrink, leaving a ghost of
 where they started. A headline counts risks still above appetite. Driven by `FIGURES`, `HORIZONS`
@@ -106,7 +173,10 @@ where they started. A headline counts risks still above appetite. Driven by `FIG
 [{ risk, by }] }` in horizon units), `DEPS` (asserted at build time: a dependent starts after its
 predecessor ends) and `RISKS`. Helpers: `barGeo()`, `routeDep()`, `runHorizon()`, `land()`,
 `setEmph()`. The honest ending: one risk stays above appetite because nothing on the roadmap
-addresses it, and the last step says so.
+addresses it, and the last step says so. The seam version is the example above: the same scene in
+a story (`horizons`, `lanes`, `initiatives`, `risks`, `dependencies`, 25 figures) and a scene file of
+284 lines against the page's 647-line script (its data and copy moved into the story, its stage,
+chrome, timing and contract into the kit).
 
 **Cascade (10, flat).** Layers from business outcomes at the top to data and platforms at the
 bottom. Read down it shows what each layer depends on; read up from one node it shows what a
@@ -141,6 +211,8 @@ going and what does it buy us".
 - Use relative or indexed quantities for illustrative figures (an index out of 100, "1.6x", "9 of
   12"), not currency or dates. In the hand-over, list every figure with its source and say what a
   deck author must supply to make the scene real.
+- On the custom seam, the figures rule and the chip are in the kit (section 3). For a page copied
+  from a reference they stay yours.
 - Starting files: the smallest flat reference is 03 (fixed panels for banner, legend and headline
   measure, the overlap hook, no camera); the isometric starting point is 02 (banner, scoreboard,
   zone slabs). Expose `rest` on every entry of `window.anim.steps`.
@@ -149,6 +221,10 @@ Reference 02 predates the figures rule: its containment times are invented and s
 chip. Add a `FIGURES` object and the chip before using it for a real audience.
 
 ## 5. Adapting a reference
+
+For a scene not yet ported to the seam (02, 02b, 03, 05, 08b, 10). To port one, follow the roadmap
+example: its data into pattern blocks and `figures`, its drawing and choreography into `build` and
+`step`, and delete its stage, chrome, timing and contract code.
 
 1. Copy the nearest `assets/patterns/*.html` into the working directory. Never edit the original.
 2. Replace the scenario data block named in the comment at the top of its script (section 1 of
@@ -193,6 +269,4 @@ time the next beat may start. Rules: use only `c.*`; no second timeline (the bui
 timeline); durations come from `EXK.timing`; at most one custom kind per story. A second kind means
 the kit lacks a beat: record it in the story's `_gaps` instead.
 
-Not built: a `--scene` seam that lets a whole hand-adapted scene use the kit's shell, timing and
-`ctx.figure`. `build.mjs` accepts `--pattern custom --scene <file.js>` but that only loads the file
-like `--extra` and the flow runner still runs. Until a pattern module exists, use section 5.
+A whole scene that is not estate-based goes through section 3 instead.

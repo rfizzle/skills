@@ -10,7 +10,10 @@
      attacker, system   the attacker's side ("system" is a compromised system acting for the attacker)
      defender           the response
      system + alerted   a detection raising an alert: the response side
-   so "attacker actions" = every event that is not on the response side. */
+   so "attacker actions" = every event that is not on the response side.
+
+   Systems not counted as "reached": the attacker's own system, where the first attacker action starts
+   (D.attackerId). D.excludedLabel ("excluding the attacker") goes wherever "N of M systems" is shown. */
 (function () {
   'use strict';
   var root = typeof window !== 'undefined' ? window : globalThis;
@@ -28,6 +31,24 @@
   var PHASE_HUES = ['#6db3f2', '#e0b252', '#b99cf5', '#5fcfc0', '#3ddc97', '#f08fb0', '#9aa7bd'];
 
   function arr(v) { return Array.isArray(v) ? v : []; }
+  function isIll(r) { return !!(r && r.source && r.source.kind === 'illustrative'); }
+
+  /* ---- provenance mix: how many of the records the replay shows are illustrative ---- */
+  var REPLAY_RECORDS = ['zones', 'systems', 'links', 'phases', 'steps', 'controls', 'events'];
+  function provenanceMix(story) {
+    var n = 0, total = 0;
+    function count(r) { total++; if (isIll(r)) n++; }
+    count(story.meta);
+    REPLAY_RECORDS.forEach(function (k) { arr(story[k]).forEach(count); });
+    // `mixed` = some but not all: only then are individual records marked on the page
+    return { illustrative: n, total: total, all: total > 0 && n === total, mixed: n > 0 && n < total };
+  }
+
+  // the page-wide chip: all illustrative, some, or none (null: no chip)
+  function provenanceChip(prov) {
+    if (!prov || !prov.illustrative) return null;
+    return prov.all ? 'Illustrative data' : 'Includes illustrative records (' + prov.illustrative + ')';
+  }
 
   /* ---- formatting ---- */
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
@@ -92,7 +113,7 @@
     for (k in (clockOpts || {})) C[k] = clockOpts[k];
 
     var links = arr(story.links).map(function (l) {
-      return { id: linkId(l), from: l.from, to: l.to, label: l.label || null, kind: l.kind || null };
+      return { id: linkId(l), from: l.from, to: l.to, label: l.label || null, kind: l.kind || null, ill: isIll(l) };
     });
     var route = makeRouter(links);
     var steps = arr(story.steps), stepIx = {}, stepPhase = {};
@@ -113,10 +134,16 @@
     events.forEach(function (e) { if (!firstAtt && (e.actor === 'attacker' || e.actor === undefined)) firstAtt = e; });
     var attackerId = firstAtt ? firstAtt.from : events[0].from;
 
+    // the one system not counted as reached: the attacker's own. A compromised system that later acts for
+    // the attacker (actor attacker or system) is still a system the attacker reached, so it counts.
+    var sysList = arr(story.systems), excluded = {}, excludedIds = [];
+    sysList.forEach(function (s) { if (s.id === attackerId) { excluded[s.id] = 1; excludedIds.push(s.id); } });
+
     var nTotal = 0, attTotal = 0, respTotal = 0;
     events.forEach(function (e, i) {
       delete e._o;
       e.i = i;
+      e.ill = isIll(e);
       e.count = e.count > 0 ? e.count : 1;
       e.stepId = e.step;
       e.stepIndex = (stepIx[e.step] === undefined ? -1 : stepIx[e.step]) + 1;     // 1-based
@@ -176,14 +203,17 @@
       vis[VIS.indexOf(e.visibility)] += e.count;
       if (e.attack) att += e.count; else resp += e.count;
       if (e.attack) e.nodes.forEach(function (n) {
-        if (n === attackerId) return;
+        if (excluded[n]) return;
         if (!reached[n]) { reached[n] = 1; nReached++; boundaryId = n; }
       });
       pre.push({ n: e.c1, att: att, resp: resp, vis: vis.slice(), reached: nReached, boundaryId: boundaryId });
     });
     var last = pre[pre.length - 1];
 
-    var systemIds = arr(story.systems).map(function (s) { return s.id; }).filter(function (id) { return id !== attackerId; });
+    var systemIds = sysList.map(function (s) { return s.id; }).filter(function (id) { return !excluded[id]; });
+    var sysName = {}; sysList.forEach(function (s) { sysName[s.id] = s.short || s.name || s.id; });
+    // "of 8 systems, excluding the attacker": named after the system when its name does not say "attacker"
+    var excludedLabel = excludedIds.length ? 'excluding the attacker' + (/attacker/i.test(sysName[attackerId]) ? '' : ' (' + sysName[attackerId] + ')') : '';
 
     /* ---- phases: spans on the replay axis ---- */
     var phases = phaseDefs.map(function (p, j) {
@@ -196,8 +226,13 @@
       };
     });
 
-    /* ---- what would have stopped it: per control, the first attacker action it would have refused ---- */
-    var cuts = [];
+    /* ---- what would have stopped it: per control, the attacker action it would have refused ----
+       Rule (references/story.md, "Controls"): the control sits on its `on` link. Its cut point is the first
+       attacker action that crosses that link at or after the earliest step it `stops`. If the link is only
+       crossed before those steps (a gate upstream of what it protects), the cut is the last attacker crossing
+       before them (how: 'before'). If no attacker action crosses the link at all, the control is unplaced:
+       it still gets a card and says why. Controls that share a cut point all show. */
+    var cuts = [], unplaced = [];
     var controls = arr(story.controls).map(function (c, ci) {
       var on = arr(c.on), edge = null;
       links.forEach(function (l) {
@@ -205,23 +240,28 @@
       });
       var stops = arr(c.stops).map(function (id) { return stepIx[id]; }).filter(function (x) { return x !== undefined; });
       var fromStep = stops.length ? Math.min.apply(null, stops) : 0;
-      var ev = null;
+      var ev = null, how = null, before = null;
       if (edge) for (var j = 0; j < events.length; j++) {
         var e = events[j];
-        if (e.attack && e.stepIndex - 1 >= fromStep && e.edges.indexOf(edge) >= 0) { ev = e; break; }
+        if (!e.attack || e.edges.indexOf(edge) < 0) continue;
+        if (e.stepIndex - 1 >= fromStep) { ev = e; how = 'at'; break; }
+        before = e;
       }
+      if (!ev && before) { ev = before; how = 'before'; }
       var out = {
-        id: c.id, name: c.name, why: c.why || '', edge: edge, on: on,
+        id: c.id, name: c.name, why: c.why || '', edge: edge, on: on, ill: isIll(c),
         badge: stops.map(function (x) { return x + 1; }).join('/'),
-        ev: ev, evIndex: ev ? ev.i : -1,
+        ev: ev, evIndex: ev ? ev.i : -1, how: how,
+        placed: !!ev,
+        reason: ev ? '' : (edge ? 'no attacker action in the event log crosses its link' : 'its link is not in the story'),
         at: ev ? ev.a0 + 1 : null,                      // the attacker action it would have refused (1-based)
         prevented: ev ? attTotal - ev.a0 : 0,           // that action and every later one
         later: ev ? attTotal - ev.a0 - 1 : 0            // the ones after it
       };
-      if (ev) cuts.push(out);
+      if (ev) cuts.push(out); else unplaced.push(out);
       return out;
     });
-    cuts.sort(function (a, b) { return a.evIndex - b.evIndex; });
+    cuts.sort(function (a, b) { return a.evIndex - b.evIndex; });   // stable: controls with one cut point keep story order
 
     /* ---- activity buckets on the replay axis, stacked by visibility ---- */
     var nB = Math.ceil(duration / C.bucketS), data = [];
@@ -233,8 +273,9 @@
     return {
       clockOpts: C,
       events: events, links: links, route: route,
-      attackerId: attackerId, systemIds: systemIds,
-      phases: phases, controls: controls, cuts: cuts,
+      attackerId: attackerId, systemIds: systemIds, excludedIds: excludedIds, excludedLabel: excludedLabel,
+      prov: provenanceMix(story),
+      phases: phases, controls: controls, cuts: cuts, unplaced: unplaced, cards: cuts.concat(unplaced),
       pre: pre, buckets: buckets,
       totals: {
         actions: nTotal, attacker: attTotal, response: respTotal, lines: events.length,
@@ -252,6 +293,8 @@
   }
 
   R.derive = derive;
+  R.provenanceMix = provenanceMix;
+  R.provenanceChip = provenanceChip;
   R.CLOCK_DEFAULTS = CLOCK_DEFAULTS;
   R.fmt = { n: fmtN, T: fmtT, long: fmtLong, short: fmtShort, axis: fmtAxis, plural: plural, DAY: DAY };
 })();

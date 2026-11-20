@@ -1,0 +1,432 @@
+{
+  "meta": {
+    "id": "roadmap-risk-burn-down",
+    "title": "Three horizons, five risks",
+    "kind": "plan",
+    "audience": "executive",
+    "redaction": "none",
+    "scene": "roadmap",
+    "source": {
+      "kind": "illustrative"
+    },
+    "_note": "Invented example for the custom scene seam; every number is illustrative. Ported from assets/patterns/09-roadmap--risk-burn-down.flat.html."
+  },
+  "phases": [
+    {
+      "id": "today",
+      "title": "Today",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "plan",
+      "title": "The plan",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "remains",
+      "title": "What remains",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "steps": [
+    {
+      "id": "today",
+      "phase": "today",
+      "act": "baseline",
+      "title": "Every top risk is above appetite",
+      "body": "Today every one of our top risks sits above the level we are willing to carry. The tick on each bar marks that appetite.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "now",
+      "phase": "plan",
+      "act": "sweep",
+      "horizon": "now",
+      "title": "The first controls land",
+      "body": "In the first six months sign-in, logging and data inventory land. Account takeover drops below appetite.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "depends",
+      "phase": "plan",
+      "act": "dependencies",
+      "title": "What has to come first",
+      "body": "Some work cannot start until other work ends. Logging comes before round-the-clock detection, and segmentation before the access overhaul.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "next",
+      "phase": "plan",
+      "act": "sweep",
+      "horizon": "next",
+      "title": "Platform and detection land next",
+      "body": "Segmentation lands, then round-the-clock detection and the privileged access overhaul. Ransomware and undetected breaches fall below appetite.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "later",
+      "phase": "plan",
+      "act": "sweep",
+      "horizon": "later",
+      "title": "Data and passwordless land later",
+      "body": "Paved-road pipelines, card tokenisation and passwordless sign-in land. Customer data exposure drops below appetite; only one risk remains above.",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "left",
+      "phase": "remains",
+      "act": "remains",
+      "title": "One risk is still above appetite",
+      "body": "Supplier compromise is still above its appetite. Nothing on this roadmap addresses it, so it needs its own plan and owner.",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "figures": {
+    "scale": { "value": 100, "unit": "index", "label": "Top of the risk index", "source": { "kind": "illustrative" } },
+    "h.now": { "value": "0 to 6", "unit": "months", "label": "Now horizon span", "source": { "kind": "illustrative" } },
+    "h.next": { "value": "6 to 12", "unit": "months", "label": "Next horizon span", "source": { "kind": "illustrative" } },
+    "h.later": { "value": "12 to 24", "unit": "months", "label": "Later horizon span", "source": { "kind": "illustrative" } },
+    "risk.ato": { "value": 70, "unit": "index", "label": "Account takeover today", "source": { "kind": "illustrative" } },
+    "risk.ransom": { "value": 74, "unit": "index", "label": "Ransomware spread today", "source": { "kind": "illustrative" } },
+    "risk.undet": { "value": 68, "unit": "index", "label": "Undetected breach today", "source": { "kind": "illustrative" } },
+    "risk.cust": { "value": 78, "unit": "index", "label": "Customer data exposure today", "source": { "kind": "illustrative" } },
+    "risk.supp": { "value": 64, "unit": "index", "label": "Supplier compromise today", "source": { "kind": "illustrative" } },
+    "app.ato": { "value": 45, "unit": "index", "label": "Account takeover appetite", "source": { "kind": "illustrative" } },
+    "app.ransom": { "value": 45, "unit": "index", "label": "Ransomware spread appetite", "source": { "kind": "illustrative" } },
+    "app.undet": { "value": 35, "unit": "index", "label": "Undetected breach appetite", "source": { "kind": "illustrative" } },
+    "app.cust": { "value": 40, "unit": "index", "label": "Customer data exposure appetite", "source": { "kind": "illustrative" } },
+    "app.supp": { "value": 35, "unit": "index", "label": "Supplier compromise appetite", "source": { "kind": "illustrative" } },
+    "cut.signin.ato": { "value": 26, "unit": "index", "label": "Phishing-resistant sign-in cuts account takeover", "source": { "kind": "illustrative" } },
+    "cut.logging.undet": { "value": 22, "unit": "index", "label": "Central logging cuts undetected breach", "source": { "kind": "illustrative" } },
+    "cut.inventory.cust": { "value": 12, "unit": "index", "label": "Data inventory cuts customer data exposure", "source": { "kind": "illustrative" } },
+    "cut.seg.ransom": { "value": 18, "unit": "index", "label": "Segmentation cuts ransomware spread", "source": { "kind": "illustrative" } },
+    "cut.detect.undet": { "value": 16, "unit": "index", "label": "Round-the-clock detection cuts undetected breach", "source": { "kind": "illustrative" } },
+    "cut.detect.ransom": { "value": 14, "unit": "index", "label": "Round-the-clock detection cuts ransomware spread", "source": { "kind": "illustrative" } },
+    "cut.priv.ato": { "value": 8, "unit": "index", "label": "Privileged access cuts account takeover", "source": { "kind": "illustrative" } },
+    "cut.priv.ransom": { "value": 6, "unit": "index", "label": "Privileged access cuts ransomware spread", "source": { "kind": "illustrative" } },
+    "cut.paved.cust": { "value": 6, "unit": "index", "label": "Paved-road pipelines cut customer data exposure", "source": { "kind": "illustrative" } },
+    "cut.token.cust": { "value": 28, "unit": "index", "label": "Tokenising card data cuts customer data exposure", "source": { "kind": "illustrative" } },
+    "cut.pwless.ato": { "value": 10, "unit": "index", "label": "Passwordless cuts account takeover", "source": { "kind": "illustrative" } }
+  },
+  "horizons": [
+    {
+      "id": "now",
+      "name": "Now",
+      "span": "h.now",
+      "from": 0,
+      "to": 1,
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "next",
+      "name": "Next",
+      "span": "h.next",
+      "from": 1,
+      "to": 2,
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "later",
+      "name": "Later",
+      "span": "h.later",
+      "from": 2,
+      "to": 3,
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "lanes": [
+    {
+      "id": "id",
+      "lines": [
+        "Identity"
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "plat",
+      "lines": [
+        "Platform"
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "det",
+      "lines": [
+        "Detection",
+        "and response"
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "data",
+      "lines": [
+        "Data",
+        "protection"
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "initiatives": [
+    {
+      "id": "signin",
+      "name": "Phishing-resistant sign-in",
+      "lane": "id",
+      "start": 0.1,
+      "end": 1,
+      "reduces": [
+        {
+          "risk": "ato",
+          "by": "cut.signin.ato"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "priv",
+      "name": "Privileged access",
+      "lane": "id",
+      "start": 1.5,
+      "end": 2,
+      "reduces": [
+        {
+          "risk": "ato",
+          "by": "cut.priv.ato"
+        },
+        {
+          "risk": "ransom",
+          "by": "cut.priv.ransom"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "pwless",
+      "name": "Passwordless",
+      "lane": "id",
+      "start": 2.3,
+      "end": 3,
+      "reduces": [
+        {
+          "risk": "ato",
+          "by": "cut.pwless.ato"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "seg",
+      "name": "Network segmentation",
+      "lane": "plat",
+      "start": 0.3,
+      "end": 1.2,
+      "reduces": [
+        {
+          "risk": "ransom",
+          "by": "cut.seg.ransom"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "paved",
+      "name": "Paved-road pipelines",
+      "lane": "plat",
+      "start": 1.7,
+      "end": 2.6,
+      "reduces": [
+        {
+          "risk": "cust",
+          "by": "cut.paved.cust"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "logging",
+      "name": "Central logging",
+      "lane": "det",
+      "start": 0.1,
+      "end": 0.7,
+      "reduces": [
+        {
+          "risk": "undet",
+          "by": "cut.logging.undet"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "detect",
+      "name": "Round-the-clock detection",
+      "lane": "det",
+      "start": 1.1,
+      "end": 1.9,
+      "reduces": [
+        {
+          "risk": "undet",
+          "by": "cut.detect.undet"
+        },
+        {
+          "risk": "ransom",
+          "by": "cut.detect.ransom"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "inventory",
+      "name": "Data inventory",
+      "lane": "data",
+      "start": 0.2,
+      "end": 0.8,
+      "reduces": [
+        {
+          "risk": "cust",
+          "by": "cut.inventory.cust"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "token",
+      "name": "Tokenise card data",
+      "lane": "data",
+      "start": 2,
+      "end": 2.8,
+      "reduces": [
+        {
+          "risk": "cust",
+          "by": "cut.token.cust"
+        }
+      ],
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "risks": [
+    {
+      "id": "ato",
+      "name": "Account takeover",
+      "start": "risk.ato",
+      "appetite": "app.ato",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "ransom",
+      "name": "Ransomware spread",
+      "start": "risk.ransom",
+      "appetite": "app.ransom",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "undet",
+      "name": "Undetected breach",
+      "start": "risk.undet",
+      "appetite": "app.undet",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "cust",
+      "name": "Customer data exposure",
+      "start": "risk.cust",
+      "appetite": "app.cust",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "id": "supp",
+      "name": "Supplier compromise",
+      "start": "risk.supp",
+      "appetite": "app.supp",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ],
+  "dependencies": [
+    {
+      "from": "logging",
+      "to": "detect",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "from": "inventory",
+      "to": "token",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "from": "signin",
+      "to": "pwless",
+      "source": {
+        "kind": "illustrative"
+      }
+    },
+    {
+      "from": "seg",
+      "to": "priv",
+      "source": {
+        "kind": "illustrative"
+      }
+    }
+  ]
+}
