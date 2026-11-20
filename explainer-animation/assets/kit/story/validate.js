@@ -13,7 +13,7 @@
   var VISIBILITY = ['blind', 'logged', 'alerted'];
   var ACTORS = ['attacker', 'defender', 'system'];
   // Order matters: a beat's kind is the first of these present as a key; `mark` beside another
-  // kind key is that beat's field (KIT-PLAN, Decisions after P1).
+  // kind key is that beat's field.
   var BEAT_KINDS = ['chain', 'exchange', 'stream', 'card', 'camera', 'shields', 'pulse', 'custom', 'mark'];
   var BEAT_FIELDS = {
     chain: ['tag', 'color', 'says', 'sayAt', 'trail', 'mark', 'mono'],

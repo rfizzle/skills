@@ -1,5 +1,5 @@
 /* Orthogonal link routing over a laid-out estate (EXK.layout). Pure: no DOM, no GSAP, no painter,
-   no timing. Ground units. PATTERNS.md section 11: orthogonal, routed through the gaps, parallel
+   no timing. Ground units. references/rules.md: orthogonal, routed through the gaps, parallel
    runs on separate lanes, never sharing a segment; section 9: one port per border crossing.
 
    EXK.route.routeLinks(estate, story) -> E: { linkId: route }    linkId = 'from-to' ('#2' on repeats)

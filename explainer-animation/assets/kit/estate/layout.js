@@ -1,6 +1,6 @@
 /* Estate layout: the tree of zones and systems laid out in abstract ground units. Pure: no DOM,
    no GSAP, no painter. Port of the flat v3 measure/place (bottom-up measure, top-down place);
-   container bounds come from their children plus padding (PATTERNS.md section 9).
+   container bounds come from their children plus padding (references/rules.md).
 
    EXK.layout.layoutEstate(story, sizes?) -> {
      B:      { id: box }        every zone, every system and the implicit 'root'

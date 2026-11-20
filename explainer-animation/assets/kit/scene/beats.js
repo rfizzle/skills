@@ -4,7 +4,7 @@
    frame, the beats (pattern.beatsFor), callouts, label holds (finalizeLabels), the step end and rest (EXK.timing),
    the chrome (shell.stepChrome), the breadcrumb, lit links fading and trails promoted.
    Beats: chain, exchange, stream, card, mark, pulse, camera, shields, custom (EXK.extra.beats[kind](c, beat, t)).
-   Rules (KIT-PLAN risk 4): every tween is a fromTo with immediateRender:false (packet motion included: a fromTo on
+   Rules: every tween is a fromTo with immediateRender:false (packet motion included: a fromTo on
    a per-hop progress proxy whose onUpdate places the packet); tweens on one element are emitted in time order
    (markers, trails and the summary's fade of them are collected and emitted at the end); every duration comes
    from EXK.timing. A camera beat never starts while a packet moves, and no beat starts during a camera move:

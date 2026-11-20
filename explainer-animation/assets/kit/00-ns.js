@@ -1,4 +1,4 @@
-/* EXK namespace, small utilities, theme colours (PATTERNS.md section 4), and the P0 boot stub.
+/* EXK namespace, small utilities, theme colours (references/rules.md), and the P0 boot stub.
    Pure: nothing here touches the DOM at load time. */
 (function () {
   'use strict';

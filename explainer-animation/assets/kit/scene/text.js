@@ -1,5 +1,5 @@
 /* The annotation layer, in stage space: every text item is anchored to a scene point and drawn at a fixed
-   stage size (labels, says, callouts 26 px, tags 22 px) whatever the camera scale (PATTERNS.md section 10).
+   stage size (labels, says, callouts 26 px, tags 22 px) whatever the camera scale (references/rules.md).
    Placement is a free-space test against an occupancy model fed by painter.stageRect (port of the iso
    placer); every item is registered with a data-ov key; emphasis (section 8) is a list of events turned
    into fromTo tweens in time order; moving tags give way to text (section 6); hooks __overlaps, __hops,

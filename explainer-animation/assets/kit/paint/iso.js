@@ -1,4 +1,4 @@
-/* The isometric painter (PATTERNS.md sections 9-11, the iso v3 reference b-isometric-attack-chain.html): the laid-out
+/* The isometric painter (references/rules.md, the iso v3 reference b-isometric-attack-chain.html): the laid-out
    estate (ground units, EXK.layout 'iso') drawn as slabs by nesting level and blocks with three-shade faces, the shared
    ground routes lifted onto the slab tops, flat port rings on the floor, packets as a dot floating above its shadow.
    The scene space is the projection iso(x, y, z) (scene px); the camera {x, y, w, h} is a zoom and pan in it, so the
@@ -13,7 +13,7 @@
      stepText(text, frame, o)          per text session: the labels of the step's systems (labelPolicy 'touched')
                                        and the upright tags of the containers around them (full view: the top two
                                        levels); returns the items, which the runner fades at the step end
-     cameraBeats: false, maxCards: 1   what this painter does not support in version 1 (KIT-PLAN section 4): the
+     cameraBeats: false, maxCards: 1   what this painter does not support in version 1: the
                                        runner skips camera beats and cards after the first, with a warning
    Depth order (the reference's trap, kept): layers, not geometry. Slabs by level then x0 + y0; routes, rings and
    plates on the floor under every block; blocks by x + y; badges, packets and shields above everything. It holds

@@ -1,5 +1,5 @@
-/* Every constant and rule of PATTERNS.md sections 6 (motion that can be read) and 7 (pacing), once, named.
-   Pure: no DOM, no GSAP. Values are the flat v3 reference's (KIT-PLAN amendment "Step-end pacing"). */
+/* Every constant and rule of references/rules.md (pacing), once, named.
+   Pure: no DOM, no GSAP. Values are the flat v3 reference's. */
 (function () {
   'use strict';
   var root = typeof window !== 'undefined' ? window : globalThis;

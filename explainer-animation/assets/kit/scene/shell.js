@@ -1,7 +1,7 @@
 /* The stage shell: 1920x1080 stage scaled to fit, the chrome (phase rail, narrative band, controls bar,
    mini-map slot, breadcrumb slot, edge fades, "Illustrative" chip), narration and presenter modes, keys,
    ?capture=1, the window.anim contract, and EXK.boot (replaces the P0 stub in 00-ns.js).
-   PATTERNS.md section 3 and 5. The page template (assets/page.html) holds the chrome's HTML and CSS. */
+   references/rules.md. The page template (assets/page.html) holds the chrome's HTML and CSS. */
 (function () {
   'use strict';
   var EXK = window.EXK, T = EXK.timing, C = EXK.THEME;
@@ -219,7 +219,7 @@
 
   /* ---- EXK.boot: validate and normalise the story, mount the shell, build the scene, publish ----
      Needs (supplied by later packages, or by --extra in tests):
-       EXK.painters[style](ctx) -> painter                                     (the painter interface, KIT-PLAN section 1)
+       EXK.painters[style](ctx) -> painter                                     (the painter interface)
        EXK.runSteps(ctx) -> {steps: [{id,time,rest,title,body,phase}], duration, moments}   (the step runner)
      ctx = {story, style, pattern, tl, shell, area, estate, painter, text, camera, timing: EXK.timing, THEME} */
   function boot() {
@@ -245,7 +245,7 @@
     var shell = EXK.shell = mountShell({ story: story });
     var tl = gsap.timeline({ paused: true });
     var ctx = { story: story, style: style, pattern: pattern, tl: tl, shell: shell, area: shell.area, timing: T, THEME: C };
-    /* the estate model: layout in ground units, routes, merged port markers (KIT-PLAN section 1, P2) */
+    /* the estate model: layout in ground units, routes, merged port markers */
     var estate = null;
     if (EXK.layout && EXK.route) {
       estate = EXK.layout.layoutEstate(story, EXK.layout.SIZES[style] ? style : 'flat');

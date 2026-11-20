@@ -49,7 +49,7 @@ if (style === 'iso') {
   }
 }
 
-// frames (iso ignores grow, KIT-PLAN section 4, so it is dropped before framing)
+// frames (iso ignores grow, so it is dropped before framing)
 if (style === 'iso') console.log('note: iso frames below are the ground-plane audit; the iso painter frames each step in projected space at run time (paint/iso.js frameFor)');
 const specFor = (spec) => (style === 'iso' && spec && spec.grow ? { hold: spec.hold } : spec);
 const frameLine = (label, f, allowCut) => {

@@ -1,4 +1,4 @@
-// Unit tests for scene/timing.js: the numbers of PATTERNS.md sections 6 (motion) and 7 (pacing).
+// Unit tests for scene/timing.js: the numbers of references/rules.md (pacing).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { loadKit } from './lib/load-kit.mjs';

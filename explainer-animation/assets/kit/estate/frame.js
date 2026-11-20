@@ -1,4 +1,4 @@
-/* Camera frames over a laid-out estate (EXK.layout). Pure: no DOM, no GSAP. PATTERNS.md section 9:
+/* Camera frames over a laid-out estate (EXK.layout). Pure: no DOM, no GSAP. references/rules.md:
    frame by container, never slice a visible border (containers enclosing the whole frame become
    the breadcrumb), proxies for off-frame endpoints.
 

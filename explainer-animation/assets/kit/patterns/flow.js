@@ -5,7 +5,7 @@
    EXK.patterns.flow = {
      beatsFor(step)        the step's beats; when it has none, one plain `chain` per contiguous run in `uses`
      chains(uses)          [[a, b], [b, c], [x, y]] -> [[a, b, c], [x, y]]
-     kindOf(beat)          the beat's kind: the first of BEAT_KINDS present as a key (KIT-PLAN, decisions after P1)
+     kindOf(beat)          the beat's kind: the first of BEAT_KINDS present as a key
      idsOf(beat)           the system ids a beat names (path, at, mark, sayAt, pulse)
      involved(step, beats) {nodes: [ids], pairs: [[from, to]]}: what the step is about (touch, uses, beat paths)
      moments(story, steps) named moments beyond steps (flow: none)

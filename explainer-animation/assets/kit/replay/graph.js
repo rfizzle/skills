@@ -6,7 +6,7 @@
      EXK.replay.light(derived, ci, clock)   -> L      pure: what is lit at the clock
      EXK.replay.paintGraph(H, L)                      applies L to the handles
 
-   Layout (see KIT-PLAN 1, 2.1):
+   Layout:
    - Frames: only zones that hold systems are drawn; a zone with a single child merges into the child;
      if more than three levels remain, top-level wrappers (no systems of their own) are dropped, then the
      deepest levels merge into their parent, leaving two. The film's zone tree is deeper than the replay needs.

@@ -1,4 +1,4 @@
-/* The flat painter (PATTERNS.md sections 9-11): draws the laid-out estate once, as the flat v3 reference does
+/* The flat painter (references/rules.md): draws the laid-out estate once, as the flat v3 reference does
    (container rectangles with label tabs, node boxes with icons and sub-labels, rounded orthogonal links, port
    rings, trails, blast-radius markers, packets), and applies the camera as a transform on the world group.
    It draws; it does not decide when. Every tween is emitted by scene/beats.js, except painter.focus, which is

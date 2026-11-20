@@ -1,4 +1,4 @@
-// Page assembly: template + vendor + kit + story + extra + boot (KIT-PLAN section 5).
+// Page assembly: template + vendor + kit + story + extra + boot.
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -36,7 +36,7 @@ export function extraBlock(extraPath) {
   if (!extraPath) return '';
   const js = read(extraPath);
   if (/gsap\s*\.\s*timeline\s*\(/.test(js)) {
-    throw new Error(`${extraPath}: contains gsap.timeline(; use ctx.tl, the master timeline (KIT-PLAN 2.4)`);
+    throw new Error(`${extraPath}: contains gsap.timeline(; use ctx.tl, the master timeline`);
   }
   return script(js);
 }

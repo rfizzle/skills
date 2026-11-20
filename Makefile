@@ -1,9 +1,5 @@
 # Client discovery is the subject of these skills, so they may name clients.
 CLIENT_SKILLS := create-skill,project-docs,backlog-batches
-# explainer-animation is here only while its prototypes/ tree and planning documents (which quote
-# session paths containing the word) exist; SKILL.md and references/ already pass the full lint.
-# Remove it from the list when those are deleted.
-CLIENT_SKILLS := $(CLIENT_SKILLS),explainer-animation
 
 .PHONY: check test validate
 
