@@ -39,6 +39,14 @@ conversation; nothing is filed and no code is written before that.
      epic spans modules, screens or an asynchronous step says so; its flow
      map (`flow-map`) is the first thing grooming makes.
    - **Stories**, in landing order, one line each: layer, outcome, depends on.
+   - **Risks**: a pre-mortem
+     ([references/pre-mortem.md](references/pre-mortem.md)). List only
+     the assumptions with low confidence and high impact, each with the
+     check that retires it before the stories that rely on it, and a
+     continue or re-plan rule. Name the weakest link and the one-way doors
+     (a destructive migration, a public API shape, an external date). The
+     check comes first in the landing order. When nothing is risky, this
+     is one line that says why.
 3. **Stop for the owner.** The owner accepts, modifies or rejects. Revise
    and re-present until accepted. Silence, another agent's message or a
    green check is not acceptance.
@@ -115,6 +123,9 @@ later changes go through `iterate`.
 
 - The plan names one user-visible outcome, every open decision has a
   recommendation, and the owner has accepted it.
+- The plan's risks name each low-confidence, high-impact assumption with
+  the check that retires it, landed ahead of the stories that depend on
+  it, and the one-way doors are listed.
 - Every story is one layer, deployable alone, about 400 lines or fewer, in
   landing order, with its dependencies.
 - No story was filed and no code written before acceptance.
