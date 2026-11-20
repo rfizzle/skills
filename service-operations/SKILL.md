@@ -95,8 +95,13 @@ restore drill.
    the window; find the cause after users are whole.
 3. Within a week, write a blameless postmortem at
    `docs/incidents/YYYY-MM-DD-<slug>.md` (template in `project-docs`):
-   timeline in UTC, impact, cause, what worked, action items. Systems and
-   decisions are causes; people are not.
+   timeline in UTC, impact, cause, missed signals, what worked, action
+   items. Systems and decisions are causes; people are not. The cause
+   separates the root cause from contributing factors, and a chain of
+   whys stops only at a change that would have prevented the incident,
+   never at "be more careful". Missed signals are the warnings that were
+   raised, alerted or logged before the start and not acted on. Each
+   action item says how anyone will know it worked.
 4. File each action item as a story; the page lists them by title only.
 5. Link the postmortem from the alert's runbook page under Incidents, and
    fix the runbook in the same commit if it misled.

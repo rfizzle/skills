@@ -198,7 +198,14 @@ any was lost.>
 
 ## Cause
 
-<The chain of conditions, ending at the change or fault that started it.>
+<The chain of conditions, ending at the change or fault that started it.
+Root cause: the one whose removal would have prevented the incident.
+Contributing factors: the ones that made it worse or longer.>
+
+## Missed signals
+
+<Warnings raised, alerted or logged before the start that nobody acted
+on, and why. "None" is an answer.>
 
 ## What worked
 
@@ -206,7 +213,8 @@ any was lost.>
 
 ## Action items
 
-- <Change, stated as the outcome.> Filed: <date>.
+- <Change, stated as the outcome.> Verified by: <the check, drill or
+  metric that shows it worked>. Filed: <date>.
 ```
 
 ## Makefile target
